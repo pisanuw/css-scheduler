@@ -171,13 +171,23 @@ w("  on conflict (subject, number) do nothing;")
 w("")
 
 # --- instructors ----------------------------------------------------------
-TARGET = {'Teaching Professor':6, 'Associate Teaching Professor':6,
-          'Assistant Teaching Professor':6, 'Principal Lecturer':6,
-          'Professor':4, 'Associate Professor':4, 'Assistant Professor':4}
-def target_for(rank, cat):
-    if cat in ('affiliate','part_time','emeritus','other'): return 'null'
-    for k, v in TARGET.items():
-        if rank.startswith(k) or k in rank: return str(v)
+# Annual course baselines before any teaching release: 8 on the teaching
+# track, 5 on the tenure track. Per-course hires (affiliate, part-time) and
+# emeriti carry no annual obligation, so they get null rather than zero.
+# Null means 'no target set', which the conflict engine skips entirely.
+TEACHING_TRACK_BASE = 8
+TENURE_TRACK_BASE   = 5
+
+def base_load(rank, cat):
+    if cat in ('affiliate', 'part_time', 'emeritus', 'other'):
+        return 'null'
+    r = rank.lower()
+    # Checked first: 'Associate Teaching Professor' must not fall through to
+    # the tenure-track branch just because it ends in 'Professor'.
+    if 'teaching professor' in r or 'lecturer' in r:
+        return str(TEACHING_TRACK_BASE)
+    if 'professor' in r:
+        return str(TENURE_TRACK_BASE)
     return 'null'
 
 hist = list(csv.DictReader(open(os.path.join(DATA,'history_sections.csv'))))
@@ -195,14 +205,14 @@ for f in faculty:
     parts = f['full_name'].split()
     irows.append(f"  ({q(f['full_name'])}, {q(parts[0])}, {q(parts[-1])}, {q(f['email'])}, "
                  f"{q(f['rank'])}, {q(f['category'])}, "
-                 f"{str(f['category'] != 'emeritus').lower()}, {target_for(f['rank'], f['category'])})")
+                 f"{str(f['category'] != 'emeritus').lower()}, {base_load(f['rank'], f['category'])})")
 for n in sorted(set(extra)):
     parts = n.split()
     irows.append(f"  ({q(n)}, {q(parts[0])}, {q(parts[-1])}, null, "
                  f"{q('Instructor (from time schedule)')}, 'other', true, null)")
 w("-- Roster = CSS faculty directory + anyone who appears in the imported")
 w("-- time schedules but is not listed on the directory page.")
-w("insert into instructors (full_name, first_name, last_name, email, rank, category, is_active, annual_target_courses) values")
+w("insert into instructors (full_name, first_name, last_name, email, rank, category, is_active, base_annual_courses) values")
 w(",\n".join(irows))
 w("  on conflict (full_name) do nothing;")
 w("")

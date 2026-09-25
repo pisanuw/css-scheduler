@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 
 export interface CourseRow {
@@ -20,7 +20,7 @@ export interface InstructorRow {
   rank: string | null
   category: string
   is_active: boolean
-  annual_target_courses: number | null
+  base_annual_courses: number | null
   max_courses_per_quarter: number | null
 }
 
@@ -77,3 +77,85 @@ export const useTeachingHistory = () =>
           .order('course_code_raw'),
       ),
   })
+
+/** Baseline minus releases, per instructor per academic year. */
+export interface LoadTarget {
+  instructor_id: string
+  full_name: string
+  category: string
+  academic_year_id: string
+  academic_year: string
+  base_annual_courses: number | null
+  released_courses: number
+  effective_target: number | null
+}
+
+export const useLoadTargets = (academicYearId?: string) =>
+  useQuery({
+    enabled: !!academicYearId,
+    queryKey: ['load_targets', academicYearId],
+    queryFn: async () =>
+      unwrap<LoadTarget>(
+        await supabase
+          .from('instructor_load_targets')
+          .select('*')
+          .eq('academic_year_id', academicYearId!)
+          .order('full_name'),
+      ),
+  })
+
+export interface TeachingRelease {
+  id: string
+  instructor_id: string
+  academic_year_id: string | null
+  courses: number
+  reason: string
+  created_at: string
+}
+
+export const useReleases = (instructorId?: string) =>
+  useQuery({
+    enabled: !!instructorId,
+    queryKey: ['teaching_releases', instructorId],
+    queryFn: async () =>
+      unwrap<TeachingRelease>(
+        await supabase
+          .from('teaching_releases')
+          .select('*')
+          .eq('instructor_id', instructorId!)
+          .order('created_at'),
+      ),
+  })
+
+function invalidateLoad(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['load_targets'] })
+  qc.invalidateQueries({ queryKey: ['teaching_releases'] })
+}
+
+export function useAddRelease() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (r: {
+      instructor_id: string
+      academic_year_id: string | null
+      courses: number
+      reason: string
+    }) => {
+      const { data, error } = await supabase.from('teaching_releases').insert(r).select().single()
+      if (error) throw new Error(error.message)
+      return data as TeachingRelease
+    },
+    onSuccess: () => invalidateLoad(qc),
+  })
+}
+
+export function useDeleteRelease() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('teaching_releases').delete().eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => invalidateLoad(qc),
+  })
+}

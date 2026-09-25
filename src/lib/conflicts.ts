@@ -49,6 +49,11 @@ export interface Section {
 export interface Instructor {
   id: string
   name: string
+  /**
+   * The target this person is actually held to: their rank baseline minus any
+   * teaching releases, as computed by the instructor_load_targets view. Null
+   * means no target is set (per-course hires), and load is not checked at all.
+   */
   annualTarget: number | null
   maxPerQuarter: number | null
 }

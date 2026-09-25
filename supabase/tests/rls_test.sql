@@ -16,7 +16,7 @@ do $$
 declare
   v_coord uuid; v_inst uuid; v_laurie uuid; v_olson uuid;
   v_cycle uuid; v_closed uuid; v_ay uuid; v_term uuid; v_course uuid; v_slot uuid;
-  v_draft uuid; v_sub_olson uuid; n int;
+  v_draft uuid; v_sub_olson uuid; v_ay2 uuid; n int;
 begin
   insert into auth.users (id, email) values (gen_random_uuid(), 'rls-test-a@uw.edu') returning id into v_coord;
   insert into auth.users (id, email) values (gen_random_uuid(), 'rls-test-b@uw.edu') returning id into v_inst;
@@ -96,6 +96,71 @@ begin
   select count(*) into n from section_meetings;
   insert into _res(check_name,result,expected) values ('coordinator sees section_meetings view', n::text, '1');
 
+  -- ------------------------------------------------------ teaching load --
+  -- Baseline minus releases, as the instructor_load_targets view computes it.
+  select id into v_ay2 from academic_years where start_year = 2025;
+
+  -- A tenure-track baseline of 5, untouched.
+  insert into _res(check_name,result,expected)
+    select 'tenure-track baseline with no releases',
+           (select effective_target::text from instructor_load_targets
+             where instructor_id = v_olson and academic_year_id = v_ay), '5.0';
+
+  -- A release pinned to one year applies only to that year.
+  insert into teaching_releases (instructor_id, academic_year_id, courses, reason)
+    values (v_olson, v_ay, 2, 'rls-test grant buyout');
+  insert into _res(check_name,result,expected)
+    select 'year-specific release reduces that year',
+           (select effective_target::text from instructor_load_targets
+             where instructor_id = v_olson and academic_year_id = v_ay), '3.0';
+  insert into _res(check_name,result,expected)
+    select 'year-specific release leaves other years alone',
+           (select effective_target::text from instructor_load_targets
+             where instructor_id = v_olson and academic_year_id = v_ay2), '5.0';
+
+  -- A standing release (null year) applies to every year.
+  insert into teaching_releases (instructor_id, academic_year_id, courses, reason)
+    values (v_laurie, null, 3, 'rls-test standing chair service');
+  insert into _res(check_name,result,expected)
+    select 'standing release applies to every year',
+           (select string_agg(effective_target::text, ',' order by academic_year)
+              from instructor_load_targets where instructor_id = v_laurie), '5.0,5.0';
+
+  -- Releasing more than the baseline floors at zero, never negative.
+  insert into teaching_releases (instructor_id, academic_year_id, courses, reason)
+    values (v_olson, v_ay, 99, 'rls-test full year leave');
+  insert into _res(check_name,result,expected)
+    select 'over-release floors at zero',
+           (select effective_target::text from instructor_load_targets
+             where instructor_id = v_olson and academic_year_id = v_ay), '0.0';
+
+  -- Per-course hires have no baseline, so no target at all.
+  insert into _res(check_name,result,expected)
+    select 'per-course hire has no target',
+           coalesce((select effective_target::text from instructor_load_targets
+                      where instructor_id = (select id from instructors
+                                              where category='part_time' limit 1)
+                        and academic_year_id = v_ay), 'null'), 'null';
+
+  delete from teaching_releases where reason like 'rls-test %';
+
+  -- An instructor may read the view but must not grant themselves a release.
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub', v_inst::text, true);
+  select count(*) into n from instructor_load_targets;
+  insert into _res(check_name,result,expected)
+    values ('instructor can read load targets', (n > 0)::text, 'true');
+  begin
+    insert into teaching_releases (instructor_id, academic_year_id, courses, reason)
+      values (v_laurie, v_ay, 4, 'rls-test self-granted');
+    insert into _res(check_name,result,expected)
+      values ('instructor cannot grant themselves a release','ACCEPTED','blocked');
+  exception when others then
+    insert into _res(check_name,result,expected)
+      values ('instructor cannot grant themselves a release','blocked','blocked');
+  end;
+  reset role;
+
   -- ------------------------------------------------- coordinator grants --
   -- Uses throwaway addresses, never the real coordinators'.
   reset role;
@@ -142,8 +207,9 @@ begin
               join preference_cycles c on c.id = ps.cycle_id
              where c.name like 'rls-test %')::text || ' submissions, ' ||
            (select count(*) from scenarios where name like 'rls-test %')::text || ' scenarios, ' ||
-           (select count(*) from bootstrap_coordinators where note = 'rls-test probe')::text || ' probes',
-           '0 users, 0 profiles, 0 submissions, 0 scenarios, 0 probes';
+           (select count(*) from bootstrap_coordinators where note = 'rls-test probe')::text || ' probes, ' ||
+           (select count(*) from teaching_releases where reason like 'rls-test %')::text || ' releases',
+           '0 users, 0 profiles, 0 submissions, 0 scenarios, 0 probes, 0 releases';
 end $$;
 
 select check_name, result, expected,

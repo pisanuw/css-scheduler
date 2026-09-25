@@ -27,7 +27,7 @@ while a human makes it.
 | Backend | Supabase (Postgres, Google OAuth, row level security) — no server of our own |
 | Scope | Undergraduate CSS 100–499 |
 | Time model | The standard UW Bothell grid, with a custom override |
-| Load | Course count per instructor, per year and per quarter |
+| Load | Rank baseline (8 teaching track, 5 tenure track) minus coordinator-granted releases |
 | Drafts | Named scenarios; one per year can be marked official |
 
 ## Where the seed data comes from
@@ -84,6 +84,33 @@ Two details worth knowing:
   constraint enforces exactly one of the three, and the `section_meetings` view
   flattens the first two into one shape for conflict detection.
 - A partial unique index allows only one scenario per year to be `official`.
+
+## Teaching load
+
+The annual baseline comes from rank: **8 courses on the teaching track**, **5
+on the tenure track**. Affiliates, part-time lecturers and emeriti carry no
+baseline at all — they are hired per course, so their target is null rather
+than zero, and the conflict engine skips the load rules for them entirely.
+
+Actual load varies, because the coordinator grants releases for administrative
+service, grant buyouts and course development. Those are stored as rows in
+`teaching_releases` rather than as an edit to a single number, which buys three
+things:
+
+- The *reason* survives, so a target of 3 is defensible a year later.
+- A release granted for one year does not quietly carry into the next.
+- Several releases accumulate independently and can be removed one at a time.
+
+`academic_year_id` is nullable, and that nullability is the whole mechanism for
+ongoing service: a row pinned to a year applies only to that year, while a row
+with no year is a standing release that applies to every year until it is
+removed. A chair gets a standing release; a grant buyout gets a pinned one.
+
+The `instructor_load_targets` view computes `baseline − releases` per
+instructor per year, floored at zero — a full-year leave can release more than
+the baseline, which means "teaching nothing", not a negative obligation. That
+view is what feeds `annualTarget` in the conflict engine; nothing downstream
+needs to know releases exist.
 
 ## Conflict detection
 
