@@ -96,8 +96,35 @@ begin
   select count(*) into n from section_meetings;
   insert into _res(check_name,result,expected) values ('coordinator sees section_meetings view', n::text, '1');
 
-  -- -------------------------------------------------------------- cleanup --
+  -- ------------------------------------------------- coordinator grants --
+  -- Uses throwaway addresses, never the real coordinators'.
   reset role;
+
+  insert into bootstrap_coordinators (email, note) values ('coord-probe@uw.edu','rls-test probe');
+  insert into auth.users (id, email) values (gen_random_uuid(), 'coord-probe@uw.edu');
+  insert into _res(check_name,result,expected)
+    select 'listed in bootstrap -> coordinator on first sign-in',
+           (select role::text from profiles where email='coord-probe@uw.edu'), 'coordinator';
+
+  insert into auth.users (id, email) values (gen_random_uuid(), 'later-probe@uw.edu');
+  insert into _res(check_name,result,expected)
+    select 'not listed -> plain instructor',
+           (select role::text from profiles where email='later-probe@uw.edu'), 'instructor';
+
+  -- Someone added to the list after they already have an account: the trigger
+  -- has been and gone, so the sync in seed.sql is what reaches them.
+  insert into bootstrap_coordinators (email, note) values ('later-probe@uw.edu','rls-test probe');
+  update profiles p set role='coordinator'
+    from bootstrap_coordinators b
+   where b.email = p.email and p.role <> 'coordinator';
+  insert into _res(check_name,result,expected)
+    select 'added to bootstrap later -> promoted by sync',
+           (select role::text from profiles where email='later-probe@uw.edu'), 'coordinator';
+
+  delete from auth.users where email in ('coord-probe@uw.edu','later-probe@uw.edu');
+  delete from bootstrap_coordinators where note = 'rls-test probe';
+
+  -- -------------------------------------------------------------- cleanup --
   delete from sections where scenario_id=v_draft;
   delete from scenarios where id=v_draft;
   delete from preference_cycles where id in (v_cycle, v_closed);
@@ -114,8 +141,9 @@ begin
            (select count(*) from preference_submissions ps
               join preference_cycles c on c.id = ps.cycle_id
              where c.name like 'rls-test %')::text || ' submissions, ' ||
-           (select count(*) from scenarios where name like 'rls-test %')::text || ' scenarios',
-           '0 users, 0 profiles, 0 submissions, 0 scenarios';
+           (select count(*) from scenarios where name like 'rls-test %')::text || ' scenarios, ' ||
+           (select count(*) from bootstrap_coordinators where note = 'rls-test probe')::text || ' probes',
+           '0 users, 0 profiles, 0 submissions, 0 scenarios, 0 probes';
 end $$;
 
 select check_name, result, expected,

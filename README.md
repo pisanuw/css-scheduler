@@ -72,8 +72,21 @@ section assignments parsed from `past-course-schedules/`.
 
 Sign-in is restricted to `uw.edu` accounts by the `allowed_email_domains`
 table. Coordinator access is granted on first sign-in to addresses listed in
-`bootstrap_coordinators` (seeded with `pisan@uw.edu`); everyone else gets the
-instructor role.
+`bootstrap_coordinators`; everyone else gets the instructor role.
+
+Seeded coordinators:
+
+| Address | Role |
+| --- | --- |
+| `minchen2@uw.edu` | CSS teaching coordinator |
+| `geetha@uw.edu` | Department chair |
+| `pisan@uw.edu` | Maintainer |
+
+`handle_new_user` reads that list only at first sign-in, so adding someone who
+already has an account would not reach them. `seed.sql` therefore also runs a
+sync that promotes any existing profile whose address is on the list. It only
+ever promotes — removing someone from the list does not demote them, so revoking
+access means changing `profiles.role` directly.
 
 ## Setting up Google sign-in
 

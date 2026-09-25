@@ -102,9 +102,19 @@ w("")
 # --- access control -------------------------------------------------------
 w("insert into allowed_email_domains (domain) values ('uw.edu')")
 w("  on conflict (domain) do nothing;")
+# Anyone listed here is granted the coordinator role on first sign-in.
 w("insert into bootstrap_coordinators (email, note) values")
-w("  ('pisan@uw.edu', 'Initial coordinator')")
+w("  ('minchen2@uw.edu', 'CSS teaching coordinator'),")
+w("  ('geetha@uw.edu',   'Department chair'),")
+w("  ('pisan@uw.edu',    'Maintainer')")
 w("  on conflict (email) do nothing;")
+w("")
+w("-- handle_new_user only reads this list at first sign-in, so adding someone")
+w("-- afterwards would not reach an account that already exists. This keeps the")
+w("-- list authoritative. It only ever promotes; nobody is demoted here.")
+w("update profiles p set role = 'coordinator'")
+w("  from bootstrap_coordinators b")
+w(" where b.email = p.email and p.role <> 'coordinator';")
 w("")
 
 # --- academic years / terms ----------------------------------------------

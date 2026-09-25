@@ -5,8 +5,17 @@ begin;
 insert into allowed_email_domains (domain) values ('uw.edu')
   on conflict (domain) do nothing;
 insert into bootstrap_coordinators (email, note) values
-  ('pisan@uw.edu', 'Initial coordinator')
+  ('minchen2@uw.edu', 'CSS teaching coordinator'),
+  ('geetha@uw.edu',   'Department chair'),
+  ('pisan@uw.edu',    'Maintainer')
   on conflict (email) do nothing;
+
+-- handle_new_user only reads this list at first sign-in, so adding someone
+-- afterwards would not reach an account that already exists. This keeps the
+-- list authoritative. It only ever promotes; nobody is demoted here.
+update profiles p set role = 'coordinator'
+  from bootstrap_coordinators b
+ where b.email = p.email and p.role <> 'coordinator';
 
 insert into academic_years (name, start_year, is_current) values
   ('2025-26', 2025, false), ('2026-27', 2026, true)
