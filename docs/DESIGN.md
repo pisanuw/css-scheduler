@@ -166,6 +166,27 @@ in, exercises every read and write the app performs, confirms an instructor
 cannot reach coordinator data or escalate their own role, and deletes what it
 made.
 
+### Access log
+
+Supabase's own `auth.audit_log_entries` is empty on this project, so sign-in
+history is not retained anywhere by default. `access_log` records it instead,
+written by a trigger on `auth.users` rather than by the application: GoTrue
+sets `last_sign_in_at` on every successful sign-in, so the log cannot be
+bypassed by a bug or an omission in the client.
+
+Two entry kinds: `sign_up` for first contact, `sign_in` for every return. The
+trigger fires only when `last_sign_in_at` actually changes, so unrelated
+updates to a user row do not manufacture phantom sign-ins.
+
+`user_id` is nullable and rows are kept when an account is deleted — the email
+is the durable record of who it was. That retention has a consequence worth
+knowing: the test suites create throwaway accounts, so both of them purge
+their own `access_log` rows during cleanup. Without that, every test run left
+four phantom sign-ins in the real log.
+
+The log and its `access_summary` view are coordinator-only, unlike the rest of
+the reference data, which everyone signed in can read.
+
 ### Function privileges, and a trap worth knowing
 
 The policy helpers (`is_coordinator`, `my_instructor_id`, `auth_role`,

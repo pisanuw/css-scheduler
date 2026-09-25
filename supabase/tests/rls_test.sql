@@ -161,6 +161,62 @@ begin
   end;
   reset role;
 
+  -- --------------------------------------------------------- access log --
+  declare uid_log uuid := gen_random_uuid(); before_n int;
+  begin
+    select count(*) into before_n from access_log;
+
+    insert into auth.users (id, email, raw_app_meta_data)
+      values (uid_log, 'log-probe@uw.edu', '{"provider":"google"}');
+    insert into _res(check_name,result,expected)
+      select 'new account logs sign_up',
+             coalesce((select event from access_log where email='log-probe@uw.edu'
+                        order by id desc limit 1), 'none'), 'sign_up';
+
+    -- GoTrue bumps last_sign_in_at on every sign-in; that is the signal.
+    update auth.users set last_sign_in_at = now() where id = uid_log;
+    insert into _res(check_name,result,expected)
+      select 'returning sign-in logs sign_in',
+             coalesce((select event from access_log where email='log-probe@uw.edu'
+                        order by id desc limit 1), 'none'), 'sign_in';
+
+    -- Any other column changing must not produce a spurious entry.
+    update auth.users set raw_user_meta_data = '{"noise":true}' where id = uid_log;
+    insert into _res(check_name,result,expected)
+      select 'unrelated update does not log',
+             (select count(*) from access_log where email='log-probe@uw.edu')::text, '2';
+
+    -- History outlives the account it describes.
+    delete from auth.users where id = uid_log;
+    insert into _res(check_name,result,expected)
+      select 'history survives account deletion',
+             (select count(*) from access_log where email='log-probe@uw.edu')::text, '2';
+    insert into _res(check_name,result,expected)
+      select 'deleted account leaves a null user_id, not a dangling one',
+             (select count(*) from access_log
+               where email='log-probe@uw.edu' and user_id is null)::text, '2';
+
+    delete from access_log where email='log-probe@uw.edu';
+    insert into _res(check_name,result,expected)
+      select 'access log probe cleanup', (select count(*) from access_log)::text, before_n::text;
+  end;
+
+  -- The log is admin information: instructors must not see it at all.
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub', v_inst::text, true);
+  select count(*) into n from access_log;
+  insert into _res(check_name,result,expected)
+    values ('instructor cannot read the access log', n::text, '0');
+  select count(*) into n from access_summary;
+  insert into _res(check_name,result,expected)
+    values ('instructor cannot read the access summary', n::text, '0');
+
+  perform set_config('request.jwt.claim.sub', v_coord::text, true);
+  select count(*) into n from access_log;
+  insert into _res(check_name,result,expected)
+    values ('coordinator can read the access log', (n > 0)::text, 'true');
+  reset role;
+
   -- ------------------------------------------------- coordinator grants --
   -- Uses throwaway addresses, never the real coordinators'.
   reset role;
@@ -194,6 +250,12 @@ begin
   delete from scenarios where id=v_draft;
   delete from preference_cycles where id in (v_cycle, v_closed);
   delete from auth.users where email like 'rls-test-%';
+  -- Every throwaway account this suite creates also lands in access_log, and
+  -- those rows deliberately outlive the account. Without this the real log
+  -- fills with phantom sign-ins, one set per run.
+  delete from access_log
+   where email like 'rls-test-%'
+      or email like '%-probe@uw.edu';
 
   -- Scoped to rows THIS test created. Counting whole tables would break the
   -- moment a real person signs in, which is exactly what happened once.
@@ -208,8 +270,10 @@ begin
              where c.name like 'rls-test %')::text || ' submissions, ' ||
            (select count(*) from scenarios where name like 'rls-test %')::text || ' scenarios, ' ||
            (select count(*) from bootstrap_coordinators where note = 'rls-test probe')::text || ' probes, ' ||
-           (select count(*) from teaching_releases where reason like 'rls-test %')::text || ' releases',
-           '0 users, 0 profiles, 0 submissions, 0 scenarios, 0 probes, 0 releases';
+           (select count(*) from teaching_releases where reason like 'rls-test %')::text || ' releases, ' ||
+           (select count(*) from access_log
+             where email like 'rls-test-%' or email like '%-probe@uw.edu')::text || ' log rows',
+           '0 users, 0 profiles, 0 submissions, 0 scenarios, 0 probes, 0 releases, 0 log rows';
 end $$;
 
 select check_name, result, expected,

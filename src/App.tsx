@@ -9,6 +9,7 @@ import History from './pages/History'
 import MyPreferences from './pages/MyPreferences'
 import Cycles from './pages/Cycles'
 import Responses from './pages/Responses'
+import AccessLog from './pages/AccessLog'
 
 export default function App() {
   const { session, loading, isCoordinator } = useAuth()
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/history" element={<History />} />
         {isCoordinator && <Route path="/cycles" element={<Cycles />} />}
         {isCoordinator && <Route path="/responses" element={<Responses />} />}
+        {isCoordinator && <Route path="/access" element={<AccessLog />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>

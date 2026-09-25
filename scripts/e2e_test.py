@@ -52,6 +52,10 @@ def main() -> int:
                 call(f"{URL}/auth/v1/admin/users/{u['id']}", headers=SH, method="DELETE")
         call(f"{URL}/rest/v1/preference_submissions?note_to_coordinator=eq.e2e%20test",
              headers=SH, method="DELETE")
+        # The throwaway account also lands in access_log, and those rows
+        # outlive the account by design. Purge them or the real log fills
+        # with phantom sign-ins, one per run.
+        call(f"{URL}/rest/v1/access_log?email=eq.{EMAIL}", headers=SH, method="DELETE")
     purge()
 
     print("\nauth")
@@ -98,7 +102,9 @@ def main() -> int:
     print("\nreads an instructor should NOT be able to do")
     for label, path in [("draft scenarios hidden", "scenarios?select=*"),
                         ("other people's submissions hidden", "preference_submissions?select=*"),
-                        ("section_meetings view hidden", "section_meetings?select=*")]:
+                        ("section_meetings view hidden", "section_meetings?select=*"),
+                        ("access log hidden", "access_log?select=id"),
+                        ("access summary hidden", "access_summary?select=email")]:
         st, d = call(f"{URL}/rest/v1/{path}", headers=AH)
         check(label, st == 200 and len(d) == 0, f"got {len(d) if st==200 else st} rows")
 
@@ -165,6 +171,7 @@ def main() -> int:
     call(f"{URL}/rest/v1/preference_submissions?note_to_coordinator=eq.e2e%20test",
          headers=SH, method="DELETE")
     call(f"{URL}/auth/v1/admin/users/{uid}", headers=SH, method="DELETE")
+    call(f"{URL}/rest/v1/access_log?email=eq.{EMAIL}", headers=SH, method="DELETE")
 
     # Scoped to rows THIS suite created. Asserting the tables are empty breaks
     # as soon as a real person signs in, which is exactly what happened once.
@@ -172,9 +179,10 @@ def main() -> int:
     stray_users = [u for u in (left or {}).get("users", []) if u["email"] == EMAIL]
     st2, subs = call(f"{URL}/rest/v1/preference_submissions?select=id&id=eq.{sid}", headers=SH)
     st3, profs = call(f"{URL}/rest/v1/profiles?select=id&id=eq.{uid}", headers=SH)
+    st4, logs = call(f"{URL}/rest/v1/access_log?select=id&email=eq.{EMAIL}", headers=SH)
     check("no residue left behind",
-          len(stray_users) == 0 and len(subs) == 0 and len(profs) == 0,
-          f"{len(stray_users)} test users, {len(subs)} submissions, {len(profs)} profiles")
+          len(stray_users) == 0 and len(subs) == 0 and len(profs) == 0 and len(logs) == 0,
+          f"{len(stray_users)} users, {len(subs)} submissions, {len(profs)} profiles, {len(logs)} log rows")
 
     failed = [r for r in results if not r[1]]
     print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")

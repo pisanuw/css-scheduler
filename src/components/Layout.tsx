@@ -41,6 +41,11 @@ export default function Layout({ children }: { children: ReactNode }) {
             <NavLink to="/history" className={linkClass}>
               History
             </NavLink>
+            {isCoordinator && (
+              <NavLink to="/access" className={linkClass}>
+                Access
+              </NavLink>
+            )}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
             <span className="text-white/80">

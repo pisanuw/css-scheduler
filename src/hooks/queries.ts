@@ -159,3 +159,44 @@ export function useDeleteRelease() {
     onSuccess: () => invalidateLoad(qc),
   })
 }
+
+/** Admin only: sign-in history. RLS restricts both of these to coordinators. */
+export interface AccessSummaryRow {
+  email: string
+  full_name: string | null
+  role: string | null
+  first_seen: string
+  last_seen: string
+  visits: number
+}
+
+export interface AccessLogRow {
+  id: number
+  email: string
+  event: 'sign_up' | 'sign_in'
+  provider: string | null
+  occurred_at: string
+  user_id: string | null
+}
+
+export const useAccessSummary = () =>
+  useQuery({
+    queryKey: ['access_summary'],
+    queryFn: async () =>
+      unwrap<AccessSummaryRow>(
+        await supabase.from('access_summary').select('*').order('last_seen', { ascending: false }),
+      ),
+  })
+
+export const useAccessLog = (limit = 200) =>
+  useQuery({
+    queryKey: ['access_log', limit],
+    queryFn: async () =>
+      unwrap<AccessLogRow>(
+        await supabase
+          .from('access_log')
+          .select('*')
+          .order('occurred_at', { ascending: false })
+          .limit(limit),
+      ),
+  })
