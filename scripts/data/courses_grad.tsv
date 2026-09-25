@@ -1,0 +1,49 @@
+number	title	credits_min	credits_max	prereq_text
+501	Data Structures and Object-Oriented Programming I	4	4	
+502	Data Structures and Object-Oriented Programming II	4	4	Min 2.7 in CSS 501
+503	Systems Programming	4	4	Min 2.7 in CSS 502
+506	Software Development Processes	2	2	
+507	Software Modeling Techniques	2	2	Min 2.7 in CSS 506
+508	Software Testing and Quality	2	2	Min 2.7 in CSS 507
+514	Security, Policy, Ethics, and the Legal Environment	2	2	
+515	Contemporary Issues in Information Assurance	2	2	
+517	Information Assurance and Cybersecurity	5	5	
+518	Human Factors in Cybersecurity	5	5	
+519	Incident Response and Risk Management	5	5	
+520	Cyber Warfare, Policy, and the Modern State	5	5	
+527	Cryptography and Information Assurance	5	5	CSS 517 (may be concurrent) or permission
+532	Internet of Things	5	5	
+533	Distributed Computing	5	5	
+534	Parallel Programming in Grid and Cloud	5	5	
+535	High Performance Computing	5	5	
+537	Network and System Security	5	5	
+538	Security in Emerging Wireless and Mobile Networks	5	5	
+539	Cybersecurity in Emerging Environments	5	5	
+545	Mobile Computing	5	5	
+548	Introduction to Compilers	5	5	
+549	Algorithm Design and Analysis	5	5	
+551	Advanced 3D Computer Graphics	5	5	
+552	Topics in Rendering	5	5	CSS 451
+553	Software Architecture	5	5	
+555	Evaluating Software Design	5	5	
+565	Research Methods in Software Development	5	5	
+566	Software Management	5	5	
+572	Evidence-Based Design	5	5	
+576	Cybersecurity and Artificial Intelligence	5	5	
+577	Secure Software Development	5	5	
+578	Ethical Penetration Testing	5	5	
+579	Malware and Attack Reverse Engineering	5	5	
+581	Machine Learning	5	5	
+582	Interpretable Machine Learning in Applications	5	5	CSS 343, 502, 549, or equivalent
+583	Knowledge Management Systems	5	5	
+584	Multimedia Database Systems	5	5	
+585	Security of Machine Learning Systems	5	5	CSS 576 or CSS 581
+586	Deep Learning and Artificial Intelligence	5	5	CSS 581
+587	Advanced Topics in Computer Vision	5	5	
+590	Special Topics in Computing	1	5	Permission of instructor
+593	Cybersecurity Engineering Capstone	1	5	Min 2.7 in CSS 514, 517, 519, 527, 537, 577, 578
+595	Master's Project	1	10	
+599	Faculty Research Seminar	1	1	
+600	Independent Study or Research	1	10	
+601	Internship	1	5	
+700	Master's Thesis	1	10	

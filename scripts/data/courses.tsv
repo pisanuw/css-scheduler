@@ -1,0 +1,81 @@
+number	title	credits_min	credits_max	prereq_text
+101	Digital Thinking	5	5	
+107	Introduction to Programming through Animated Storytelling	5	5	
+110	Introduction to Cybersecurity	5	5	
+112	Introduction to Programming for Scientific Applications	4	4	STMATH 124 or B MATH 144
+123	Programming for Data Science	3	3	Min 2.0 in CSS 112, 132, 142, CSE 122, or CSE 142
+130	Fundamentals of Web Media Technology	5	5	
+132	Computer Programming for Engineers I	5	5	Co-requisite CSSSKL 132
+133	Computer Programming for Engineers II	5	5	Min 2.0 in CSS 132; co-req CSSSKL 133
+142	Computer Programming I	5	5	Co-requisite CSSSKL 142
+143	Computer Programming II	5	5	Min 2.7 in CSS 142 or CSE 142, or AP CS A score 4+; co-req CSSSKL 143
+173	Fundamentals of Programming Theory and Applications	5	5	CSS 142, CSE 122, or CSE 142
+198	Supervised Study	1	5	
+199	Computing Research	1	5	
+205	Women in STEM Seminar: College Life	1	1	
+211	Computers and Society	5	5	Min 2.0 in B WRIT 135, ENGL 141, 182, or 197-199
+225	Physics and Chemistry of Computer Components and Their Manufacture	5	5	
+250	Introduction to Interaction Design	5	5	
+290	Topics in Computing	1	5	
+295	K-12 Computing Education	1	5	CSS 143 (may be concurrent) or min 3.0 in CSS 142
+301	Technical Writing for Computing Professionals	5	5	B WRIT 135, ENGL 141-142, 182, 197-199, or HCDE 231
+305	Survey of Computer Systems for Teachers	5	5	Min 2.7 in CSE/CSS 142 or CSS 161; min 2.0 in CSS 211
+310	Information Assurance and Cybersecurity	5	5	
+315	Cybersecurity Ethics, Policy, and Law	5	5	B WRIT 134 or B WRIT 135
+320	Digital Forensics	5	5	One CSS 100-level course; B WRIT 134 or 135
+330	Topics in Mathematics for Software Development	1	5	
+337	Secure Systems	5	5	CSS 142, CSE 142, or CSS 161; and CSS 310
+340	Applied Algorithmics	5	5	Min 2.0 in CSS 123; or min 2.5 in CSS 133/143/CSE 143/162; min 2.5 STMATH 124
+342	Data Structures, Algorithms, and Discrete Mathematics I	5	5	Min 2.8 in CSS 133/143/CSE 143/162; min 2.5 in STMATH 125
+343	Data Structures, Algorithms, and Discrete Mathematics II	5	5	CSS 301 (may be concurrent); min 2.0 in CSS 342
+350	Management Principles for Computing Professionals	5	5	CSS 301 (may be concurrent)
+360	Software Engineering	5	5	CSS 133, 143, CSE 143, 162, or 173
+370	Analysis and Design	5	5	Min 2.0 in CSS 301, CSS 342 or 340, CSS 360
+371	The Business of Technology	5	5	
+382	Introduction to Artificial Intelligence	5	5	Min 2.0 in CSS 340 or 342
+383	Bioinformatics	5	5	
+385	Introduction to Game Development	5	5	STMATH 125; CSS 340 or 342
+390	Special Topics	1	5	
+397	Computing Internship	1	5	CSS 301; CSS 360; CSS 340 or 342
+405	Women in STEM Seminar: Career/Professional Life	1	1	
+411	Computing Technology and Public Policy	5	5	Min 2.0 in CSS 301
+415	Emerging Topics in Information Assurance and Cybersecurity	1	5	CSS 310, INFO 310, or T INFO 310
+416	Ethical Hacking and Penetration Testing	5	5	CSS 310, INFO 310, or T INFO 310
+421	Introduction to Hardware and Operating Systems	5	5	CSS 301; CSS 340 or 342
+422	Hardware and Computer Organization	5	5	CSS 342
+427	Introduction to Embedded Systems	5	5	CSS 342; B EE 425 or CSS 422
+430	Operating Systems	5	5	Min 2.0 in CSS 343
+431	Network Architecture and Management	5	5	
+432	Network Design and Programming	5	5	Min 2.0 in CSS 343
+434	Parallel and Distributed Computing	5	5	CSS 343
+436	Cloud Computing	5	5	CSS 430 or CSS 432
+444	Analyzing Biases in the Age of Digital Data	5	5	CSS 301; CSS 340 or 342
+448	Introduction to Compilers	5	5	CSS 343
+449	Design and Analysis of Algorithms	5	5	CSS 343
+450	Computer Graphics	5	5	Min 2.0 in CSS 342
+451	3-D Computer Graphics	5	5	CSS 342; STMATH 125
+452	Game Engine Development	5	5	Min 2.0 in CSS 340 or 342; CSS 360; STMATH 125
+455	Introduction to Computational Science and Scientific Programming	5	5	STMATH 125; CSS 133/143/CSE 143/162/173
+457	Signal Computing	5	5	CSS 340 or 342; STMATH 208
+458	Fundamentals of Computer Simulation Theory and Application	5	5	CSS 340 or 342
+461	Software Project Management	5	5	CSS 360
+473	Entrepreneurship Seminar	5	5	Min 1.7 in B BUS 220/BIS 200
+474	Product Development Lab	5	5	
+475	Database Systems	5	5	CSS 360 or B IMD 351
+477	Foundations of Secure Software Development	5	5	CSS 343 and CSS 360
+478	Usability and User-Centered Design	5	5	CSS 360 or B IMD 351
+480	Principles of Human-Computer Interaction	5	5	CSS 360
+481	Web Programming and Applications	5	5	CSS 342 and CSS 475
+482	Expert Systems	5	5	CSS 343
+483	Bioinformatics Algorithms	5	5	CSS 340 or 342
+484	Multimedia Data Processing	5	5	CSS 340 or 342
+485	Artificial Neural Networks	5	5	CSS 343 and STMATH 208
+486	Machine Intelligence	5	5	STMATH 208 and CSS 343
+487	Computer Vision	5	5	CSS 343
+488	Natural Language Processing	5	5	Min 2.0 in CSS 343
+490	Special Topics in Computing and Software Systems	1	5	
+495	Applied Computing Internship	1	5	CSS 350; CSS 360; CSS 421
+496	Applied Computing Capstone	5	5	CSS 301; CSS 360; CSS 421; CSS 340 or 342
+497	Computer Science and Software Engineering Capstone	1	10	CSS 350; CSS 370; CSS 422; CSS 430; two additional CSS
+498	Independent Study	1	5	
+499	Undergraduate Research	0	5	
