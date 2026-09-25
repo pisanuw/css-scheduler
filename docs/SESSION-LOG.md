@@ -34,6 +34,8 @@ record.
 
 ## 1. Opening brief
 
+**Yusuf Pisan types:**
+
 > I want to create a web app that can be used to assign instructors to courses. Scheduling is a difficult problem. All instructors have their own preferences in terms of classes they would like to teach, what quarter they would like to teach, what time slot or day they would like to teach.
 >
 > The program will be used primarily for UWB CSS . The list of courses are at https://www.washington.edu/students/crscatb/css.html
@@ -107,11 +109,15 @@ record.
 
 ## 2. Commit and push
 
+**Yusuf Pisan types:**
+
 > commit and push
 
 ---
 
 ## 3. Where is it deployed
+
+**Yusuf Pisan types:**
 
 > Where is the live app on the web?
 
@@ -128,6 +134,8 @@ frontend had only ever run on `localhost:5173`.
 ---
 
 ## 4. Sign-in failing
+
+**Yusuf Pisan types:**
 
 > https://abvnaelzfriusckqqrfc.supabase.co/auth/v1/callback is authorized in google but I get {"code":400,"error_code":"validation_failed","msg":"Unsupported provider: provider is not enabled"}
 
@@ -146,6 +154,8 @@ done correctly but could not take effect on its own.
 
 ## 5. Clarifying the Supabase field
 
+**Yusuf Pisan types:**
+
 > What is the "Client IDs" for supabase when enabling Google provider
 
 Answered from the Supabase docs: the field is plural because it accepts a
@@ -158,6 +168,8 @@ clients are added later, the web client ID must come first in the list.
 
 ## 6. Credentials supplied
 
+**Yusuf Pisan types:**
+
 > added them
 
 An earlier probe had reported `redirect_uri_mismatch` on that client. That was
@@ -168,6 +180,8 @@ URI was accepted and sign-in worked.
 ---
 
 ## 7. Access roles
+
+**Yusuf Pisan types:**
 
 > Min Chen <minchen2@uw.edu> is the coordinator
 > Geetha Thamilarasu <geetha@uw.edu> is the dpeartment chair should have access to all
@@ -190,6 +204,8 @@ URI was accepted and sign-in worked.
 
 ## 8. Teaching load
 
+**Yusuf Pisan types:**
+
 > Teaching track professors teach 8 courses, tenure track teach 5 courses, but individual load can vary due to teaching releases that course coordinator adds
 
 Corrected the seeded baselines, which had been guesses of 6 and 4. Releases
@@ -201,6 +217,8 @@ carry into the next.
 
 ## 9. Access log
 
+**Yusuf Pisan types:**
+
 > Add a log so as admin I can see who has logged in to the system
 
 Supabase's own `auth.audit_log_entries` was empty, so no sign-in history
@@ -210,13 +228,24 @@ existed to read. A trigger on `auth.users` now records it.
 
 ## 10. This document
 
+**Yusuf Pisan types:**
+
 > Create an md file of all my prompts to you in this session including the questions you asked me and the answers. Commit the file to the repo.
+
+---
+
+## 11. Attribution in the log
+
+**Yusuf Pisan types:**
+
+> For each section, such as before "I want to create a web app..." include in bold
+> Yusuf Pisan types:
 
 ---
 
 ## Notes
 
-- 10 prompts, 14 questions across 6 rounds of clarification.
+- 11 prompts, 14 questions across 6 rounds of clarification.
 - One assistant turn was interrupted mid-stream by the harness and resumed; no
   prompt was involved, so it is not listed above.
 - Corrections made during the session, recorded because they changed the work:
