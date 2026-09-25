@@ -11,3 +11,4 @@ coverage/
 supabase/.temp/
 .DS_Store
 *.tsbuildinfo
+.netlify/
