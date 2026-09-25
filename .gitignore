@@ -1,0 +1,13 @@
+node_modules/
+package-lock.json
+dist/
+coverage/
+.env
+.env.status
+
+# css-scheduler
+.env.local
+.env.*.local
+supabase/.temp/
+.DS_Store
+*.tsbuildinfo
