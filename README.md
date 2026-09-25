@@ -4,6 +4,9 @@ Assigns UW Bothell CSS instructors to course sections across Autumn, Winter and
 Spring. Instructors submit their own preferences; the coordinator places them on
 a board that flags conflicts as they work.
 
+**Live:** https://uwb-css-scheduler.netlify.app — sign-in needs the Google
+OAuth client set up first (see **Setting up Google sign-in** below).
+
 See [docs/DESIGN.md](docs/DESIGN.md) for the data model, conflict rules and
 iteration plan.
 
@@ -85,3 +88,21 @@ The app sends Google an `hd=uw.edu` hint so the UW account picker comes up
 first, but that hint is only cosmetic. The enforcement is the
 `allowed_email_domains` table, checked by the `handle_new_user` trigger, which
 rejects any address outside the listed domains.
+
+## Deploying
+
+The frontend is a static bundle on Netlify (project `uwb-css-scheduler`); the
+backend is the hosted Supabase project. `netlify.toml` sets the build command
+and an SPA fallback so client-side routes survive a hard refresh.
+
+`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set as build environment
+variables on the Netlify project, because `.env.local` is not committed. If you
+point this at a different Supabase project, update them there as well as
+locally.
+
+Only `dist/` is published, so nothing in the repo (source, seed data, the PDFs)
+is served. Any unmatched path returns `index.html` by design.
+
+After changing the deployed domain, add it to Supabase under **Authentication →
+URL Configuration**, or sign-in will bounce. The current allow-list covers the
+Netlify domain, its deploy previews, and localhost for development.
