@@ -1,0 +1,189 @@
+# CSS Scheduler — design
+
+Assigning UW Bothell CSS instructors to course sections across Autumn, Winter
+and Spring.
+
+## The problem
+
+Each year the CSS teaching coordinator has to place roughly 80 sections across
+roughly 50 instructors. Every instructor has preferences about which courses
+they teach, which quarters they are available, and which days and times suit
+them. The constraints that actually bite are mundane — nobody can teach two
+courses in the same slot, a teaching professor owes six courses a year, someone
+is on sabbatical in Winter — and they are easy to violate when the working
+document is a spreadsheet.
+
+The goal is not to automate the decision. It is to make the constraints visible
+while a human makes it.
+
+## Decisions
+
+| Area | Choice |
+| --- | --- |
+| Preference collection | Instructors sign in and submit their own |
+| Assignment | Manual board, with continuous conflict detection |
+| Solver | None in v1; the data model leaves room for one |
+| Stack | Vite + React + TypeScript, static on Netlify |
+| Backend | Supabase (Postgres, Google OAuth, row level security) — no server of our own |
+| Scope | Undergraduate CSS 100–499 |
+| Time model | The standard UW Bothell grid, with a custom override |
+| Load | Course count per instructor, per year and per quarter |
+| Drafts | Named scenarios; one per year can be marked official |
+
+## Where the seed data comes from
+
+Three real time schedules (`past-course-schedules/*.pdf`, Autumn 2025 through
+Spring 2026) were parsed into `scripts/data/history_sections.csv`: 240 sections,
+199 of them staffed, 59 distinct instructors. Two things fell out of that which
+guesswork would have got wrong:
+
+**The time grid is real, not invented.** CSS uses two-day patterns against six
+fixed blocks:
+
+| | |
+| --- | --- |
+| 8:45–10:45 AM | 11:00 AM–1:00 PM |
+| 1:15–3:15 PM | 3:30–5:30 PM |
+| 5:45–7:45 PM | 8:00–10:00 PM |
+
+MW and TTh are the standard patterns. Single days (M, T, W, Th, F) appear for
+hybrid sections that meet in person one day and online the other. Independent
+study and internship courses are "to be arranged" and have no slot at all.
+
+**The roster is wider than the faculty directory.** 21 people taught CSS courses
+in those three quarters without appearing on the CSS faculty page, and at least
+one emeritus (Robert Dimpsey) is actively teaching. The instructor table is
+therefore editable and not derived from the directory.
+
+## Data model
+
+Four groups of tables.
+
+**Reference** — `courses`, `instructors`, `time_slots`, `buildings`, `rooms`.
+Slowly changing, coordinator-owned, readable by anyone signed in.
+
+**Academic structure** — `academic_years` and `terms`. Everything scheduled
+hangs off a term.
+
+**Preferences** — a `preference_cycles` row opens a submission window for a
+year. Each instructor gets one `preference_submissions` row holding their
+scalar answers (days, times, modality, new-prep limit, a free-text note), with
+`preference_courses` (one row per course, tiered eager / willing / reluctant /
+unqualified) and `preference_terms` (availability and desired count per
+quarter) hanging off it.
+
+**Scheduling** — a `scenarios` row is one named draft of a year. It owns
+`sections`, and each section owns `section_instructors`. Co-teaching is
+representable because the join table allows more than one instructor per
+section.
+
+Two details worth knowing:
+
+- A section takes its meeting time from `time_slot_id`, *or* from
+  `custom_days` + `custom_start` + `custom_end`, *or* is `is_arranged`. A check
+  constraint enforces exactly one of the three, and the `section_meetings` view
+  flattens the first two into one shape for conflict detection.
+- A partial unique index allows only one scenario per year to be `official`.
+
+## Conflict detection
+
+`src/lib/conflicts.ts` is a pure function from a snapshot to a list of
+findings. It runs in the browser on every drag, so it does no I/O. Rules:
+
+| Code | Severity | Fires when |
+| --- | --- | --- |
+| `instructor_time_overlap` | error | Same instructor, same quarter, overlapping meetings |
+| `instructor_unavailable_term` | error | Assigned in a quarter they marked off |
+| `assigned_unqualified_course` | error | Assigned a course they said they cannot teach |
+| `instructor_over_quarter_max` | error | More sections in a quarter than their cap |
+| `room_double_booked` | error | Two sections, same room, overlapping meetings |
+| `section_unstaffed` | warning | No instructor assigned |
+| `assigned_reluctant_course` | warning | Assigned a course they would rather not teach |
+| `blocked_day` | warning | Meets on a day they asked to keep free |
+| `new_prep_over_limit` | warning | More unfamiliar courses than they asked for |
+| `instructor_over_annual_target` | warning | Above their annual course target |
+| `instructor_under_annual_target` | info | Below their annual course target |
+| `modality_mismatch` | info | Format is not among their preferred ones |
+
+New preps count *distinct courses* an instructor has not taught before, drawn
+from `teaching_history` — two sections of one new course is one new prep.
+
+## Security
+
+Google OAuth through Supabase. Sign-in is restricted to `uw.edu` in two places:
+the `hd` hint sent to Google, and — the one that actually enforces it — the
+`allowed_email_domains` table checked by the `handle_new_user` trigger, which
+rejects anything else.
+
+On first sign-in a profile is created, linked to an `instructors` row by
+matching email, and granted the coordinator role if the address appears in
+`bootstrap_coordinators`.
+
+Row level security is on for every table (19 tables, 37 policies). Instructors
+read reference data, read and write only their own submission, and only while
+the cycle is open. Coordinators do everything. Non-coordinators can see a
+scenario only once it is marked `official`, so drafts stay private while they
+are being worked on.
+
+`supabase/tests/rls_test.sql` is the regression test for all of this. It
+creates two throwaway users, exercises the matrix as each, and deletes what it
+made:
+
+```bash
+npm run db:test:rls   # 14 policy checks, in-database
+npm run test:e2e      # 20 checks through the real auth + REST API
+```
+
+`test:e2e` creates a throwaway uw.edu account through the real auth API, signs
+in, exercises every read and write the app performs, confirms an instructor
+cannot reach coordinator data or escalate their own role, and deletes what it
+made.
+
+### Function privileges, and a trap worth knowing
+
+The policy helpers (`is_coordinator`, `my_instructor_id`, `auth_role`,
+`cycle_is_open`) are `SECURITY DEFINER`, which is what lets them read the
+caller's profile row without recursing into the policies on `profiles`.
+
+`CREATE FUNCTION` grants `EXECUTE` to `PUBLIC` by default, which is how `anon`
+ends up able to call them over `/rest/v1/rpc`. That grant is revoked.
+
+The trap: it is tempting to revoke from `authenticated` too. Doing so breaks
+every policy that calls one, with `permission denied for function` rather than
+an empty result, because a policy expression is evaluated with the privileges
+of the querying role. `authenticated` therefore keeps `EXECUTE`. The RLS test
+above is what caught this.
+
+### Linter findings accepted
+
+Two Supabase linter warnings are left standing deliberately:
+
+- **`authenticated` can execute four SECURITY DEFINER functions.** Required, as
+  above. They disclose nothing the caller cannot already see: three report on
+  the caller's own profile, and `cycle_is_open` reports a cycle status every
+  signed-in user may read anyway.
+- **`citext` is installed in the `public` schema.** Namespace hygiene only.
+  Moving an extension that is in active use as a column type risks breaking
+  type resolution for no security gain.
+
+## Iterations
+
+**1 — Foundation (done).** Schema, RLS, seeded catalog and roster, imported
+history, Google sign-in, app shell, conflict engine with tests.
+
+**2 — Preference collection (done).** Cycle management for the coordinator,
+the instructor preference form (quarters and load, tiered course ratings with
+a "taught before" hint, days/times/modality, new-prep limit and a free-text
+note), draft-then-submit with revision until the cycle closes, and a
+coordinator dashboard showing who has responded with a copyable chase list.
+Reminder emails are not built.
+
+**3 — The assignment board.** Scenarios, section CRUD, drag-and-drop
+assignment, live conflict panel, per-instructor load tallies.
+
+**4 — Reporting.** How well preferences were met, CSV and print export,
+side-by-side scenario comparison, change log.
+
+**5 — Optional.** Solver-assisted suggestions for unfilled sections, importing
+a quarter directly from the UW time schedule, student-facing conflict checks
+between required courses.
