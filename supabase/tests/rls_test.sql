@@ -103,12 +103,18 @@ begin
   delete from preference_cycles where id in (v_cycle, v_closed);
   delete from auth.users where email like 'rls-test-%';
 
+  -- Scoped to rows THIS test created. Counting whole tables would break the
+  -- moment a real person signs in, which is exactly what happened once.
   insert into _res(check_name,result,expected)
     select 'cleanup leaves no residue',
            (select count(*) from auth.users where email like 'rls-test-%')::text || ' users, ' ||
-           (select count(*) from profiles)::text || ' profiles, ' ||
-           (select count(*) from preference_submissions)::text || ' submissions, ' ||
-           (select count(*) from scenarios)::text || ' scenarios',
+           (select count(*) from profiles p
+              join auth.users u on u.id = p.id
+             where u.email like 'rls-test-%')::text || ' profiles, ' ||
+           (select count(*) from preference_submissions ps
+              join preference_cycles c on c.id = ps.cycle_id
+             where c.name like 'rls-test %')::text || ' submissions, ' ||
+           (select count(*) from scenarios where name like 'rls-test %')::text || ' scenarios',
            '0 users, 0 profiles, 0 submissions, 0 scenarios';
 end $$;
 

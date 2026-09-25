@@ -50,6 +50,8 @@ def main() -> int:
         for u in (users or {}).get("users", []):
             if u["email"] in (EMAIL, "outsider@gmail.com"):
                 call(f"{URL}/auth/v1/admin/users/{u['id']}", headers=SH, method="DELETE")
+        call(f"{URL}/rest/v1/preference_submissions?note_to_coordinator=eq.e2e%20test",
+             headers=SH, method="DELETE")
     purge()
 
     print("\nauth")
@@ -158,12 +160,21 @@ def main() -> int:
 
     print("\ncleanup")
     call(f"{URL}/rest/v1/preference_submissions?id=eq.{sid}", headers=SH, method="DELETE")
+    # Belt and braces: drop anything this suite tagged, in case an earlier run
+    # died before reaching here.
+    call(f"{URL}/rest/v1/preference_submissions?note_to_coordinator=eq.e2e%20test",
+         headers=SH, method="DELETE")
     call(f"{URL}/auth/v1/admin/users/{uid}", headers=SH, method="DELETE")
+
+    # Scoped to rows THIS suite created. Asserting the tables are empty breaks
+    # as soon as a real person signs in, which is exactly what happened once.
     st, left = call(f"{URL}/auth/v1/admin/users?per_page=200", headers=SH)
-    st2, subs = call(f"{URL}/rest/v1/preference_submissions?select=id", headers=SH)
-    st3, profs = call(f"{URL}/rest/v1/profiles?select=id", headers=SH)
-    check("no residue left behind", len((left or {}).get("users", [])) == 0 and len(subs) == 0 and len(profs) == 0,
-          f"{len((left or {}).get('users', []))} users, {len(subs)} submissions, {len(profs)} profiles")
+    stray_users = [u for u in (left or {}).get("users", []) if u["email"] == EMAIL]
+    st2, subs = call(f"{URL}/rest/v1/preference_submissions?select=id&id=eq.{sid}", headers=SH)
+    st3, profs = call(f"{URL}/rest/v1/profiles?select=id&id=eq.{uid}", headers=SH)
+    check("no residue left behind",
+          len(stray_users) == 0 and len(subs) == 0 and len(profs) == 0,
+          f"{len(stray_users)} test users, {len(subs)} submissions, {len(profs)} profiles")
 
     failed = [r for r in results if not r[1]]
     print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
