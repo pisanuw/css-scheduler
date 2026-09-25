@@ -8,7 +8,8 @@ a board that flags conflicts as they work.
 OAuth client set up first (see **Setting up Google sign-in** below).
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the data model, conflict rules and
-iteration plan.
+iteration plan, and [docs/SESSION-LOG.md](docs/SESSION-LOG.md) for the prompts
+and decisions the first build session was driven by.
 
 ## Stack
 
