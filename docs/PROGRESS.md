@@ -80,6 +80,44 @@ No migration this run: the schema from iteration 1 covered everything.
 4. Then the polish list: undo/redo on the board, toasts, drag and drop, dark
    mode, PWA.
 
+**Not deployed — the sandbox cannot reach Netlify.** The code is committed and
+pushed to `main`, but the live site is unchanged and still predates the board.
+This run could not fix that, and it is not a code problem:
+
+```
+api.netlify.com            BLOCKED by egress policy
+netlify-mcp.netlify.app    BLOCKED by egress policy
+uwb-css-scheduler.netlify.app  BLOCKED by egress policy
+github.com                 reachable
+```
+
+The `npx @netlify/mcp … --proxy-path …` deploy reports `403 Forbidden`, which
+is the egress proxy refusing CONNECT rather than Netlify refusing the upload;
+two attempts with freshly minted tokens failed identically. The Netlify MCP
+*read* tools still work, because they travel through the MCP server rather than
+this sandbox's network, which is also how every database operation in this run
+reached Supabase — `abvnaelzfriusckqqrfc.supabase.co` is blocked to direct HTTP
+too.
+
+Consequently the post-deploy check the project insists on — fetch the served
+HTML, compare its `/assets/index-*.js` hash against `dist/` — could not be run
+either. **Nothing here should be read as "the deploy worked".**
+
+To ship it, run from a machine that can reach Netlify:
+
+```bash
+npm ci && npm run build
+npx netlify-cli deploy --prod --dir=dist --site 70a62744-9ef1-471e-baec-937c28de8503
+curl -s https://uwb-css-scheduler.netlify.app/ | grep -o 'assets/index-[^"]*'
+```
+
+The last line must print the same hash as `ls dist/assets/`. As of this commit
+a clean build produces `index-BEMl9wqC.js`. Note the site deploys by upload,
+not from GitHub: the live deploy has `commit_ref: null` and
+`title: "Deploy triggered by upload"`, so pushing to `main` does not ship
+anything by itself. Connecting the repo to Netlify would remove this whole
+class of problem and is worth doing.
+
 **Watch out for.** `npm run db:test:rls` and `npm run test:e2e` read a token
 from a macOS keychain and cannot run in the cloud sandbox — run the SQL through
 the Supabase MCP tools instead, as this run did. The bundle is now 532 kB
