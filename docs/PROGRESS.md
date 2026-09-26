@@ -70,6 +70,15 @@ constructed from the stubs too.
 136 kB and is load-bearing. Splitting `query` further: React Query is 41 kB and
 every page uses it.
 
+**Deployed and verified.** Commit `1790002`. All 28 assets and `sw.js` are
+byte-for-byte identical to a local build made with the `sb_publishable_…` key
+recovered from the served entry chunk, `npm run check:deployed` passes, and the
+served `supabase` chunk is 136,276 bytes with no `phoenix`, `RealtimeChannel`
+or `websocket` anywhere in it. The hash of the *entry* chunk never matches a
+local build — Vite inlines `import.meta.env.VITE_*`, so a build without
+`.env.local` bakes in different bytes. Compare content, not the hash in the
+HTML: that has cost a detour more than once.
+
 **Next run should pick up — in this order.**
 
 1. **Decide about `package-lock.json`**, and about `zod`, still a dependency
