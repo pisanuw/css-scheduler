@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { SuggestionResult } from '../../lib/suggest'
+import Dialog from '../Dialog'
 
 /**
  * Proposals, with their reasons, before anything is written. Every one starts
@@ -24,14 +25,6 @@ export default function SuggestSheet({
     () => new Set(result.suggestions.map((s) => s.sectionId)),
   )
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
   const picks = useMemo(
     () =>
       result.suggestions
@@ -51,16 +44,12 @@ export default function SuggestSheet({
   const allOn = chosen.size === result.suggestions.length && result.suggestions.length > 0
 
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Suggested assignments"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+    <Dialog
+      label="Suggested assignments"
+      onClose={onClose}
+      className="flex max-h-[85vh] max-w-lg flex-col rounded-t-xl sm:rounded-xl"
     >
-      <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-xl bg-white shadow-xl sm:rounded-xl">
+      <>
         <div className="shrink-0 border-b border-slate-200 p-4">
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
@@ -111,7 +100,7 @@ export default function SuggestSheet({
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm text-slate-800">
                         <span className="font-medium">{s.sectionLabel}</span>
-                        <span className="text-slate-400"> · {termLabel(s.termId)} → </span>
+                        <span className="text-slate-500"> · {termLabel(s.termId)} → </span>
                         <span className="font-medium">{s.instructorName}</span>
                       </span>
                       {s.warnings.length > 0 && (
@@ -160,7 +149,7 @@ export default function SuggestSheet({
             {applying ? 'Assigning…' : `Assign ${picks.length}`}
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </Dialog>
   )
 }

@@ -36,10 +36,28 @@ Tests and typecheck:
 
 ```bash
 npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
-                  # reporting and suggestions (148 tests)
+                  # reporting, suggestions, undo, the toast queue and the
+                  # focus trap (214 tests)
 npm run typecheck
 npm run build
 ```
+
+Mobile and accessibility:
+
+```bash
+npm run check:mobile            # every over-the-page component at 375px
+npm run check:mobile -- chips   # one scene
+SHOTS=1 npm run check:mobile    # and write PNGs to dist-harness/shots
+```
+
+This builds `harness/` — a second Vite entry that renders the components with
+fixture data and no Supabase — and drives it in a headless Chromium, checking
+that nothing scrolls sideways, that every control is at least 44px, that every
+piece of text clears WCAG AA against what is actually behind it, that the
+console is clean, and that dialogs trap Tab and close on Escape. Playwright is
+not a dependency; the script finds it locally or globally and tells you what to
+install if it finds neither (`npm i -D playwright && npx playwright install
+chromium`).
 
 ## Database
 

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Modality } from '../../lib/conflicts'
+import Dialog from '../Dialog'
 import type { SectionRow, TimeSlotRow } from '../../lib/snapshot'
 import { MODALITY_LABEL, QUARTER_LABEL, WEEKDAYS } from '../../lib/types'
 import { formatTimeRange } from '../../lib/format'
@@ -141,16 +142,12 @@ export default function SectionEditor({
   const label = 'block text-sm font-medium text-slate-700'
 
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={value.id ? 'Edit section' : 'New section'}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+    <Dialog
+      label={value.id ? 'Edit section' : 'New section'}
+      onClose={onClose}
+      className="flex max-h-[90vh] max-w-lg flex-col rounded-t-xl sm:max-h-[85vh] sm:rounded-xl"
     >
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-t-xl bg-white shadow-xl sm:max-h-[85vh] sm:rounded-xl">
+      <>
         <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 p-4">
           <h2 className="flex-1 text-lg font-semibold text-slate-900">
             {value.id ? 'Edit section' : 'New section'}
@@ -356,7 +353,14 @@ export default function SectionEditor({
             />
           </label>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {/* role="alert" rather than a silent red paragraph: a validation
+              message that only exists visually is no message to a screen
+              reader, and this one appears after the Save that caused it. */}
+          {error && (
+            <p role="alert" className="text-sm font-medium text-red-700">
+              {error}
+            </p>
+          )}
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-slate-200 p-4">
@@ -398,7 +402,7 @@ export default function SectionEditor({
             {saving ? 'Saving…' : 'Save section'}
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </Dialog>
   )
 }

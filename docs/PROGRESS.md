@@ -13,13 +13,128 @@ this file is the state of play.
 | 3 — Assignment board | done |
 | 4 — Reporting | done |
 | 5 — Solver, import, student checks | suggestions and student checks done; time-schedule import not started |
-| Polish | undo done; drag and drop, dark mode, PWA open |
+| Polish | undo, toasts and focus management done; drag and drop, dark mode, PWA open |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
 
 ---
+
+## 2026-09-26 (fourth run) — one voice for feedback, and a mobile check that runs
+
+**Built.**
+
+- **One place for every transient message.** `src/lib/toast.ts` holds the queue
+  as plain data; `src/components/Toast.tsx` renders it. The board's status
+  strip, the preferences page's "flash" and the red paragraphs beside four Save
+  buttons are all the same thing now — and so are the mutations that previously
+  said *nothing at all*: making a scenario official, archiving and unarchiving
+  one, deleting one, opening or closing a preference cycle, recording or
+  removing a teaching release, saving a section, exporting a CSV.
+- **One place for every modal.** `src/components/Dialog.tsx`: Escape, backdrop
+  tap, focus in on open and back to the opener on close, Tab cycling inside,
+  and no scrolling of the page behind. The assign sheet, section editor and
+  suggestion sheet moved onto it; the scenario, cycle and releases dialogs —
+  which had no `role`, no Escape and no focus handling whatever — did too.
+- **The conflict tally, spoken.** A visually-hidden `aria-live` region on the
+  conflict panel, driven by `conflictSummary` in `src/lib/format.ts`.
+- **A skip link**, before thirteen nav destinations, and Escape plus focus
+  handling on the mobile nav drawer.
+- **`npm run check:mobile`** — `harness/`, a second Vite entry that renders each
+  over-the-page component with fixtures and no Supabase, plus
+  `scripts/mobile_check.mjs`, which drives all eight scenes in a 375px headless
+  Chromium. It asserts no sideways scroll, no control under 44px, WCAG AA on
+  every piece of text, a clean console, and — where a dialog is on screen —
+  that focus enters it, that neither Tab nor Shift+Tab escapes it at *any*
+  step, and that Escape closes it.
+
+**Verified.** 214 unit tests (47 new: 21 on the toast queue, 10 on the focus
+trap, 16 on formatting including the spoken tally), typecheck and build green.
+All 8 harness scenes clean at 375px. Each assertion was checked for teeth by
+breaking the thing it guards and confirming it failed: the touch minimum, the
+focus trap, the Escape handler and the contrast floor each reported the
+regression, and each passed again once reverted. No database change this run,
+so no migration and no RLS run.
+
+**Learned.**
+
+- *A committed harness finds what eyes do not.* Three runs recorded "rendered
+  at 375px in headless Chromium" and each rebuilt the scaffolding in a
+  temporary directory. The first run of the same check as committed code found
+  **five controls between 24px and 42px** — the chip group that is the whole
+  preferences page on a phone, the only way into an instructor's releases, the
+  cycle status buttons, the Responses and Access filters, and the sign-in
+  button — and **three pieces of text below WCAG AA**. All in pages previously
+  signed off by eye.
+- *A check that passes can still be measuring nothing.* The harness's first run
+  reported failures everywhere; the cause was that Tailwind 4 detects its
+  sources from the Vite root, which for the harness is `harness/`, so it
+  generated utilities for the scene file and none for the components under
+  test. Every assertion had been measuring an unstyled page. `@source "../src"`
+  in `harness/harness.css` fixes it, and it is worth remembering that a
+  *green* run under the same bug would have been the real disaster.
+- *Assert at every step, not at the end.* The first Tab-trap check pressed Tab
+  fourteen times and looked once. With the trap deliberately disabled it still
+  passed — focus had left the dialog and come back round. Checking after every
+  press catches it on the fifth.
+- *Two assertions needed the fixture to be honest.* The sheets were handed
+  `onClose={() => {}}`, so "Escape did not close the dialog" fired against
+  correct code. A sheet given a no-op close looks exactly like a sheet that
+  ignores Escape; the scenes now really unmount.
+- *Do not reimplement `oklch`.* The first contrast pass reported five
+  impossible failures because it parsed `oklch(0.432 0.095 166.913)` as if it
+  were `rgb`. Painting the colour into a 1×1 canvas and reading the pixel back
+  lets the browser do the conversion, and the real answer was three failures,
+  all `text-slate-400` on white at 2.63:1.
+- *Politeness belongs to the region, not the message,* so there are two live
+  regions — and they must be real boxes. `display: contents` drops an element
+  out of the accessibility tree in some browsers, which would have silenced
+  both of them without any visible symptom.
+- *Where the toasts land is where the buttons already are.* The preferences
+  page pins Save and Submit to the bottom of the screen. `useToastInset` lifts
+  the stack clear of them; a confirmation that covers the button that produced
+  it is worse than none.
+
+**One correction to the design doc.** `docs/DESIGN.md` said "tables become
+cards rather than scrolling boxes". That is true of the load panel and false of
+`DataTable`, which backs Courses, Instructors, History, Responses and Access
+and is still a sideways-scrolling box. The doc now says so, and this is the
+largest remaining gap against the mobile rules.
+
+**Deliberately not done.** Drag and drop. Code-splitting — the bundle is 582 kB
+(161 kB gzipped) and Vite still warns. `DataTable` as cards. The Compare page
+gained no toasts because it has no mutation and no export to report on; giving
+it the report page's CSV and print buttons is the change worth making there,
+and it is a feature, not feedback.
+
+**Next run should pick up — in this order.**
+
+1. **`DataTable` as cards below `sm`.** One component, five pages, and the
+   honest version of a claim the design doc has been making for three runs.
+   Add the five pages to the harness as scenes while you are there — they are
+   the ones with no coverage.
+2. **Code-split the report, compare and student-check routes** off the main
+   chunk. Vite has warned for four runs.
+3. **Drag and drop**, as an addition to tapping and never a replacement.
+   `@dnd-kit` is already a dependency.
+4. **Export and print on the Compare page**, matching the report's.
+5. Then dark mode and the installable PWA. Dark mode now has a natural home:
+   the colours are already centralised enough that the contrast check would
+   catch a bad pair, and the check should be taught to run each scene twice.
+
+**Watch out for.**
+
+- `npm run check:mobile` needs Playwright. The cloud sandbox has it installed
+  globally and the script finds it there; on the maintainer's machine it is
+  `npm i -D playwright && npx playwright install chromium` once. It is
+  deliberately not in `package.json` — `npm test` should stay a second and a
+  half with no browser anywhere near it.
+- `harness/` is now in `tsconfig.json`, so `npm run build` typechecks the
+  scenes. A fixture that drifts from a component's props breaks the build,
+  which is the point.
+- Adding a scene means only adding to `SCENES` in `harness/scenes.tsx`; the
+  check script reads the list off the page rather than keeping its own.
 
 ## 2026-09-26 (later still) — undo, and a suite that runs anywhere
 

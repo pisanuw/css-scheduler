@@ -41,7 +41,7 @@ export default function LoadPanel({ tallies, terms }: { tallies: LoadTally[]; te
                     <span className="min-w-0 flex-1 truncate font-medium text-slate-900">{t.name}</span>
                     <span className="text-sm text-slate-700">
                       {t.total}
-                      {t.target != null && <span className="text-slate-400"> / {t.target}</span>}
+                      {t.target != null && <span className="text-slate-500"> / {t.target}</span>}
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs text-slate-500">
@@ -89,7 +89,7 @@ export default function LoadPanel({ tallies, terms }: { tallies: LoadTally[]; te
                       ))}
                       <td className="px-2 py-1.5 text-right text-slate-800">
                         {t.total}
-                        {t.target != null && <span className="text-slate-400"> / {t.target}</span>}
+                        {t.target != null && <span className="text-slate-500"> / {t.target}</span>}
                       </td>
                       <td className={`px-3 py-1.5 text-xs font-medium ${s.className}`}>{s.text}</td>
                     </tr>

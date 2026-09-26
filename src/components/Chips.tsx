@@ -32,8 +32,9 @@ export function ChipGroup<T extends string | number>({
             onClick={() =>
               onChange(active ? selected.filter((v) => v !== o.value) : [...selected, o.value])
             }
+            aria-pressed={active}
             style={active && tone === 'purple' ? { background: 'var(--uw-purple)' } : undefined}
-            className={`rounded-full border px-3 py-1 text-sm transition-colors disabled:opacity-50 ${
+            className={`flex min-h-11 items-center rounded-full border px-4 text-sm transition-colors disabled:opacity-50 ${
               active ? on : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
             }`}
           >
@@ -64,7 +65,7 @@ export function TriState({
     { v: null, label: 'No preference' },
   ]
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       {opts.map((o) => {
         const active = value === o.v
         return (
@@ -73,8 +74,9 @@ export function TriState({
             type="button"
             disabled={disabled}
             onClick={() => onChange(o.v)}
+            aria-pressed={active}
             style={active ? { background: 'var(--uw-purple)' } : undefined}
-            className={`rounded-full border px-3 py-1 text-sm disabled:opacity-50 ${
+            className={`flex min-h-11 items-center rounded-full border px-4 text-sm disabled:opacity-50 ${
               active ? 'border-transparent text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
             }`}
           >

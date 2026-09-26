@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useAuth } from '../lib/auth'
@@ -18,9 +18,30 @@ export default function Layout({ children }: { children: ReactNode }) {
   const { profile, signOut, isCoordinator } = useAuth()
   const [open, setOpen] = useState(false)
   const location = useLocation()
+  const drawerRef = useRef<HTMLElement>(null)
+  const toggleRef = useRef<HTMLButtonElement>(null)
 
   // Navigating is the drawer's cue to get out of the way.
   useEffect(() => setOpen(false), [location.pathname])
+
+  /*
+   * The drawer is a disclosure rather than a modal — the page behind it is
+   * still legitimately there — so it is not trapped. But opening it and
+   * leaving focus on the button means a keyboard user has to Tab through
+   * nothing to reach what they just revealed, and Escape is what everyone
+   * tries first to get rid of it.
+   */
+  useEffect(() => {
+    if (!open) return
+    drawerRef.current?.querySelector<HTMLElement>('a, button')?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      toggleRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
 
   const links = [
     { to: '/', label: 'Dashboard', end: true, show: true },
@@ -40,12 +61,25 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen">
+      {/*
+        Thirteen nav links stand between the top of the document and the page
+        itself. This is the one control that has to be reachable before them,
+        and it stays invisible until it is focused.
+      */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:flex focus:min-h-11 focus:items-center focus:rounded-md focus:bg-white focus:px-4 focus:text-sm focus:font-medium focus:text-slate-900 focus:shadow-lg"
+      >
+        Skip to the page
+      </a>
       <header style={{ background: 'var(--uw-purple)' }} className="text-white shadow print:hidden">
         <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2">
           <button
+            ref={toggleRef}
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
+            aria-controls="main-nav-drawer"
             aria-label={open ? 'Close menu' : 'Open menu'}
             className="-ml-1 flex h-11 w-11 items-center justify-center rounded-md text-white/90 hover:bg-white/10 md:hidden"
           >
@@ -58,7 +92,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             CSS Scheduler
           </span>
 
-          <nav className="hidden flex-wrap gap-1 md:flex">
+          <nav aria-label="Main" className="hidden flex-wrap gap-1 md:flex">
             {links.map((l) => (
               <NavLink key={l.to} to={l.to} className={linkClass} end={l.end}>
                 {l.label}
@@ -88,7 +122,12 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
 
         {open && (
-          <nav className="border-t border-white/15 px-2 pb-3 md:hidden">
+          <nav
+            ref={drawerRef}
+            id="main-nav-drawer"
+            aria-label="Main"
+            className="border-t border-white/15 px-2 pb-3 md:hidden"
+          >
             <p className="px-3 pt-2 pb-1 text-xs text-white/60 sm:hidden">
               {profile?.full_name ?? profile?.email}
               {isCoordinator && ' · coordinator'}
@@ -101,7 +140,9 @@ export default function Layout({ children }: { children: ReactNode }) {
           </nav>
         )}
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-6 print:px-0 print:py-0">{children}</main>
+      <main id="main" className="mx-auto max-w-7xl px-4 py-6 print:px-0 print:py-0">
+        {children}
+      </main>
     </div>
   )
 }

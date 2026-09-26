@@ -56,11 +56,11 @@ export default function SectionCard({
           </p>
           <p className="mt-0.5 text-sm text-slate-600">
             {meetingLabel(section.meeting)}
-            <span className="text-slate-400"> · </span>
+            <span className="text-slate-500"> · </span>
             {MODALITY_SHORT[section.modality]}
             {section.roomLabel && (
               <>
-                <span className="text-slate-400"> · </span>
+                <span className="text-slate-500"> · </span>
                 {section.roomLabel}
               </>
             )}

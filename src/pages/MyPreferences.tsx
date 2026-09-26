@@ -9,6 +9,7 @@ import {
   useTerms,
 } from '../hooks/preferences'
 import { ChipGroup, Section, TriState } from '../components/Chips'
+import { useToast, useToastInset } from '../components/Toast'
 import {
   MODALITY_LABEL,
   QUARTER_LABEL,
@@ -37,6 +38,10 @@ export default function MyPreferences() {
   const subQ = useMySubmission(cycle?.id, profile?.instructor_id)
   const taughtQ = useTaughtBefore(profile?.instructor_id)
   const save = useSaveSubmission()
+  const toast = useToast()
+  // The Save/Submit bar is pinned to the bottom of this page; keep the toast
+  // stack above it rather than over the buttons.
+  useToastInset(76)
 
   const [terms, setTerms] = useState<Record<string, TermState>>({})
   const [tiers, setTiers] = useState<Record<string, PrefTier>>({})
@@ -50,7 +55,6 @@ export default function MyPreferences() {
   const [note, setNote] = useState('')
   const [courseFilter, setCourseFilter] = useState('')
   const [onlyChosen, setOnlyChosen] = useState(false)
-  const [flash, setFlash] = useState<string | null>(null)
 
   // Hydrate local state once the saved submission arrives.
   useEffect(() => {
@@ -121,7 +125,6 @@ export default function MyPreferences() {
   }
 
   const submit = (status: 'draft' | 'submitted') => {
-    setFlash(null)
     save.mutate(
       {
         cycleId: cycle.id,
@@ -148,8 +151,10 @@ export default function MyPreferences() {
       },
       {
         onSuccess: () =>
-          setFlash(status === 'submitted' ? 'Submitted. Thank you.' : 'Draft saved.'),
-        onError: (e) => setFlash(`Could not save: ${(e as Error).message}`),
+          status === 'submitted'
+            ? toast.ok('Submitted. Thank you.')
+            : toast.ok('Draft saved.'),
+        onError: (e) => toast.failed('Could not save', e),
       },
     )
   }
@@ -364,18 +369,11 @@ export default function MyPreferences() {
 
       <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
-          {flash && (
-            <span
-              className={`text-sm ${flash.startsWith('Could not') ? 'text-red-600' : 'text-emerald-700'}`}
-            >
-              {flash}
-            </span>
-          )}
           <div className="ml-auto flex gap-2">
             <button
               onClick={() => submit('draft')}
               disabled={save.isPending}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="flex min-h-11 items-center rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >
               {save.isPending ? 'Saving…' : 'Save draft'}
             </button>
@@ -383,7 +381,7 @@ export default function MyPreferences() {
               onClick={() => submit('submitted')}
               disabled={save.isPending}
               style={{ background: 'var(--uw-purple)' }}
-              className="rounded-md px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              className="flex min-h-11 items-center rounded-md px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
               Submit
             </button>

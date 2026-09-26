@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { PrefTier, ScheduleSnapshot, Section } from '../../lib/conflicts'
 import { meetingLabel } from '../../lib/snapshot'
 import { filterCandidates, rankCandidates, type Candidate } from '../../lib/suitability'
+import Dialog from '../Dialog'
 
 /**
  * Tap a section, tap an instructor. This is the assignment path, not a
@@ -58,7 +59,12 @@ function CandidateRow({
             </span>
           )}
         </span>
-        {!assigned && <span className="shrink-0 text-slate-400">＋</span>}
+        {/* The button already says what it does; this is the affordance. */}
+        {!assigned && (
+          <span aria-hidden className="shrink-0 text-slate-500">
+            ＋
+          </span>
+        )}
       </button>
     </li>
   )
@@ -78,32 +84,21 @@ export default function AssignSheet({
   onClose: () => void
 }) {
   const [query, setQuery] = useState('')
-  const searchRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    // Escape closes; a phone keyboard appearing unbidden is worse than a tap,
-    // so focus is left alone and only wired up for keyboard users.
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   const ranked = useMemo(() => rankCandidates(snapshot, section), [snapshot, section])
   const shown = useMemo(() => filterCandidates(ranked, query), [ranked, query])
 
+  // Escape, the backdrop, the focus trap and returning focus to the section
+  // card afterwards all come from Dialog. Focus deliberately lands on the
+  // sheet rather than the search box: a phone keyboard springing up over the
+  // list of names is worse than a tap.
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Assign an instructor to ${section.courseCode} ${section.sectionLetter}`}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+    <Dialog
+      label={`Assign an instructor to ${section.courseCode} ${section.sectionLetter}`}
+      onClose={onClose}
+      className="flex max-h-[85vh] max-w-lg flex-col rounded-t-xl sm:max-h-[80vh] sm:rounded-xl"
     >
-      <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-xl bg-white shadow-xl sm:max-h-[80vh] sm:rounded-xl">
+      <>
         <div className="shrink-0 border-b border-slate-200 p-4">
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
@@ -124,7 +119,6 @@ export default function AssignSheet({
             </button>
           </div>
           <input
-            ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name"
@@ -153,7 +147,7 @@ export default function AssignSheet({
             </li>
           )}
         </ul>
-      </div>
-    </div>
+      </>
+    </Dialog>
   )
 }

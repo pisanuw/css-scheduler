@@ -62,7 +62,8 @@ export default function AccessLog() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`rounded-full border px-3 py-1 text-sm ${
+            aria-pressed={tab === t}
+            className={`flex min-h-11 items-center rounded-full border px-4 text-sm ${
               tab === t
                 ? 'border-slate-800 bg-slate-800 text-white'
                 : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'

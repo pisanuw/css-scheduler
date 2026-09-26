@@ -13,6 +13,7 @@ import {
   type TierBucket,
 } from '../lib/report'
 import { downloadText, slug } from '../lib/download'
+import { useToast } from '../components/Toast'
 
 const TIER_LABEL: Record<TierBucket, string> = {
   eager: 'Wanted it',
@@ -82,7 +83,7 @@ function InstructorRow({ r }: { r: InstructorReport }) {
         )}
         <span className="text-sm text-slate-700">
           {r.assigned}
-          {r.target != null && <span className="text-slate-400"> / {r.target}</span>}
+          {r.target != null && <span className="text-slate-500"> / {r.target}</span>}
         </span>
         <span className="w-12 text-right text-sm font-medium text-slate-700">{pct(r.satisfaction)}</span>
       </div>
@@ -104,6 +105,7 @@ export default function Report() {
   const { scenarioId: routeId } = useParams()
   const navigate = useNavigate()
   const scenarios = useScenarios()
+  const toast = useToast()
   const [onlyProblems, setOnlyProblems] = useState(false)
 
   const resolvedId = useMemo(() => {
@@ -148,6 +150,20 @@ export default function Report() {
     )
 
   const name = scenario.data.name
+
+  /**
+   * A download on a phone is the least visible thing this app does: the file
+   * lands somewhere the browser chose and nothing on the page moves. Naming
+   * the file is the whole point of the message.
+   */
+  const exportCsv = (filename: string, build: () => string) => {
+    try {
+      downloadText(filename, 'text/csv', build())
+      toast.ok(`Saved ${filename} to your downloads.`)
+    } catch (e) {
+      toast.failed(`Could not export ${filename}`, e)
+    }
+  }
 
   return (
     <section>
@@ -283,7 +299,7 @@ export default function Report() {
             <button
               type="button"
               onClick={() =>
-                downloadText(`${slug(name)}-schedule.csv`, 'text/csv', scheduleCsv(snapshot, meetingFor))
+                exportCsv(`${slug(name)}-schedule.csv`, () => scheduleCsv(snapshot, meetingFor))
               }
               className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50"
             >
@@ -291,14 +307,17 @@ export default function Report() {
             </button>
             <button
               type="button"
-              onClick={() => downloadText(`${slug(name)}-preferences.csv`, 'text/csv', reportCsv(report))}
+              onClick={() => exportCsv(`${slug(name)}-preferences.csv`, () => reportCsv(report))}
               className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50"
             >
               Download this report (CSV)
             </button>
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => {
+                toast.say('Opening your print dialog — the controls are left off the page.')
+                window.print()
+              }}
               className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50"
             >
               Print

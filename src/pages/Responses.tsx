@@ -77,7 +77,8 @@ export default function Responses() {
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`rounded-full border px-3 py-1 text-sm ${
+                aria-pressed={filter === f}
+                className={`flex min-h-11 items-center rounded-full border px-4 text-sm ${
                   filter === f
                     ? 'border-slate-800 bg-slate-800 text-white'
                     : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'

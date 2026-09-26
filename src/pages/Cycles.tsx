@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useAcademicYears, useCycles, useUpsertCycle } from '../hooks/preferences'
 import type { CycleStatus, PreferenceCycle } from '../lib/types'
+import Dialog from '../components/Dialog'
+import { useToast } from '../components/Toast'
 
 const STATUS_STYLE: Record<CycleStatus, string> = {
   draft: 'bg-slate-100 text-slate-700',
@@ -20,6 +22,7 @@ export default function Cycles() {
   const years = useAcademicYears()
   const cycles = useCycles()
   const upsert = useUpsertCycle()
+  const toast = useToast()
   const [editing, setEditing] = useState<Partial<PreferenceCycle> | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -51,7 +54,13 @@ export default function Cycles() {
         opens_at: editing.opens_at || null,
         closes_at: editing.closes_at || null,
       },
-      { onSuccess: () => setEditing(null), onError: (e) => setError((e as Error).message) },
+      {
+        onSuccess: (saved) => {
+          setEditing(null)
+          toast.ok(editing.id ? `${saved.name} saved.` : `${saved.name} created.`)
+        },
+        onError: (e) => setError((e as Error).message),
+      },
     )
   }
 
@@ -62,7 +71,7 @@ export default function Cycles() {
         <button
           onClick={startNew}
           style={{ background: 'var(--uw-purple)' }}
-          className="ml-auto rounded-md px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
+          className="ml-auto flex min-h-11 items-center rounded-md px-4 text-sm font-medium text-white hover:opacity-90"
         >
           New cycle
         </button>
@@ -82,21 +91,29 @@ export default function Cycles() {
                 {c.status}
               </span>
               <span className="text-sm text-slate-500">{yearName(c.academic_year_id)}</span>
-              <div className="ml-auto flex gap-2">
+              <div className="ml-auto flex flex-wrap gap-2">
                 {(['draft', 'open', 'closed', 'archived'] as CycleStatus[])
                   .filter((s) => s !== c.status)
                   .map((s) => (
                     <button
                       key={s}
-                      onClick={() => upsert.mutate({ ...c, status: s })}
-                      className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                      onClick={() =>
+                        upsert.mutate(
+                          { ...c, status: s },
+                          {
+                            onSuccess: () => toast.ok(`${c.name} is now ${s}.`),
+                            onError: (e) => toast.failed(`Could not mark it ${s}`, e),
+                          },
+                        )
+                      }
+                      className="flex min-h-11 items-center rounded border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50"
                     >
                       Mark {s}
                     </button>
                   ))}
                 <button
                   onClick={() => setEditing(c)}
-                  className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                  className="flex min-h-11 items-center rounded border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50"
                 >
                   Edit
                 </button>
@@ -117,8 +134,15 @@ export default function Cycles() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+        <Dialog
+          label={editing.id ? 'Edit cycle' : 'New cycle'}
+          onClose={() => {
+            setEditing(null)
+            setError(null)
+          }}
+          className="max-h-[90vh] max-w-lg overflow-y-auto rounded-t-xl p-5 sm:rounded-xl sm:p-6"
+        >
+          <>
             <h2 className="text-lg font-semibold text-slate-900">
               {editing.id ? 'Edit cycle' : 'New cycle'}
             </h2>
@@ -128,7 +152,7 @@ export default function Cycles() {
                 <select
                   value={editing.academic_year_id ?? ''}
                   onChange={(e) => setEditing({ ...editing, academic_year_id: e.target.value })}
-                  className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5"
+                  className="mt-1 block min-h-11 w-full rounded-md border border-slate-300 px-2"
                 >
                   <option value="">Choose…</option>
                   {(years.data ?? []).map((y) => (
@@ -143,7 +167,7 @@ export default function Cycles() {
                 <input
                   value={editing.name ?? ''}
                   onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                  className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5"
+                  className="mt-1 block min-h-11 w-full rounded-md border border-slate-300 px-2"
                 />
               </label>
               <label className="block text-sm font-medium text-slate-700">
@@ -152,7 +176,7 @@ export default function Cycles() {
                   rows={3}
                   value={editing.instructions ?? ''}
                   onChange={(e) => setEditing({ ...editing, instructions: e.target.value })}
-                  className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5"
+                  className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-2"
                 />
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -167,7 +191,7 @@ export default function Cycles() {
                         opens_at: e.target.value ? new Date(e.target.value).toISOString() : null,
                       })
                     }
-                    className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5"
+                    className="mt-1 block min-h-11 w-full rounded-md border border-slate-300 px-2"
                   />
                 </label>
                 <label className="block text-sm font-medium text-slate-700">
@@ -181,19 +205,23 @@ export default function Cycles() {
                         closes_at: e.target.value ? new Date(e.target.value).toISOString() : null,
                       })
                     }
-                    className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5"
+                    className="mt-1 block min-h-11 w-full rounded-md border border-slate-300 px-2"
                   />
                 </label>
               </div>
             </div>
-            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            {error && (
+              <p role="alert" className="mt-3 text-sm font-medium text-red-700">
+                {error}
+              </p>
+            )}
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => {
                   setEditing(null)
                   setError(null)
                 }}
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                className="flex min-h-11 items-center rounded-md border border-slate-300 px-4 text-sm text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
@@ -201,13 +229,13 @@ export default function Cycles() {
                 onClick={save}
                 disabled={upsert.isPending}
                 style={{ background: 'var(--uw-purple)' }}
-                className="rounded-md px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                className="flex min-h-11 items-center rounded-md px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
               >
                 {upsert.isPending ? 'Saving…' : 'Save'}
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        </Dialog>
       )}
     </section>
   )

@@ -35,7 +35,7 @@ export default function QuarterTabs({
             }`}
           >
             {t.label}
-            <span className={active ? 'text-white/70' : 'text-slate-400'}>{all.length}</span>
+            <span className={active ? 'text-white/70' : 'text-slate-500'}>{all.length}</span>
             {unstaffed > 0 && (
               <span
                 className={`rounded-full px-1.5 text-xs ${

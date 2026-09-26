@@ -153,7 +153,7 @@ export default function HistoryPanel({
                     aria-hidden
                   />
                   <div className="min-w-0 flex-1">
-                    <p className={`text-sm ${g.undone ? 'text-slate-400' : 'text-slate-700'}`}>
+                    <p className={`text-sm ${g.undone ? 'text-slate-500' : 'text-slate-700'}`}>
                       <span className="font-medium">{g.actor ?? 'Someone'}</span> {ACTION_LABEL[g.action]}{' '}
                       {many ? (
                         <span className="font-medium">{g.entries.length} sections</span>
@@ -161,7 +161,7 @@ export default function HistoryPanel({
                         <span className="font-medium">{g.entries[0]!.summary}</span>
                       )}
                     </p>
-                    <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
+                    <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
                       <span>{when(g.at)}</span>
                       {g.undone && (
                         <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">undone</span>

@@ -16,7 +16,9 @@
     "db:types": "supabase gen types typescript --local > src/lib/database.types.ts",
     "db:test:rls": "python3 scripts/run_sql.py supabase/tests/rls_test.sql",
     "db:test:rls:local": "scripts/local_db.sh test",
-    "test:e2e": "python3 scripts/e2e_test.py"
+    "test:e2e": "python3 scripts/e2e_test.py",
+    "build:harness": "vite build --config harness/vite.config.ts",
+    "check:mobile": "npm run build:harness && node scripts/mobile_check.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

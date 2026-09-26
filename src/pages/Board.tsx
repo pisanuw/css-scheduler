@@ -23,6 +23,7 @@ import LoadPanel from '../components/board/LoadPanel'
 import QuarterTabs from '../components/board/QuarterTabs'
 import HistoryPanel from '../components/board/HistoryPanel'
 import SuggestSheet from '../components/board/SuggestSheet'
+import { useToast } from '../components/Toast'
 import SectionEditor, {
   toFormValue,
   toRow,
@@ -85,13 +86,13 @@ export default function Board() {
   const bulkAssign = useBulkAssign(resolvedId ?? '')
   const undo = useUndoChanges(resolvedId ?? '')
   const { profile } = useAuth()
+  const toast = useToast()
 
   const [termId, setTermId] = useState<string | null>(null)
   const [assigning, setAssigning] = useState<string | null>(null)
   const [editing, setEditing] = useState<SectionFormValue | null>(null)
   const [editorError, setEditorError] = useState<string | null>(null)
   const [highlighted, setHighlighted] = useState<string | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
   const [suggesting, setSuggesting] = useState(false)
 
   // Default to the first quarter once the terms arrive.
@@ -109,11 +110,11 @@ export default function Board() {
   const runUndo = useCallback(
     (ids: number[]) => {
       undo.mutate(ids, {
-        onSuccess: ({ count, summary }) => setMessage(undoneMessage(count, summary)),
-        onError: (e) => setMessage((e as Error).message),
+        onSuccess: ({ count, summary }) => toast.ok(undoneMessage(count, summary)),
+        onError: (e) => toast.failed('Could not undo that', e),
       })
     },
-    [undo.mutate],
+    [undo.mutate, toast],
   )
 
   /**
@@ -131,7 +132,7 @@ export default function Board() {
       e.preventDefault()
       const target = myLastUndoable(changes.data ?? [], profile?.email)
       if (!target) {
-        setMessage('Nothing of yours left to undo.')
+        toast.say('Nothing of yours left to undo.')
         return
       }
       runUndo([target.id])
@@ -148,6 +149,7 @@ export default function Board() {
     locked,
     undo.isPending,
     runUndo,
+    toast,
   ])
 
   const courseOrder = useMemo(() => {
@@ -265,8 +267,12 @@ export default function Board() {
       return
     }
     setEditorError(null)
+    const wasNew = !editing.id
     saveSection.mutate(toRow(editing, resolvedId), {
-      onSuccess: () => setEditing(null),
+      onSuccess: () => {
+        setEditing(null)
+        toast.ok(wasNew ? 'Section added.' : 'Section saved.')
+      },
       onError: (e) => {
         const msg = (e as Error).message
         if (/duplicate key|already exists/i.test(msg)) {
@@ -288,7 +294,7 @@ export default function Board() {
     deleteSection.mutate(editing.id, {
       onSuccess: () => {
         setEditing(null)
-        setMessage('Section deleted.')
+        toast.ok('Section deleted.')
       },
       onError: (e) => setEditorError((e as Error).message),
     })
@@ -338,18 +344,6 @@ export default function Board() {
         selected={termId}
         onSelect={setTermId}
       />
-
-      {message && (
-        <div
-          role="status"
-          className="mb-3 flex items-center gap-2 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700"
-        >
-          <span className="flex-1">{message}</span>
-          <button onClick={() => setMessage(null)} className="h-11 w-11 shrink-0 rounded text-slate-500" aria-label="Dismiss">
-            ×
-          </button>
-        </div>
-      )}
 
       {locked && (
         <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -414,7 +408,7 @@ export default function Board() {
                     onUnassign={(instructorId) =>
                       unassign.mutate(
                         { sectionId: s.id, instructorId },
-                        { onError: (e) => setMessage((e as Error).message) },
+                        { onError: (e) => toast.failed('Could not unassign', e) },
                       )
                     }
                     onEdit={() => openEdit(s.id)}
@@ -453,9 +447,7 @@ export default function Board() {
           onPick={(instructorId) => {
             assign.mutate(
               { sectionId: assigningSection.id, instructorId },
-              {
-                onError: (e) => setMessage((e as Error).message),
-              },
+              { onError: (e) => toast.failed('Could not assign', e) },
             )
             setAssigning(null)
           }}
@@ -472,9 +464,9 @@ export default function Board() {
             bulkAssign.mutate(picks, {
               onSuccess: (n) => {
                 setSuggesting(false)
-                setMessage(`Assigned ${n} section${n === 1 ? '' : 's'}.`)
+                toast.ok(`Assigned ${n} section${n === 1 ? '' : 's'}.`)
               },
-              onError: (e) => setMessage((e as Error).message),
+              onError: (e) => toast.failed('Could not apply the suggestions', e),
             })
           }
         />

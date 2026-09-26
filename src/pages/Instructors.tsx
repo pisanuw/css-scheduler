@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import DataTable from '../components/DataTable'
+import Dialog from '../components/Dialog'
+import { useToast } from '../components/Toast'
 import { useAuth } from '../lib/auth'
 import {
   useAddRelease,
@@ -34,6 +36,7 @@ function ReleaseDialog({
   const releases = useReleases(instructor.id)
   const add = useAddRelease()
   const del = useDeleteRelease()
+  const toast = useToast()
   const [courses, setCourses] = useState('1')
   const [reason, setReason] = useState('')
   const [standing, setStanding] = useState(false)
@@ -62,15 +65,23 @@ function ReleaseDialog({
         onSuccess: () => {
           setReason('')
           setCourses('1')
+          toast.ok(`Release recorded for ${instructor.full_name}.`)
         },
-        onError: (e) => setError((e as Error).message),
+        onError: (e) => {
+          setError((e as Error).message)
+          toast.failed('Could not record the release', e)
+        },
       },
     )
   }
 
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-xl rounded-xl bg-white p-6 shadow-xl">
+    <Dialog
+      label={`Teaching releases for ${instructor.full_name}`}
+      onClose={onClose}
+      className="max-h-[90vh] max-w-xl overflow-y-auto rounded-t-xl p-5 sm:rounded-xl sm:p-6"
+    >
+      <>
         <h2 className="text-lg font-semibold text-slate-900">{instructor.full_name}</h2>
         <p className="mt-1 text-sm text-slate-600">
           {instructor.rank} · teaching releases for {academicYearName}
@@ -113,8 +124,14 @@ function ReleaseDialog({
                     </span>
                   )}
                   <button
-                    onClick={() => del.mutate(r.id)}
-                    className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50"
+                    onClick={() =>
+                      del.mutate(r.id, {
+                        onSuccess: () => toast.ok('Release removed.'),
+                        onError: (e) => toast.failed('Could not remove the release', e),
+                      })
+                    }
+                    aria-label={`Remove the release of ${r.courses} for ${r.reason}`}
+                    className="flex min-h-11 shrink-0 items-center rounded border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50"
                   >
                     Remove
                   </button>
@@ -149,29 +166,33 @@ function ReleaseDialog({
                 onClick={submit}
                 disabled={add.isPending}
                 style={{ background: 'var(--uw-purple)' }}
-                className="rounded-md px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                className="flex min-h-11 items-center rounded-md px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
               >
-                Add
+                {add.isPending ? 'Adding…' : 'Add'}
               </button>
             </div>
             <label className="mt-2 flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={standing} onChange={(e) => setStanding(e.target.checked)} />
               Standing release — applies every year until removed
             </label>
-            {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+            {error && (
+              <p role="alert" className="mt-2 text-sm font-medium text-red-700">
+                {error}
+              </p>
+            )}
           </div>
         )}
 
         <div className="mt-5 flex justify-end">
           <button
             onClick={onClose}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            className="flex min-h-11 items-center rounded-md border border-slate-300 px-4 text-sm text-slate-700 hover:bg-slate-50"
           >
             Done
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </Dialog>
   )
 }
 
@@ -242,14 +263,14 @@ export default function Instructors() {
             key: 'released', header: 'Released', className: 'text-center',
             render: (i) => {
               const r = loadBy.get(i.id)?.released_courses ?? 0
-              return r > 0 ? <span className="text-amber-700">−{r}</span> : <span className="text-slate-400">—</span>
+              return r > 0 ? <span className="text-amber-700">−{r}</span> : <span className="text-slate-500">—</span>
             },
           },
           {
             key: 'target', header: 'Target', className: 'text-center font-semibold',
             render: (i) => {
               const t = loadBy.get(i.id)?.effective_target
-              return t == null ? <span className="font-normal text-slate-400">—</span> : t
+              return t == null ? <span className="font-normal text-slate-500">—</span> : t
             },
           },
           ...(isCoordinator
@@ -258,7 +279,8 @@ export default function Instructors() {
                 render: (i: InstructorRow) => (
                   <button
                     onClick={() => setEditing(i)}
-                    className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50"
+                    aria-label={`Teaching releases for ${i.full_name}`}
+                    className="ml-auto flex min-h-11 items-center rounded border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50"
                   >
                     Releases
                   </button>

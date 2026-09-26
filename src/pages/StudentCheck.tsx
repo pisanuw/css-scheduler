@@ -120,7 +120,7 @@ export default function StudentCheck() {
         <>
           <div className="mt-4 rounded-lg bg-white p-4 ring-1 ring-slate-200">
             <h2 className="text-sm font-medium text-slate-700">
-              Courses <span className="font-normal text-slate-400">({picked.length} picked)</span>
+              Courses <span className="font-normal text-slate-500">({picked.length} picked)</span>
             </h2>
             <div className="mt-2 flex flex-wrap gap-2">
               {offered.map((c) => {
@@ -210,7 +210,7 @@ export default function StudentCheck() {
                   <ul className="mt-2 space-y-1 text-sm text-slate-700">
                     {sectionLevel.map((c, i) => (
                       <li key={i}>
-                        <span className="text-slate-400">{c.termLabel}:</span> {c.a} and {c.b}
+                        <span className="text-slate-500">{c.termLabel}:</span> {c.a} and {c.b}
                       </li>
                     ))}
                   </ul>

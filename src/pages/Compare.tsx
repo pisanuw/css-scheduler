@@ -108,7 +108,7 @@ function Side({ c, other }: { c: ScenarioComparison; other: ScenarioComparison }
 
       <div className="mt-3">
         <h3 className="text-sm font-medium text-slate-700">
-          Teaching only here <span className="font-normal text-slate-400">({c.onlyHere.length})</span>
+          Teaching only here <span className="font-normal text-slate-500">({c.onlyHere.length})</span>
         </h3>
         {c.onlyHere.length === 0 ? (
           <p className="mt-1 text-xs text-slate-500">The same people teach in both.</p>

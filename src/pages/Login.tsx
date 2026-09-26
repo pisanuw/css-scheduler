@@ -14,7 +14,7 @@ export default function Login() {
         <button
           onClick={signIn}
           style={{ background: 'var(--uw-purple)' }}
-          className="mt-6 w-full rounded-md px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
+          className="mt-6 flex min-h-11 w-full items-center justify-center rounded-md px-4 text-sm font-medium text-white hover:opacity-90"
         >
           Sign in with UW Google
         </button>

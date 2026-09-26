@@ -1,0 +1,9 @@
+/*
+ * Tailwind 4 detects its sources from the Vite root, which for the harness is
+ * `harness/` — so without this it generates utilities for the scene file and
+ * none for the components the scenes actually render, and every assertion about
+ * layout and touch size measures an unstyled page. Two hours of chasing
+ * phantom overflows says it is worth a comment.
+ */
+@import "../src/index.css";
+@source "../src";

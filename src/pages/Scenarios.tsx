@@ -16,6 +16,8 @@ import {
   type ScenarioStatus,
 } from '../hooks/scheduling'
 import { describePlan, planFromHistory } from '../lib/seedPlan'
+import Dialog from '../components/Dialog'
+import { useToast } from '../components/Toast'
 
 const STATUS_STYLE: Record<ScenarioStatus, string> = {
   draft: 'bg-slate-100 text-slate-700',
@@ -31,6 +33,7 @@ export default function Scenarios() {
   const makeOfficial = useMakeOfficial()
   const remove = useDeleteScenario()
   const applyPlan = useApplySeedPlan()
+  const toast = useToast()
   const [editing, setEditing] = useState<Partial<Scenario> | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -93,8 +96,13 @@ export default function Scenarios() {
             applyPlan.mutate(
               { scenarioId: saved.id, plan },
               {
-                onSuccess: () => {
+                onSuccess: ({ sections, assignments }) => {
                   closeDialog()
+                  toast.ok(
+                    `${saved.name} created — ${sections} section${
+                      sections === 1 ? '' : 's'
+                    } and ${assignments} assignment${assignments === 1 ? '' : 's'} copied.`,
+                  )
                   navigate(`/board/${saved.id}`)
                 },
                 onError: (e) =>
@@ -106,6 +114,7 @@ export default function Scenarios() {
             return
           }
           closeDialog()
+          toast.ok(editing.id ? `${saved.name} renamed.` : `${saved.name} created.`)
         },
         onError: (e) => setError((e as Error).message),
       },
@@ -146,7 +155,7 @@ export default function Scenarios() {
               <span className="text-sm text-slate-500">{yearName(s.academic_year_id)}</span>
             </div>
             {s.description && <p className="mt-1 text-sm text-slate-600">{s.description}</p>}
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-500">
               Last changed {new Date(s.updated_at).toLocaleString()}
             </p>
 
@@ -160,7 +169,13 @@ export default function Scenarios() {
               </Link>
               {s.status !== 'official' && (
                 <button
-                  onClick={() => makeOfficial.mutate(s)}
+                  onClick={() =>
+                    makeOfficial.mutate(s, {
+                      onSuccess: () =>
+                        toast.ok(`${s.name} is now the official schedule for this year.`),
+                      onError: (e) => toast.failed('Could not make it official', e),
+                    })
+                  }
                   className="flex min-h-11 items-center rounded-md border border-slate-300 px-3 text-sm text-slate-700 hover:bg-slate-50"
                 >
                   Make official
@@ -168,7 +183,15 @@ export default function Scenarios() {
               )}
               {s.status !== 'archived' && (
                 <button
-                  onClick={() => save.mutate({ ...s, status: 'archived' })}
+                  onClick={() =>
+                    save.mutate(
+                      { ...s, status: 'archived' },
+                      {
+                        onSuccess: () => toast.ok(`${s.name} archived.`),
+                        onError: (e) => toast.failed('Could not archive it', e),
+                      },
+                    )
+                  }
                   className="flex min-h-11 items-center rounded-md border border-slate-300 px-3 text-sm text-slate-700 hover:bg-slate-50"
                 >
                   Archive
@@ -176,7 +199,15 @@ export default function Scenarios() {
               )}
               {s.status === 'archived' && (
                 <button
-                  onClick={() => save.mutate({ ...s, status: 'draft' })}
+                  onClick={() =>
+                    save.mutate(
+                      { ...s, status: 'draft' },
+                      {
+                        onSuccess: () => toast.ok(`${s.name} is a draft again.`),
+                        onError: (e) => toast.failed('Could not unarchive it', e),
+                      },
+                    )
+                  }
                   className="flex min-h-11 items-center rounded-md border border-slate-300 px-3 text-sm text-slate-700 hover:bg-slate-50"
                 >
                   Unarchive
@@ -192,7 +223,10 @@ export default function Scenarios() {
                 <span className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => {
-                      remove.mutate(s.id)
+                      remove.mutate(s.id, {
+                        onSuccess: () => toast.ok(`${s.name} deleted.`),
+                        onError: (e) => toast.failed('Could not delete it', e),
+                      })
                       setConfirmDelete(null)
                     }}
                     className="flex min-h-11 items-center rounded-md bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700"
@@ -241,8 +275,12 @@ export default function Scenarios() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4">
-          <div className="w-full max-w-lg rounded-t-xl bg-white p-5 shadow-xl sm:rounded-xl sm:p-6">
+        <Dialog
+          label={editing.id ? 'Rename scenario' : 'New scenario'}
+          onClose={closeDialog}
+          className="max-h-[90vh] max-w-lg overflow-y-auto rounded-t-xl p-5 sm:rounded-xl sm:p-6"
+        >
+          <>
             <h2 className="text-lg font-semibold text-slate-900">
               {editing.id ? 'Rename scenario' : 'New scenario'}
             </h2>
@@ -331,7 +369,11 @@ export default function Scenarios() {
                 />
               </label>
             </div>
-            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            {error && (
+              <p role="alert" className="mt-3 text-sm font-medium text-red-700">
+                {error}
+              </p>
+            )}
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={closeDialog}
@@ -348,8 +390,8 @@ export default function Scenarios() {
                 {applyPlan.isPending ? 'Copying schedule…' : busy ? 'Saving…' : 'Save'}
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        </Dialog>
       )}
     </section>
   )

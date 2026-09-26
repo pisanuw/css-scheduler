@@ -25,3 +25,28 @@ export const QUARTER_ORDER = ['autumn', 'winter', 'spring', 'summer'] as const
 export function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
+
+/**
+ * The conflict tally as a sentence, for the board's live region.
+ *
+ * The pills above the list already say "2 errors · 0 warnings · 1 note", which
+ * is the right shape to scan and the wrong shape to hear: a screen reader
+ * reading three buttons' labels after every assignment tells you the numbers
+ * without telling you whether anything is wrong. This says the one thing that
+ * matters, and stays quiet about the categories that are empty.
+ */
+export function conflictSummary(counts: { error: number; warning: number; info: number }): string {
+  const parts = (
+    [
+      [counts.error, 'error'],
+      [counts.warning, 'warning'],
+      [counts.info, 'note'],
+    ] as const
+  )
+    .filter(([n]) => n > 0)
+    .map(([n, word]) => `${n} ${word}${n === 1 ? '' : 's'}`)
+
+  if (parts.length === 0) return 'No conflicts.'
+  if (parts.length === 1) return `${parts[0]}.`
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}.`
+}

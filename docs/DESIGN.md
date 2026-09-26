@@ -180,10 +180,80 @@ designed at, not one it degrades to. Three rules hold everywhere:
   that unassigns somebody, the severity filters on the conflict panel, the Undo
   beside a line of the history.
 
-Tables become cards rather than scrolling boxes: the load panel renders one
-card per instructor below `sm` and a table above it, with the same numbers in
-both. The navigation is a drawer below `md`, because ten destinations do not
-fit across a phone and a sideways-scrolling nav bar was worse than a menu.
+The load panel renders one card per instructor below `sm` and a table above it,
+with the same numbers in both. `DataTable`, which backs Courses, Instructors,
+History, Responses and Access, is **still a sideways-scrolling box** rather than
+cards — no horizontal *page* scroll, but not the card treatment either. That is
+the largest remaining gap against the rule above.
+
+The navigation is a drawer below `md`, because thirteen destinations do not fit
+across a phone and a sideways-scrolling nav bar was worse than a menu. A skip
+link sits before it so a keyboard user does not have to Tab past every
+destination to reach the page.
+
+### Checking it, rather than believing it
+
+`npm run check:mobile` builds `harness/`, a second Vite entry that renders each
+over-the-page component with fixture data and no Supabase at all, then drives
+every scene in a 375px headless Chromium and asserts:
+
+- the document does not scroll sideways, and nothing sticks out past the
+  viewport;
+- every control is at least 44px in the direction a finger aims at;
+- every piece of text clears WCAG AA against the colour actually painted behind
+  it — measured by painting each `oklch()` into a canvas and reading the pixel
+  back, rather than trusting the palette name;
+- the console stays clean;
+- and, where a dialog is on screen, that focus moves into it, that neither Tab
+  nor Shift+Tab escapes it at any point, and that Escape closes it.
+
+`SHOTS=1 npm run check:mobile` also writes a PNG per scene. Playwright is
+deliberately not a dependency — the script finds it locally or globally and
+says what to install if it finds neither, so `npm test` stays fast and
+dependency-free.
+
+Three runs in a row rebuilt this scaffolding by hand in a temporary directory
+and threw it away. The first time it ran as committed code it found five
+controls between 24px and 42px and three pieces of text below AA, in pages
+that had each been "checked at 375px" by eye.
+
+## Feedback and focus
+
+Every transient message in the app goes through one provider
+(`src/components/Toast.tsx`), over one queue whose rules live as plain data in
+`src/lib/toast.ts` and are tested there. Before it, the board had a status
+strip, the preferences page had a "flash", three dialogs rendered a red
+paragraph next to their Save button, and roughly half the mutations — archiving
+a scenario, making one official, removing a teaching release, changing a
+cycle's status — reported nothing at all whether they worked or failed.
+
+The rules that turned out to matter:
+
+- **An error stays until it is dismissed; anything else clears itself.** A
+  failure that has gone by the time the coordinator looks up from the phone is
+  worse than no message.
+- **The same message twice in a row refreshes rather than stacks.** Tapping a
+  failing Save three times is one problem.
+- **Two live regions, not one.** Politeness is a property of the region, so
+  errors go in an `assertive` region and confirmations in a `polite` one. Both
+  are ordinary boxes, not `display: contents`, which drops an element out of the
+  accessibility tree in some browsers and would silence them.
+- **The stack can be lifted.** `useToastInset` moves it clear of a page's own
+  fixed bottom bar; the preferences page's Save and Submit live exactly where
+  the toasts otherwise land.
+
+Every modal goes through `src/components/Dialog.tsx`: Escape, backdrop tap,
+focus into the dialog on open and back to whatever opened it on close, Tab
+cycling inside it, and no scrolling of the page behind. Focus lands on the
+dialog itself rather than its first field, on purpose — these are phone-first
+sheets, and a keyboard springing up over the list you were about to read is
+worse than a tap. The trap's index arithmetic is in `src/lib/focus.ts` so it
+can be tested like everything else.
+
+The conflict tally is announced through a visually-hidden `aria-live` region.
+The pills above the list are the right shape to scan and the wrong shape to
+hear: three button labels read out after every assignment give you the numbers
+without telling you whether anything broke.
 
 ## Security
 

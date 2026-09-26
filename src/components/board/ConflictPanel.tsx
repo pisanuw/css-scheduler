@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Conflict, Severity } from '../../lib/conflicts'
+import { conflictSummary } from '../../lib/format'
 
 const SEVERITY: Record<Severity, { label: string; dot: string; text: string }> = {
   error: { label: 'Errors', dot: 'bg-red-600', text: 'text-red-800' },
@@ -31,6 +32,16 @@ export default function ConflictPanel({
         <h2 id="conflicts-heading" className="font-semibold text-slate-900">
           Conflicts
         </h2>
+        {/*
+          The tally, spoken. Every assignment changes these numbers, and the
+          pills below carry them only visually — three button labels read out
+          after each tap is not the same as being told whether anything broke.
+          Polite, so it waits for a gap rather than cutting across the name that
+          was just chosen.
+        */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {conflictSummary(counts)}
+        </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {ORDER.map((s) => {
             const off = hidden.includes(s)
@@ -41,7 +52,7 @@ export default function ConflictPanel({
                 onClick={() => toggle(s)}
                 aria-pressed={!off}
                 className={`flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-xs font-medium ${
-                  off ? 'border-slate-200 bg-white text-slate-400' : 'border-slate-300 bg-slate-50 text-slate-700'
+                  off ? 'border-slate-200 bg-white text-slate-500' : 'border-slate-300 bg-slate-50 text-slate-700'
                 }`}
               >
                 <span className={`h-2 w-2 rounded-full ${off ? 'bg-slate-300' : SEVERITY[s].dot}`} aria-hidden />
@@ -76,7 +87,7 @@ export default function ConflictPanel({
                 />
                 <span className="min-w-0 flex-1 text-sm text-slate-700">
                   {c.message}
-                  <span className="mt-0.5 block text-xs text-slate-400">{c.code}</span>
+                  <span className="mt-0.5 block text-xs text-slate-500">{c.code}</span>
                 </span>
               </button>
             </li>
