@@ -15,6 +15,8 @@
  *   - every piece of text clears WCAG AA against what is actually behind it
  *   - the console stays clean
  *   - Escape closes a dialog, and Tab does not escape one
+ *   - on paper: everything marked `print:hidden` really goes, and everything
+ *     marked `data-print-only` really arrives
  *
  * Playwright is not a dependency of this project — it is a large install for
  * something the unit tests do not need — so this resolves it from wherever it
@@ -250,6 +252,40 @@ for (const scene of scenes) {
       `contrast ${c.ratio}:1 (needs ${c.need}) at ${c.size}px — ${c.fg} on ${c.bg} — "${c.text}"`,
     )
   for (const n of noise) problems.push(`console ${n}`)
+
+  /*
+   * What paper gets. Nothing else here can see it: a `print:hidden` control
+   * and a print-only date stamp both look exactly right on screen whether or
+   * not the variant works, so a broken one ships silently and turns up on a
+   * printout in a meeting.
+   */
+  const stampsOnScreen = await page.evaluate(() =>
+    [...document.querySelectorAll('[data-print-only]')].filter(
+      (el) => getComputedStyle(el).display !== 'none',
+    ).length,
+  )
+  if (stampsOnScreen) problems.push(`${stampsOnScreen} print-only element(s) visible on screen`)
+
+  await page.emulateMedia({ media: 'print' })
+  const onPaper = await page.evaluate(() => {
+    const shown = (el) => {
+      const s = getComputedStyle(el)
+      return s.display !== 'none' && s.visibility !== 'hidden'
+    }
+    return {
+      stillShowing: [...document.querySelectorAll('[class*="print:hidden"]')]
+        .filter(shown)
+        .map((el) => el.tagName.toLowerCase() + '.' + String(el.className || '').split(' ')[0])
+        .slice(0, 4),
+      missingStamps: [...document.querySelectorAll('[data-print-only]')].filter(
+        (el) => !shown(el),
+      ).length,
+    }
+  })
+  await page.emulateMedia({ media: 'screen' })
+  for (const w of onPaper.stillShowing) problems.push(`marked print:hidden but prints: ${w}`)
+  if (onPaper.missingStamps)
+    problems.push(`${onPaper.missingStamps} print-only element(s) missing from the printed page`)
 
   // Before the keyboard assertions, which end by closing the dialog.
   if (shots) {

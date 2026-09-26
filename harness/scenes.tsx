@@ -50,6 +50,10 @@ import SectionEditor, {
 } from "../src/components/board/SectionEditor";
 import SuggestSheet from "../src/components/board/SuggestSheet";
 import ConflictPanel from "../src/components/board/ConflictPanel";
+import ExportBar from "../src/components/ExportBar";
+import PrintStamp from "../src/components/PrintStamp";
+import { Side as ComparisonSide } from "../src/pages/Compare";
+import { compareScenarios } from "../src/lib/report";
 import RouteFallback from "../src/components/RouteFallback";
 import RouteErrorNotice from "../src/components/RouteErrorNotice";
 import Dialog from "../src/components/Dialog";
@@ -179,6 +183,32 @@ const SNAPSHOT: ScheduleSnapshot = {
 };
 
 const CONFLICTS: Conflict[] = detectConflicts(SNAPSHOT);
+
+/*
+ * Two drafts of the same year, with the longest plausible names on them: the
+ * comparison page puts these side by side on a wide screen and stacks them on
+ * a phone, and the name is the part that overflows.
+ */
+const COMPARISON = compareScenarios(
+  {
+    label: "First pass, before the releases came in",
+    snapshot: SNAPSHOT,
+    errors: 1,
+    warnings: 3,
+  },
+  {
+    label: "Alternative with Featherstonehaugh on leave",
+    snapshot: {
+      ...SNAPSHOT,
+      sections: SNAPSHOT.sections.map((x) => ({
+        ...x,
+        instructorIds: x.instructorIds.filter((i) => i !== "i1"),
+      })),
+    },
+    errors: 0,
+    warnings: 5,
+  },
+);
 
 const TIME_SLOTS: TimeSlotRow[] = [
   {
@@ -914,6 +944,39 @@ export const SCENES: Record<string, () => JSX.Element> = {
   "load-panel": () => (
     <div className="bg-slate-50 p-4">
       <LoadPanel tallies={loadTallies(SNAPSHOT)} terms={SNAPSHOT.terms} draggable />
+    </div>
+  ),
+
+  /* The two halves of the comparison, stacked as a phone stacks them. */
+  "compare-sides": () => (
+    <div className="space-y-4 bg-slate-50 p-4">
+      <ComparisonSide c={COMPARISON[0]} other={COMPARISON[1]} />
+      <ComparisonSide c={COMPARISON[1]} other={COMPARISON[0]} />
+    </div>
+  ),
+
+  /*
+   * The row of ways off the page. Three buttons is what the report has, and
+   * three buttons is what wraps at 375px — each one has to stay tappable once
+   * it is on a line of its own.
+   */
+  "export-bar": () => (
+    <div className="bg-slate-50 p-4">
+      <PrintStamp subject="First pass against Alternative" />
+      <ExportBar
+        csvs={[
+          {
+            label: "Download the schedule (CSV)",
+            filename: "first-pass-schedule.csv",
+            build: () => "",
+          },
+          {
+            label: "Download this report (CSV)",
+            filename: "first-pass-preferences.csv",
+            build: () => "",
+          },
+        ]}
+      />
     </div>
   ),
 

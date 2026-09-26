@@ -670,9 +670,13 @@ per-instructor load tallies. Undo — of an assignment, a move, a burst of them,
 or a section added, edited or removed — arrived with the change log; see
 above.
 
-**4 — Reporting (done).** How well preferences were met, CSV export of both
-the schedule and the report, a print stylesheet, side-by-side scenario
-comparison, and a change log written by database triggers.
+**4 — Reporting (done).** How well preferences were met, CSV export of the
+schedule, the report and the comparison, a print stylesheet, side-by-side
+scenario comparison, and a change log written by database triggers. The report
+and the comparison share one `ExportBar`, so the file lands with the same
+naming and the same confirmation from either page, and each carries a
+print-only date stamp — a printout with no date on it cannot be told from last
+week's.
 
 **5 — Partly done.** Solver-assisted suggestions for unfilled sections and
 student-facing conflict checks are built. Importing a quarter directly from a

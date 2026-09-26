@@ -11,15 +11,91 @@ this file is the state of play.
 | 1 — Foundation | done |
 | 2 — Preference collection | done |
 | 3 — Assignment board | done |
-| 4 — Reporting | done |
+| 4 — Reporting | done (export and print on both the report and the comparison) |
 | 5 — Solver, import, student checks | suggestions and student checks done; time-schedule import not started |
-| Polish | undo, toasts, focus management, tables-as-cards, code splitting and drag and drop done; dark mode, PWA open |
+| Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop and print output done; dark mode, PWA open |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
 
 ---
+
+## 2026-09-26 (eighth run) — the comparison leaves the screen
+
+**Built.** The last missing piece of iteration 4: the Compare page can now be
+downloaded and printed, the way the report has been able to since it was
+written.
+
+- **`comparisonCsv`** is one row per number the page shows and one column per
+  scenario — long-ways, because that is how the choice is actually made: the
+  eye runs across a row asking which of the two is better at this, rather than
+  down a column. Percentages are written as the page reads them and left blank
+  when nothing was rated, matching `reportCsv`.
+- **`ExportBar`** is the row of buttons, now shared. The report's version was
+  about to be copied into Compare wholesale, including the one part that has to
+  stay identical: what the app says afterwards. A download on a phone is the
+  least visible thing this app does — the file lands somewhere the browser
+  chose and nothing on the page moves — so `Saved <filename> to your
+  downloads.` is the whole confirmation, and it should not drift into two
+  wordings.
+- **`PrintStamp`** is a line that exists only on paper: what the page is about
+  and the date, with the month spelled out. Two undated printouts of two drafts
+  of the same year, carried into the same meeting, is exactly the situation
+  this app exists to prevent. On Compare it names both scenarios, because the
+  dropdowns that say which two are `print:hidden`.
+
+**Learned.**
+
+- *Nothing in this repository could see the printed page, and three checks now
+  can.* A `print:hidden` control and a print-only stamp both look exactly
+  correct on screen whether or not their variant works — the failure only
+  appears on paper, in a meeting, after it is too late. The mobile check now
+  runs a second pass per scene under `emulateMedia({ media: 'print' })` and
+  asserts that everything marked `print:hidden` really goes, that every
+  `data-print-only` element really arrives, and that no print-only element is
+  visible on screen. All three were seen to fail on purpose before being
+  believed: the stamp switched to `block` (caught on screen), its `print:block`
+  removed (caught missing from paper), and a `!block` put on a `print:hidden`
+  div to imitate a competing rule winning (caught printing).
+- *`.trim()` eats a BOM.* The CSV helper writes a leading `\ufeff` so Excel
+  opens UTF-8 course titles correctly, and the first version of the header test
+  asserted it on a trimmed string — which is not where it is. JavaScript counts
+  U+FEFF as whitespace. The BOM is now asserted on the untrimmed text, which is
+  the only place it can be.
+- *Two lazy pages sharing a 1.3 kB component costs a chunk.* Rollup split
+  `PrintStamp`/`ExportBar`/`download` into their own file the moment Report and
+  Compare both imported it. One extra request, shared between the two pages and
+  cached across both — cheaper than duplicating the code into each, and not
+  worth a `manualChunks` entry.
+
+**Verified.** 318 unit tests (6 new), typecheck and build green with no
+chunk-size warning, 26 harness scenes clean at 375px including two new ones
+(the two comparison cards stacked, and the export row with its stamp), and the
+routing check clean — it now shows `PrintStamp` arriving on both `/report` and
+`/compare`, which is the shared chunk doing what it should. No database change
+this run, so no migration and no RLS run.
+
+**Deliberately not done.** Dark mode. The PWA. A schedule CSV on Compare —
+each scenario's own report page has one, and three buttons on a page whose job
+is to choose between two drafts is a page that has stopped being about the
+choice.
+
+**Next run should pick up — in this order.**
+
+1. **Dark mode.** The contrast check already runs every scene; teaching it to
+   run each one twice, once with `prefers-color-scheme: dark` emulated, is most
+   of the work of doing it safely, and the print pass added this run is the
+   pattern to copy — a second `emulateMedia` over the same page.
+2. **The installable PWA**, which the chunk split made more worthwhile: a
+   service worker can precache the shell and fetch pages on demand.
+3. **Trim Supabase's realtime and storage clients**, which look unused and are
+   227 kB of the 408 kB a signed-out visitor loads. The largest remaining byte
+   win, and the first that needs care rather than configuration.
+4. Decide about `package-lock.json`, and about `zod`, which is still a
+   dependency and still imported nowhere.
+5. Importing a quarter from a pasted UW time schedule — the one part of
+   iteration 5 still unbuilt, and the only thing left in the original plan.
 
 ## 2026-09-26 (seventh run) — drag and drop, and a check that uses a finger
 
@@ -119,10 +195,10 @@ wrote down — which worked exactly as written. The served `Board-*.js` contains
 "Drag a name onto a section to assign it", so the new code is the code being
 served and not a matching hash on old bytes.
 
-**Next run should pick up — in this order.**
+**Next run should pick up — in this order.** *(Superseded by the eighth run's
+list at the top of this file; item 1 is done.)*
 
-1. **Export and print on the Compare page**, matching the report's. The
-   smallest remaining piece of iteration 4 and the last one that is missing.
+1. ~~**Export and print on the Compare page.**~~ Done in the eighth run.
 2. **Dark mode.** Teach the contrast check to run each scene twice, which is
    most of the work of doing it safely.
 3. **The installable PWA**, which the chunk split made more worthwhile: a

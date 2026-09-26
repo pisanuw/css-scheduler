@@ -50,3 +50,19 @@ export function conflictSummary(counts: { error: number; warning: number; info: 
   if (parts.length === 1) return `${parts[0]}.`
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}.`
 }
+
+/**
+ * The date on a printed page, in the long form nobody misreads.
+ *
+ * A schedule that comes out of a printer gets carried into a meeting and
+ * compared with another copy of itself; without a date on it, nobody can tell
+ * which one is current. `9/26/26` is ambiguous the moment it crosses an
+ * ocean, so the month is spelled out.
+ */
+export function printedOn(date: Date): string {
+  return `Printed ${date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })}`
+}

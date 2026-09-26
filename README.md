@@ -38,7 +38,7 @@ Tests and typecheck:
 npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
                   # reporting, suggestions, undo, drag rules, the toast queue,
                   # the focus trap, the route table and chunk recovery
-                  # (312 tests)
+                  # (318 tests)
 npm run typecheck
 npm run build
 ```
@@ -57,7 +57,9 @@ This builds `harness/` — a second Vite entry that renders the components with
 fixture data and no Supabase — and drives it in a headless Chromium, checking
 that nothing scrolls sideways, that every control is at least 44px, that every
 piece of text clears WCAG AA against what is actually behind it, that the
-console is clean, and that dialogs trap Tab and close on Escape. Playwright is
+console is clean, that dialogs trap Tab and close on Escape, and — with the
+page switched to print media — that everything marked `print:hidden` really
+goes and every print-only element really arrives. Playwright is
 not a dependency; the script finds it locally or globally and tells you what to
 install if it finds neither (`npm i -D playwright && npx playwright install
 chromium`).

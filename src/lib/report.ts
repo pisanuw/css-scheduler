@@ -310,6 +310,39 @@ export function compareScenarios(
 }
 
 /**
+ * The comparison as a spreadsheet: one row per number the page shows, one
+ * column per scenario, in the order they appear on screen.
+ *
+ * Long-ways rather than one row per scenario because that is how the page
+ * reads and how the choice is actually made — the eye runs across a row
+ * asking "which of these two is better at this", not down a column.
+ */
+export function comparisonCsv(sides: [ScenarioComparison, ScenarioComparison]): string {
+  const [a, b] = sides
+  const tierLabel: Record<TierBucket, string> = {
+    eager: 'Wanted it',
+    willing: 'Willing',
+    reluctant: 'Rather not',
+    unqualified: 'Cannot teach',
+    unrated: 'Did not rate',
+  }
+  const rows: (string | number | null)[][] = [
+    [
+      'Preferences met (%)',
+      a.satisfaction === null ? '' : Math.round(a.satisfaction * 100),
+      b.satisfaction === null ? '' : Math.round(b.satisfaction * 100),
+    ],
+    ['Sections', a.sections, b.sections],
+    ['Unstaffed', a.unstaffed, b.unstaffed],
+    ['Errors', a.errors, b.errors],
+    ['Warnings', a.warnings, b.warnings],
+    ...TIER_BUCKETS.map((t) => [tierLabel[t], a.byTier[t], b.byTier[t]]),
+    ['Teaching only here', a.onlyHere.join('; '), b.onlyHere.join('; ')],
+  ]
+  return toCsv(['Metric', a.label, b.label], rows)
+}
+
+/**
  * Sections a student taking all of `courseIds` could not attend together.
  * Iteration 5's student-facing check: the same overlap rule the instructor
  * conflicts use, asked of a course list instead of a person.

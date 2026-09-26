@@ -12,8 +12,9 @@ import {
   type InstructorReport,
   type TierBucket,
 } from '../lib/report'
-import { downloadText, slug } from '../lib/download'
-import { useToast } from '../components/Toast'
+import { slug } from '../lib/download'
+import ExportBar from '../components/ExportBar'
+import PrintStamp from '../components/PrintStamp'
 
 const TIER_LABEL: Record<TierBucket, string> = {
   eager: 'Wanted it',
@@ -105,7 +106,6 @@ export default function Report() {
   const { scenarioId: routeId } = useParams()
   const navigate = useNavigate()
   const scenarios = useScenarios()
-  const toast = useToast()
   const [onlyProblems, setOnlyProblems] = useState(false)
 
   const resolvedId = useMemo(() => {
@@ -151,20 +151,6 @@ export default function Report() {
 
   const name = scenario.data.name
 
-  /**
-   * A download on a phone is the least visible thing this app does: the file
-   * lands somewhere the browser chose and nothing on the page moves. Naming
-   * the file is the whole point of the message.
-   */
-  const exportCsv = (filename: string, build: () => string) => {
-    try {
-      downloadText(filename, 'text/csv', build())
-      toast.ok(`Saved ${filename} to your downloads.`)
-    } catch (e) {
-      toast.failed(`Could not export ${filename}`, e)
-    }
-  }
-
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -176,6 +162,8 @@ export default function Report() {
           Open the board
         </Link>
       </div>
+
+      <PrintStamp />
 
       {(scenarios.data ?? []).length > 1 && (
         <label className="mb-4 block text-sm text-slate-600 sm:max-w-sm print:hidden">
@@ -295,34 +283,21 @@ export default function Report() {
             )}
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2 print:hidden">
-            <button
-              type="button"
-              onClick={() =>
-                exportCsv(`${slug(name)}-schedule.csv`, () => scheduleCsv(snapshot, meetingFor))
-              }
-              className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50"
-            >
-              Download the schedule (CSV)
-            </button>
-            <button
-              type="button"
-              onClick={() => exportCsv(`${slug(name)}-preferences.csv`, () => reportCsv(report))}
-              className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50"
-            >
-              Download this report (CSV)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                toast.say('Opening your print dialog — the controls are left off the page.')
-                window.print()
-              }}
-              className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50"
-            >
-              Print
-            </button>
-          </div>
+          <ExportBar
+            className="mt-4"
+            csvs={[
+              {
+                label: 'Download the schedule (CSV)',
+                filename: `${slug(name)}-schedule.csv`,
+                build: () => scheduleCsv(snapshot, meetingFor),
+              },
+              {
+                label: 'Download this report (CSV)',
+                filename: `${slug(name)}-preferences.csv`,
+                build: () => reportCsv(report),
+              },
+            ]}
+          />
         </>
       )}
     </section>

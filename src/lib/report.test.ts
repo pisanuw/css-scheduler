@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildReport,
   compareScenarios,
+  comparisonCsv,
   reportCsv,
   satisfactionOf,
   scheduleCsv,
@@ -304,6 +305,59 @@ describe('compareScenarios', () => {
     )
     expect(a.onlyHere).toEqual([])
     expect(b.onlyHere).toEqual([])
+  })
+})
+
+describe('comparisonCsv', () => {
+  const base = snapshot({
+    instructors: [inst('i1', 'Ada'), inst('i2', 'Grace')],
+    preferences: { i1: prefs('i1', { courseTier: { c143: 'eager' } }) },
+  })
+  const other = snapshot({
+    instructors: [inst('i1', 'Ada'), inst('i2', 'Grace')],
+    sections: [sec({ instructorIds: ['i2'] }), sec({ id: 's2', sectionLetter: 'B', instructorIds: [] })],
+  })
+  const sides = compareScenarios(
+    { label: 'First pass', snapshot: base, errors: 0, warnings: 1 },
+    { label: 'Alternative, tighter', snapshot: other, errors: 2, warnings: 0 },
+  )
+  const lines = () => comparisonCsv(sides).trim().split('\r\n')
+  const row = (metric: string) => lines().find((l) => l.startsWith(metric))!
+
+  it('names the two scenarios in the header, quoting one that has a comma', () => {
+    // `.trim()` eats the BOM, so it is asserted on the untrimmed text.
+    expect(comparisonCsv(sides).startsWith('\ufeff')).toBe(true)
+    expect(lines()[0]).toBe('Metric,First pass,"Alternative, tighter"')
+  })
+
+  it('carries every number the page shows, in the order it shows them', () => {
+    expect(lines().map((l) => l.split(',')[0]!)).toEqual([
+      'Metric',
+      'Preferences met (%)',
+      'Sections',
+      'Unstaffed',
+      'Errors',
+      'Warnings',
+      'Wanted it',
+      'Willing',
+      'Rather not',
+      'Cannot teach',
+      'Did not rate',
+      'Teaching only here',
+    ])
+    expect(row('Sections')).toBe('Sections,1,2')
+    expect(row('Unstaffed')).toBe('Unstaffed,0,1')
+    expect(row('Errors')).toBe('Errors,0,2')
+    expect(row('Warnings')).toBe('Warnings,1,0')
+    expect(row('Wanted it')).toBe('Wanted it,1,0')
+  })
+
+  it('writes a percentage the same way the page reads it, and leaves it blank when nothing was rated', () => {
+    expect(row('Preferences met (%)')).toBe('Preferences met (%),100,')
+  })
+
+  it('lists the people unique to each side without splitting a cell', () => {
+    expect(row('Teaching only here')).toBe('Teaching only here,Ada,Grace')
   })
 })
 

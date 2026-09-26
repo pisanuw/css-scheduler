@@ -3,7 +3,16 @@ import { Link } from 'react-router-dom'
 import { useScenarioSnapshot } from '../hooks/useScenarioSnapshot'
 import { useScenarios } from '../hooks/scheduling'
 import { countBySeverity, detectConflicts } from '../lib/conflicts'
-import { compareScenarios, TIER_BUCKETS, type ScenarioComparison, type TierBucket } from '../lib/report'
+import {
+  compareScenarios,
+  comparisonCsv,
+  TIER_BUCKETS,
+  type ScenarioComparison,
+  type TierBucket,
+} from '../lib/report'
+import { slug } from '../lib/download'
+import ExportBar from '../components/ExportBar'
+import PrintStamp from '../components/PrintStamp'
 
 const TIER_LABEL: Record<TierBucket, string> = {
   eager: 'Wanted it',
@@ -56,7 +65,8 @@ function Metric({
   )
 }
 
-function Side({ c, other }: { c: ScenarioComparison; other: ScenarioComparison }) {
+/** Exported so the mobile check can put one on a 375px screen. */
+export function Side({ c, other }: { c: ScenarioComparison; other: ScenarioComparison }) {
   const total = Object.values(c.byTier).reduce((a, b) => a + b, 0)
   const cmp = (mine: number | null, theirs: number | null, lowerIsBetter: boolean) => {
     if (mine === null || theirs === null || mine === theirs) return null
@@ -182,7 +192,11 @@ export default function Compare() {
     <section>
       <h1 className="mb-4 text-xl font-semibold text-slate-900">Compare scenarios</h1>
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {sides && leftId !== rightId && (
+        <PrintStamp subject={`${sides[0].label} against ${sides[1].label}`} />
+      )}
+
+      <div className="mb-4 grid grid-cols-1 gap-3 print:hidden sm:grid-cols-2">
         {[
           { value: leftId, set: setLeftId, label: 'First' },
           { value: rightId, set: setRightId, label: 'Second' },
@@ -217,10 +231,23 @@ export default function Compare() {
       ) : !sides ? (
         <p className="text-sm text-slate-500">Loading both scenarios…</p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Side c={sides[0]} other={sides[1]} />
-          <Side c={sides[1]} other={sides[0]} />
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Side c={sides[0]} other={sides[1]} />
+            <Side c={sides[1]} other={sides[0]} />
+          </div>
+
+          <ExportBar
+            className="mt-4"
+            csvs={[
+              {
+                label: 'Download this comparison (CSV)',
+                filename: `${slug(sides[0].label)}-vs-${slug(sides[1].label)}.csv`,
+                build: () => comparisonCsv(sides),
+              },
+            ]}
+          />
+        </>
       )}
     </section>
   )

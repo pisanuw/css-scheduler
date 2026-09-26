@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { conflictSummary, formatDays, formatTime, formatTimeRange, titleCase } from './format'
+import {
+  conflictSummary,
+  formatDays,
+  formatTime,
+  formatTimeRange,
+  printedOn,
+  titleCase,
+} from './format'
 
 describe('conflictSummary', () => {
   it('says so plainly when there is nothing wrong', () => {
@@ -86,5 +93,15 @@ describe('titleCase', () => {
 
   it('copes with an empty string', () => {
     expect(titleCase('')).toBe('')
+  })
+})
+
+describe('printedOn', () => {
+  it('spells the month out, so a printout is unambiguous anywhere', () => {
+    expect(printedOn(new Date(2026, 8, 26))).toBe('Printed September 26, 2026')
+  })
+
+  it('does not pad the day', () => {
+    expect(printedOn(new Date(2027, 0, 4))).toBe('Printed January 4, 2027')
   })
 })
