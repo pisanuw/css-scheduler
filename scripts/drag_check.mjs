@@ -20,38 +20,16 @@
  * Playwright is resolved from wherever it happens to be, as in
  * `scripts/mobile_check.mjs`; it is not a dependency of this project.
  */
-import { createRequire } from 'node:module'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { extname, join, resolve } from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { loadPlaywright } from './playwright.mjs'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const OUT = join(ROOT, 'dist-harness')
 const SCENE = 'drag-sandbox'
 
-function loadPlaywright() {
-  const require = createRequire(import.meta.url)
-  for (const spec of ['playwright', 'playwright-core', '@playwright/test']) {
-    try {
-      return require(spec)
-    } catch {
-      /* keep looking */
-    }
-  }
-  try {
-    const root = execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim()
-    return createRequire(join(root, 'x.js'))('playwright')
-  } catch {
-    /* fall through */
-  }
-  console.error(
-    'Playwright is not installed. `npm i -D playwright && npx playwright install chromium`,\n' +
-      'or run this where a global playwright is available. Skipping the drag check.',
-  )
-  process.exit(2)
-}
 
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
@@ -73,7 +51,7 @@ function serve(dir) {
   return new Promise((ok) => server.listen(0, '127.0.0.1', () => ok(server)))
 }
 
-const { chromium } = loadPlaywright()
+const { chromium } = loadPlaywright('drag check')
 
 if (!existsSync(join(OUT, 'index.html'))) {
   console.error('dist-harness is missing. `npm run build:harness` first.')

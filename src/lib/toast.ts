@@ -8,12 +8,25 @@
 
 export type ToastTone = 'info' | 'success' | 'error'
 
+/**
+ * One thing to do about a message.
+ *
+ * Deliberately one, and deliberately optional. A message with two buttons is a
+ * dialog in the wrong place, and a strip at the bottom of a 375px screen has
+ * room for a label, a verb and a dismiss.
+ */
+export interface ToastAction {
+  label: string
+  run: () => void
+}
+
 export interface Toast {
   id: number
   text: string
   tone: ToastTone
   /** Milliseconds until it clears itself, or null to stay until dismissed. */
   ttl: number | null
+  action?: ToastAction
 }
 
 export interface ToastState {
@@ -56,12 +69,28 @@ export function liveRegionOf(tone: ToastTone): 'polite' | 'assertive' {
  * rather than stacking a copy underneath it: tapping a failing Save three
  * times is one problem, not three. The text and tone must both match — "Saved."
  * arriving after "Could not save." is news.
+ *
+ * A message carrying an action never times out, whatever its tone. "A new
+ * version is ready" with a Reload button that disappears after five seconds is
+ * worse than not offering one: the coordinator looks up from the phone, sees
+ * nothing, and the app quietly stays on the old version.
  */
-export function pushToast(state: ToastState, text: string, tone: ToastTone = 'info'): ToastState {
+export function pushToast(
+  state: ToastState,
+  text: string,
+  tone: ToastTone = 'info',
+  action?: ToastAction,
+): ToastState {
   const trimmed = text.trim()
   if (!trimmed) return state
 
-  const fresh: Toast = { id: state.nextId, text: trimmed, tone, ttl: TTL[tone] }
+  const fresh: Toast = {
+    id: state.nextId,
+    text: trimmed,
+    tone,
+    ttl: action ? null : TTL[tone],
+    ...(action ? { action } : {}),
+  }
   const last = state.items[state.items.length - 1]
 
   if (last && last.text === trimmed && last.tone === tone) {

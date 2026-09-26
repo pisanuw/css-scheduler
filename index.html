@@ -5,6 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <title>CSS Scheduler</title>
+
+    <!--
+      Installable. The manifest is what makes a phone offer "Add to home
+      screen"; `theme_color` there and `theme-color` here are the same purple
+      as the app's own header, so the system bars above an installed window
+      belong to the app rather than framing it.
+
+      `apple-touch-icon` is not a duplicate of the manifest's icons: iOS does
+      not read the manifest for the icon, and without this line an installed
+      scheduler is a screenshot of the page on the home screen.
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#4b2e83" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Scheduler" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <!--
       The theme, before the first paint. React resolves this properly in
       `useTheme`, owned by App, but it arrives a chunk and a render later — long enough for

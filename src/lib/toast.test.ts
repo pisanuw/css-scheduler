@@ -136,3 +136,38 @@ describe('failureText', () => {
     expect(failureText('Could not archive', 'timed out')).toBe('Could not archive: timed out')
   })
 })
+
+describe('a message with something to do about it', () => {
+  it('stays until it is taken or dismissed, whatever its tone would give it', () => {
+    const run = () => {}
+    const state = pushToast(EMPTY_TOASTS, 'A new version is ready.', 'info', {
+      label: 'Reload',
+      run,
+    })
+    // `info` would normally clear itself after five seconds. An offer that
+    // disappears before the coordinator looks up is an update that silently
+    // never happens.
+    expect(state.items[0]?.ttl).toBeNull()
+    expect(state.items[0]?.action).toEqual({ label: 'Reload', run })
+  })
+
+  it('leaves an ordinary message without one', () => {
+    const state = pushToast(EMPTY_TOASTS, 'Saved.', 'success')
+    expect(state.items[0]?.action).toBeUndefined()
+    expect(state.items[0]?.ttl).toBe(TTL.success)
+  })
+
+  it('keeps the newest action when the same message is offered twice', () => {
+    const first = () => {}
+    const second = () => {}
+    let state = pushToast(EMPTY_TOASTS, 'A new version is ready.', 'info', {
+      label: 'Reload',
+      run: first,
+    })
+    state = pushToast(state, 'A new version is ready.', 'info', { label: 'Reload', run: second })
+    // Two versions can ship while a tab sits open; applying the first one's
+    // waiting worker would reload into a version that is already stale.
+    expect(state.items).toHaveLength(1)
+    expect(state.items[0]?.action?.run).toBe(second)
+  })
+})

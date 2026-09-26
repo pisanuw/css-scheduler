@@ -767,9 +767,39 @@ function HeaderBits() {
   );
 }
 
+/**
+ * The one message with something to tap: a new version waiting to be applied.
+ * Its own scene because the action button is a touch target and a colour
+ * pairing that nothing else in the app has, and both have to survive a 375px
+ * screen in either theme.
+ */
+function UpdateOfferScene() {
+  const toast = useToast();
+  return (
+    <div className="space-y-3 p-4">
+      <h1 className="text-xl font-semibold text-slate-900">A waiting update</h1>
+      <button
+        data-seed
+        type="button"
+        onClick={() =>
+          toast.offer(
+            "A new version of the scheduler is ready.",
+            "Reload",
+            () => {},
+          )
+        }
+        className="flex min-h-11 items-center rounded-md border border-slate-300 bg-surface px-4 text-sm"
+      >
+        Offer the update
+      </button>
+    </div>
+  );
+}
+
 export const SCENES: Record<string, () => JSX.Element> = {
   toasts: () => <ToastScene inset={false} />,
   "toasts-inset": () => <ToastScene inset />,
+  "toast-offer": () => <UpdateOfferScene />,
   dialog: () => <DialogScene />,
   chips: () => <ChipScene />,
   "assign-sheet": () => (

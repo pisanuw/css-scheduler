@@ -7,6 +7,7 @@ import RouteFallback from './components/RouteFallback'
 import RouteErrorBoundary from './components/RouteErrorBoundary'
 import { LANDING_PATH, pathsOf, prefetchRouteQuietly, ROUTES, routesFor } from './lib/routes'
 import { useTheme } from './hooks/useTheme'
+import { useServiceWorker } from './hooks/useServiceWorker'
 
 /**
  * Every page is its own chunk. `Login` is not: it is what an unauthenticated
@@ -27,6 +28,12 @@ export default function App() {
    * must be followed wherever the coordinator happens to be.
    */
   const theme = useTheme()
+  /*
+   * Above the early returns for the same reason: a coordinator who leaves the
+   * sign-in page open all morning should still be offered the version that
+   * shipped while it sat there.
+   */
+  useServiceWorker()
 
   /*
    * Start the dashboard's chunk on the way down while the profile request is

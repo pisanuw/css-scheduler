@@ -29,6 +29,11 @@ interface ToastApi {
   fail: (text: string) => void
   /** `fail`, with the thrown cause appended to what was being attempted. */
   failed: (prefix: string, cause: unknown) => void
+  /**
+   * Something is available, and here is the one thing to do about it. Stays
+   * until it is taken or dismissed.
+   */
+  offer: (text: string, label: string, run: () => void) => void
   clear: () => void
 }
 
@@ -87,6 +92,18 @@ function ToastStrip({ toast, onDismiss }: { toast: Toast; onDismiss: () => void 
     >
       <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_MARK[toast.tone]}`} aria-hidden />
       <span className="min-w-0 flex-1 py-2 text-sm">{toast.text}</span>
+      {toast.action && (
+        <button
+          type="button"
+          onClick={toast.action.run}
+          // The brand colour as text, which the dark palette re-points for
+          // itself — the same arrangement as every other emphasis in the app.
+          style={{ color: 'var(--uw-purple-ink)' }}
+          className="flex min-h-11 shrink-0 items-center rounded-md px-3 text-sm font-semibold hover:bg-slate-100"
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button
         type="button"
         onClick={onDismiss}
@@ -112,6 +129,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       ok: (text) => setState((s) => pushToast(s, text, 'success')),
       fail: (text) => setState((s) => pushToast(s, text, 'error')),
       failed: (prefix, cause) => setState((s) => pushToast(s, failureText(prefix, cause), 'error')),
+      offer: (text, label, run) => setState((s) => pushToast(s, text, 'info', { label, run })),
       clear: () => setState(clearToasts),
     }),
     [],

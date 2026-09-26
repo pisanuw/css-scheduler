@@ -20,6 +20,8 @@
     "build:harness": "vite build --config harness/vite.config.ts",
     "check:mobile": "npm run build:harness && node scripts/mobile_check.mjs",
     "check:drag": "npm run build:harness && node scripts/drag_check.mjs",
+    "check:pwa": "VITE_SUPABASE_URL=https://abvnaelzfriusckqqrfc.supabase.co VITE_SUPABASE_ANON_KEY=pwa-check-placeholder vite build --outDir dist-pwacheck && PWA_CHECK_DIST=dist-pwacheck node scripts/pwa_check.mjs",
+    "icons": "node scripts/generate_icons.mjs",
     "check:routes": "VITE_SUPABASE_URL=https://abvnaelzfriusckqqrfc.supabase.co VITE_SUPABASE_ANON_KEY=route-check-placeholder vite build --outDir dist-routecheck && ROUTE_CHECK_DIST=dist-routecheck node scripts/route_check.mjs"
   },
   "dependencies": {
@@ -38,6 +40,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "esbuild": "^0.21.5",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.5.4",
     "vite": "^5.4.0",

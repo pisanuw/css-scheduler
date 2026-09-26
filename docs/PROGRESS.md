@@ -13,13 +13,95 @@ this file is the state of play.
 | 3 — Assignment board | done |
 | 4 — Reporting | done (export and print on both the report and the comparison) |
 | 5 — Solver, import, student checks | suggestions and student checks done; time-schedule import not started |
-| Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output and dark mode done; PWA open |
+| Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode and the installable PWA done |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
 
 ---
+
+## 2026-09-26 (tenth run) — installable, and able to replace itself
+
+**Built.** The last item on the polish list: the scheduler installs on a phone,
+opens with no signal, and can still ship a fix to the person who installed it.
+
+- **`src/lib/swStrategy.ts`** holds what the worker decides — pure, 16 tests.
+  **`src/sw.ts`** is the wiring only. **`src/lib/swClient.ts`** is the page's
+  half: register, notice a waiting version, offer it, apply it (14 tests,
+  driven entirely from fakes). **`vite-plugins/pwa.ts`** works the shell out of
+  the bundle, names the cache after the hash of that list, and bundles the
+  worker with esbuild to an unhashed `/sw.js`.
+- **The offer is a toast**, because the app already has one voice for feedback.
+  `pushToast` takes an optional action — one, not two: a message with two
+  buttons is a dialog in the wrong place — and a message carrying an action
+  never times out, which is its own test.
+- **Icons** are drawn by `npm run icons` (a UW-purple calendar with one gold
+  day assigned) and committed. A build must not depend on a browser being
+  installed, and regenerating them per build would change a deploy's bytes for
+  nothing. `maskable` is a separate file from `any`, because Android crops one
+  and not the other.
+- **`netlify.toml`** now pins `/assets/*` immutable and `/sw.js` to
+  `max-age=0, must-revalidate`.
+
+**Learned — four things, three of them the hard way.**
+
+- *Playwright's offline mode does not reach a service worker's own fetches.*
+  The offline assertions passed with the shell deliberately deleted from the
+  precache list, because the "offline" worker was fetching the page from the
+  test's own server the whole time. `context.setOffline(true)` is emulation for
+  the page context; the worker has its own. The check now drops connections at
+  the server, which is offline for everybody. **Any future check that pulls the
+  plug has to do it this way.**
+- *A browser will answer a disconnected reload from its own HTTP cache.* Found
+  on the way to the above: the first fix looked like it worked because Chromium
+  served `index.html` from its cache. The check's server sends `no-store` for
+  HTML so that only the worker can be the one answering.
+- *`register()` can resolve with nothing.* The specification says registration
+  or rejection; an environment that blocks workers resolves with `undefined`,
+  and the app then threw `Cannot read properties of undefined (reading
+  'waiting')` during startup. Found by the routing check the first time it ran
+  against a build that registers a worker. Guarded, and tested.
+- *A theme flip was being measured mid-transition.* The mobile check's print
+  pass compared "printed from light" against "printed from dark" without
+  letting the flip back to light settle, so `chips` failed intermittently with
+  two navy readings eight units apart. Adding a longer sleep would have made it
+  rarer here and no less possible on a slower machine; the check now disables
+  transitions and animations outright in every scene, and three consecutive
+  full runs are clean.
+
+**Checked rather than believed.** `npm run check:pwa` asserts six things, and
+each assertion was made to fail on purpose before being trusted: `clients.claim`
+removed (the worker never took the page), the shell dropped from the precache
+list (nothing to show offline), the maskable icon removed from the manifest,
+and a "deploy" that changed no bytes (nothing to offer). The icon sizes are
+read out of the PNGs' own IHDR chunks rather than believed from the manifest.
+
+**Verified.** 362 unit tests (33 new), typecheck and build green; 28 mobile
+scenes clean at 375px in both themes and on paper — including a new
+`toast-offer` scene for the one action button in the app, whose contrast was
+re-checked by breaking it on purpose; drag, routing and PWA checks all clean.
+No migration this run and no database change of any kind.
+
+**Deliberately not done.** Trimming Supabase's realtime and storage clients.
+Background sync or any write-while-offline: the app is read-only offline, and
+queueing assignment changes made with no connection would need conflict
+resolution that the coordinator, not the app, should be doing. Push
+notifications.
+
+**Next run should pick up — in this order.**
+
+1. **Trim Supabase's realtime and storage clients**, 227 kB of the 408 kB a
+   signed-out visitor downloads — and now also the largest single thing the
+   worker precaches on every deploy, so it costs twice.
+2. **Decide about `package-lock.json`**, and about `zod`, still a dependency
+   and still imported nowhere. `esbuild` is a real dependency now — it was
+   already there transitively, and the plugin uses it directly.
+3. **Importing a quarter from a pasted UW time schedule** — the one part of
+   iteration 5 still unbuilt, and the only thing left in the original plan.
+4. An offline banner would be worth considering once (2) is done: the app
+   renders offline but says nothing about it, and a coordinator tapping Assign
+   with no signal currently gets a Supabase error rather than an explanation.
 
 ## 2026-09-26 (ninth run) — the app after dark
 

@@ -774,8 +774,71 @@ pasted UW time schedule is not; seeding from an already-imported year covers
 most of what it was for.
 
 **Polish.** Undo, one voice for feedback, focus management, tables as cards,
-code splitting, dragging, print output and dark mode are done. An installable
-PWA is not.
+code splitting, dragging, print output, dark mode and an installable,
+offline-capable app are done — see **Installing it** below.
+
+## Installing it
+
+The coordinator does this work on a phone, often in a room where the wifi is
+somebody else's. So the app is installable — a manifest, a set of icons, and a
+service worker — and the decisions below are all about the one property that
+makes a service worker different from every other file here: it keeps running
+after it is wrong, and it can keep serving itself.
+
+**The rules live in `src/lib/swStrategy.ts`, not in the worker.** Pure
+functions, tested without a browser, for what a request is worth doing about.
+`src/sw.ts` is the wiring only. A service worker bug cannot be reproduced by
+reloading, so anything expressed as behaviour rather than as a rule would be
+untestable in practice.
+
+**Nothing that leaves this origin is cached, ever.** Every request to Supabase
+— sessions, preferences, the board — passes straight through. There is no
+version of "a bit of caching" for data whose visibility is decided per caller
+by row-level security: a cache key is a URL, and a URL cannot express "the rows
+this person is allowed to see". The check asserts the cache holds nothing from
+another origin, and that a request to the database *fails* when the network is
+gone rather than being answered from somewhere.
+
+**One cache per build, named by the build.** The precache list is worked out
+from the bundle itself, and every filename in it contains the hash of its own
+contents, so the list changes exactly when the shell does. Naming the cache
+after the hash of that list makes a mixed cache impossible: a version's shell
+and its chunks arrive together and are deleted together. The alternative — one
+long-lived cache updated in place — has to reason about an `index.html` from
+today asking for a chunk from last Tuesday.
+
+**The shell, the dashboard and the board are precached; every other page is
+cached when it is first opened.** Precaching all thirteen pages would download
+the whole app to everyone on every deploy, which is the cost the chunk split
+was made to avoid. Precaching only the shell would leave the board — the page
+this app exists for, and the one most likely to be opened on bad wifi — a
+network request away. A page that has been opened once works offline from then
+on; one that never has shows the chunk-failure notice, which already says the
+right thing about a dropped connection.
+
+**A navigation asks the network first.** A deploy has to be able to reach
+somebody who has the app open. The cached document is what a dead connection
+gets instead of the browser's error page, not the first thing tried.
+
+**A new version waits, and is offered.** `skipWaiting()` on install swaps the
+worker under an open tab, so the next chunk that tab asks for is a filename the
+new build never had — in the middle of assigning an instructor. So the new
+worker installs and waits; the app offers a reload through the same toast
+system as everything else, with the one action button in the app; and the
+reload is driven by `controllerchange` rather than by the tap, because
+reloading before the swap completes lands on the old version and looks exactly
+like an update that does not work. A tab left open also asks every half hour
+whether a new version has shipped, since all of this app's navigations are
+client-side and the browser would otherwise never check.
+
+**The failure mode that is never acceptable is the silent one.** An app that
+installs, goes offline and cannot update itself is worse than one that was
+never installable, because every future fix is invisible to the person using
+it. `npm run check:pwa` drives that whole path — a second version appearing on
+the server, the offer, the wait, the swap, the old cache going — and the
+offline assertions had to be rewritten once when it turned out that
+Playwright's offline mode does not apply to a service worker's own fetches, so
+they were passing against a worker that had cached nothing at all.
 
 ## Suggestions
 

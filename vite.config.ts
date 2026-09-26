@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
+import { pwa } from './vite-plugins/pwa'
 
 /**
  * Three vendor chunks, because they change on different clocks.
@@ -27,7 +28,17 @@ function vendorChunk(id: string): string | undefined {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    /*
+     * The two pages worth having before they are asked for. The dashboard is
+     * where every visit lands, and the board is the page this app exists for —
+     * and the one most likely to be opened in a meeting room with one bar of
+     * signal. The other eleven are cached the first time they are opened.
+     */
+    pwa({ swSrc: 'src/sw.ts', pages: ['Dashboard', 'Board'] }),
+  ],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },

@@ -23,40 +23,17 @@
  * something the unit tests do not need — so this resolves it from wherever it
  * happens to be and says what to do if it is nowhere.
  */
-import { createRequire } from 'node:module'
 import { createServer } from 'node:http'
 import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { extname, join, resolve } from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { loadPlaywright } from './playwright.mjs'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const OUT = join(ROOT, 'dist-harness')
 const MIN_TOUCH = 44
 const VIEWPORT = { width: 375, height: 812 }
 
-function loadPlaywright() {
-  const require = createRequire(import.meta.url)
-  for (const spec of ['playwright', 'playwright-core', '@playwright/test']) {
-    try {
-      return require(spec)
-    } catch {
-      /* keep looking */
-    }
-  }
-  // A global install is how the cloud sandbox has it.
-  try {
-    const root = execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim()
-    return createRequire(join(root, 'x.js'))('playwright')
-  } catch {
-    /* fall through */
-  }
-  console.error(
-    'Playwright is not installed. `npm i -D playwright && npx playwright install chromium`,\n' +
-      'or run this where a global playwright is available. Skipping the mobile check.',
-  )
-  process.exit(2)
-}
 
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
@@ -202,7 +179,7 @@ function lumOf(css) {
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
 }
 
-const { chromium } = loadPlaywright()
+const { chromium } = loadPlaywright('mobile check')
 
 if (!existsSync(join(OUT, 'index.html'))) {
   console.error('dist-harness is missing. `npm run build:harness` first.')
@@ -245,6 +222,22 @@ for (const scene of scenes) {
   await page.goto(`${base}/index.html?view=${encodeURIComponent(scene)}`, {
     waitUntil: 'networkidle',
   })
+  /*
+   * Nothing in a measured scene may be halfway anywhere.
+   *
+   * Half this app's surfaces carry `transition-colors`, so for ~150ms after a
+   * theme flip every background is a blend of two themes, and a measurement
+   * taken then is of a colour the app never actually shows. That produced a
+   * real, intermittent false failure — `chips` reported that its printed page
+   * "changes with the theme", with both readings navy and 8 units apart,
+   * because the flip back to light had not finished when the print pass began.
+   * Waiting longer would have made it rarer on this machine and no less
+   * possible on a slower one; turning the transitions off removes the state
+   * that was being measured.
+   */
+  await page.addStyleTag({
+    content: '*, *::before, *::after { transition: none !important; animation: none !important }',
+  })
   // Scenes that start from a tap seed themselves.
   const seed = page.locator('[data-seed]')
   if (await seed.count()) {
@@ -279,15 +272,8 @@ for (const scene of scenes) {
   await page.evaluate(() => {
     document.documentElement.dataset.theme = 'dark'
   })
-  /*
-   * Let the colours finish arriving. Half this app's surfaces carry
-   * `transition-colors`, so for 150ms after the flip every background is a
-   * blend of the two themes — and measuring then reported a card as still
-   * being daylight-white when it was a third of the way to navy. A real
-   * contrast failure does not heal on its own, so waiting costs nothing but
-   * the wait.
-   */
-  await page.waitForTimeout(300)
+  // Transitions are off (above), so this is a style recalculation, not a fade.
+  await page.waitForTimeout(100)
   const dark = await page.evaluate(auditInPage, MIN_TOUCH)
   if (dark.pageScrollsSideways)
     problems.push(`in the dark: page scrolls sideways (${dark.scrollWidth}px)`)
@@ -304,6 +290,9 @@ for (const scene of scenes) {
     document.documentElement.dataset.theme = 'light'
   })
   await page.emulateMedia({ colorScheme: 'light' })
+  // The flip back, given the same settling as the flip out: the print pass
+  // below compares what paper gets from here with what it got in the dark.
+  await page.waitForTimeout(100)
 
   /*
    * What paper gets. Nothing else here can see it: a `print:hidden` control

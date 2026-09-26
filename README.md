@@ -44,8 +44,8 @@ Tests and typecheck:
 ```bash
 npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
                   # reporting, suggestions, undo, drag rules, the toast queue,
-                  # the focus trap, the theme rules, the route table and
-                  # chunk recovery (329 tests)
+                  # the focus trap, the theme rules, the route table, chunk
+                  # recovery and the service worker's rules (362 tests)
 npm run typecheck
 npm run build
 ```
@@ -58,6 +58,8 @@ npm run check:mobile -- chips   # one scene
 SHOTS=1 npm run check:mobile    # and write PNGs to dist-harness/shots
 npm run check:routes            # the built bundle in a browser: chunks, deep links, roles
 npm run check:drag              # a real mouse and a real finger on the board
+npm run check:pwa               # installable, offline, and able to update itself
+npm run icons                   # redraw the icons (committed; not part of the build)
 ```
 
 This builds `harness/` — a second Vite entry that renders the components with
@@ -90,6 +92,25 @@ surface in the dark. It needs no
 credentials and never reaches the live project: it builds into
 `dist-routecheck/` with placeholder Supabase values, because every request to
 the project is intercepted anyway and `dist/` should be left alone.
+
+`check:pwa` installs the built app in a browser and then takes the network
+away. It asserts that the manifest is one a phone will actually install (the
+192 and 512px PNGs Chrome requires, checked against the pixels in the files
+rather than the sizes claimed in the JSON, and a maskable icon that is a
+separate file from the one drawn to fill its square), that the worker activates
+and claims the page that installed it, that what it cached is this origin's own
+shell and not one byte of anybody's Supabase data, that a reload and an unseen
+deep link both still render with no connection while a request to the database
+still fails, and — the assertion the script exists for — that a new version on
+the server is noticed, *offered* rather than forced, and applied with the old
+build's cache deleted when the offer is taken. An installed app that cannot
+replace itself is worse than one that was never installable.
+
+The network is taken away by dropping connections at the test's own server
+rather than with Playwright's `context.setOffline`, which does not apply to a
+service worker's own fetches: with the shell deliberately removed from the
+precache list, the offline assertions still passed, because the "offline"
+worker was quietly fetching the page the whole time.
 
 `check:drag` drives an actual pointer at an actual board — a mouse, and a
 finger through the browser's real touch pipeline — because what makes dragging
@@ -199,6 +220,23 @@ locally.
 
 Only `dist/` is published, so nothing in the repo (source, seed data, the PDFs)
 is served. Any unmatched path returns `index.html` by design.
+
+`netlify.toml` also pins two cache headers. `/assets/*` is `immutable`, because
+every file there is named by the hash of its own contents. `/sw.js` is
+explicitly `max-age=0, must-revalidate`: it is the one file that decides
+whether every other file can be replaced, so a cached copy is not a stale page
+but an app that can never update itself again, on a phone whose cache nobody
+can clear.
+
+The app is installable. `public/manifest.webmanifest` and the icons in
+`public/icons/` are what a phone reads to offer "Add to home screen"; the icons
+are committed rather than generated during the build, so a deploy never depends
+on a browser being installed — redraw them with `npm run icons` if the mark
+changes. The service worker is built from `src/sw.ts` by
+`vite-plugins/pwa.ts`, which works out the shell from the bundle itself and
+names the cache after the hash of that list. It precaches the shell plus the
+dashboard and the board, caches any other page the first time it is opened, and
+never touches a request that leaves this origin.
 
 After changing the deployed domain, add it to Supabase under **Authentication →
 URL Configuration**, or sign-in will bounce. The current allow-list covers the

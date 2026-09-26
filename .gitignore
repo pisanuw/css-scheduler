@@ -3,6 +3,7 @@ package-lock.json
 dist/
 dist-harness/
 dist-routecheck/
+dist-pwacheck/
 coverage/
 .env
 .env.status

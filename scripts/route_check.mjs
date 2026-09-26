@@ -27,12 +27,11 @@
  * tries to refresh it. Nothing here touches the live project: every request
  * to it is intercepted before it leaves the page.
  */
-import { createRequire } from 'node:module'
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { extname, join, resolve } from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { loadPlaywright } from './playwright.mjs'
 
 const ROOT = resolve(import.meta.dirname, '..')
 /**
@@ -43,27 +42,6 @@ const DIST = join(ROOT, process.env.ROUTE_CHECK_DIST ?? 'dist')
 const VIEWPORT = { width: 375, height: 812 } // The coordinator's phone, as ever.
 const PROJECT_REF = 'abvnaelzfriusckqqrfc'
 
-function loadPlaywright() {
-  const require = createRequire(import.meta.url)
-  for (const spec of ['playwright', 'playwright-core', '@playwright/test']) {
-    try {
-      return require(spec)
-    } catch {
-      /* keep looking */
-    }
-  }
-  try {
-    const root = execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim()
-    return createRequire(join(root, 'x.js'))('playwright')
-  } catch {
-    /* fall through */
-  }
-  console.error(
-    'Playwright is not installed. `npm i -D playwright && npx playwright install chromium`,\n' +
-      'or run this where a global playwright is available. Skipping the routing check.',
-  )
-  process.exit(2)
-}
 
 const MIME = {
   '.html': 'text/html',
@@ -161,7 +139,7 @@ async function signIn(page, base, user) {
   )
 }
 
-const { chromium } = loadPlaywright()
+const { chromium } = loadPlaywright('routing check')
 if (!existsSync(DIST)) {
   console.error(`${DIST} is missing. Run \`npm run check:routes\`, which builds it first.`)
   process.exit(2)
@@ -179,13 +157,33 @@ const chunkNames = (urls) =>
     .map((u) => /\/assets\/(.+?)-[A-Za-z0-9_-]+\.js$/.exec(u)?.[1])
     .filter(Boolean)
 
+/*
+ * Service workers are blocked throughout this check, in every context it
+ * makes.
+ *
+ * This script's subject is what the *network* is asked for: which chunk a tap
+ * fetches, what a signed-out visitor downloads, what an instructor never
+ * receives. A service worker precaches the shell and then answers from a cache,
+ * which would turn every one of those assertions into a measurement of the
+ * cache instead. `scripts/pwa_check.mjs` owns the worker and asserts the
+ * opposite things about it.
+ */
+const NO_WORKER = { viewport: VIEWPORT, serviceWorkers: 'block' }
+
 async function newPage(user) {
-  const page = await browser.newPage({ viewport: VIEWPORT })
+  const page = await browser.newPage(NO_WORKER)
   const requested = []
   const noise = []
   page.on('request', (r) => requested.push(r.url()))
+  /*
+   * The two messages this check causes itself, by blocking the worker above:
+   * Playwright announcing the block, and the app saying it could not register.
+   * Everything else on the console is a finding.
+   */
+  const SELF_INFLICTED = /registration blocked by Playwright|\[sw\] registration failed/
   page.on('console', (m) => {
-    if (m.type() === 'error' || m.type() === 'warning') noise.push(`${m.type()}: ${m.text()}`)
+    if ((m.type() === 'error' || m.type() === 'warning') && !SELF_INFLICTED.test(m.text()))
+      noise.push(`${m.type()}: ${m.text()}`)
   })
   page.on('pageerror', (e) => noise.push(`pageerror: ${e.message}`))
   if (user) await stubSupabase(page, user)
@@ -350,8 +348,8 @@ const DESTINATIONS = [
  * attribute there passes whether or not the inline script exists.
  */
 {
-  const dark = await browser.newContext({ viewport: VIEWPORT, colorScheme: 'dark' })
-  const light = await browser.newContext({ viewport: VIEWPORT, colorScheme: 'light' })
+  const dark = await browser.newContext({ ...NO_WORKER, colorScheme: 'dark' })
+  const light = await browser.newContext({ ...NO_WORKER, colorScheme: 'light' })
 
   /** The theme with React prevented from ever running. */
   const beforeReact = async (context, before) => {
@@ -407,7 +405,7 @@ const DESTINATIONS = [
   // own: `dark` has a stored choice from the assertion above, and inheriting it
   // makes the button start in the second state rather than the first.
   {
-    const fresh = await browser.newContext({ viewport: VIEWPORT, colorScheme: 'dark' })
+    const fresh = await browser.newContext({ ...NO_WORKER, colorScheme: 'dark' })
     const page = await fresh.newPage()
     await stubSupabase(page, USERS.coordinator)
     await signIn(page, base, USERS.coordinator)
@@ -449,7 +447,7 @@ const DESTINATIONS = [
  * paints.
  */
 {
-  const context = await browser.newContext({ viewport: VIEWPORT, colorScheme: 'dark' })
+  const context = await browser.newContext({ ...NO_WORKER, colorScheme: 'dark' })
   const page = await context.newPage()
   await stubSupabase(page, USERS.coordinator)
   await signIn(page, base, USERS.coordinator)
