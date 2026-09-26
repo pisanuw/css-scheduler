@@ -78,6 +78,12 @@ export function useScenarioSnapshot(scenarioId?: string) {
     board,
     terms,
     courses,
+    /**
+     * The roster as rows, not as the engine's narrowed `Instructor`. The import
+     * sheet matches names against `full_name` and honours `is_active`, neither
+     * of which survives into the snapshot.
+     */
+    instructors,
     timeSlots,
     rooms,
     cycleId,

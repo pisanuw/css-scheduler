@@ -76,6 +76,15 @@ export interface SeedInput {
   rooms: { id: string; label: string }[]
   /** Instructors who may still be assigned. Anyone else has their row dropped. */
   activeInstructorIds: Set<string>
+  /**
+   * Sections the scenario already holds, keyed `termId|courseId|letter`.
+   *
+   * Seeding a new scenario never needs this, but importing a quarter into a
+   * board that already has sections does: that key is unique on the table, so a
+   * collision would fail the whole insert. Naming them as skipped lets the rest
+   * of the import land.
+   */
+  existingKeys?: Set<string>
 }
 
 /** Grid slots are keyed by their shape so a row can be matched in one lookup. */
@@ -120,6 +129,11 @@ export function planFromHistory(input: SeedInput): SeedPlan {
 
     const letter = (row.section_letter ?? 'A').trim().toUpperCase() || 'A'
     const key = `${termId}|${row.course_id}|${letter}`
+
+    if (input.existingKeys?.has(key)) {
+      skipped.push({ detail: label, reason: 'already in this scenario' })
+      continue
+    }
 
     const instructorIds =
       row.instructor_id && input.activeInstructorIds.has(row.instructor_id) ? [row.instructor_id] : []

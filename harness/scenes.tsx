@@ -11,7 +11,7 @@
  * It is not shipped: `harness/` has its own Vite entry and is never imported by
  * `src/main.tsx`.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   Conflict,
   Instructor,
@@ -49,6 +49,7 @@ import SectionEditor, {
   type SectionFormValue,
 } from "../src/components/board/SectionEditor";
 import SuggestSheet from "../src/components/board/SuggestSheet";
+import ImportSheet from "../src/components/board/ImportSheet";
 import ConflictPanel from "../src/components/board/ConflictPanel";
 import ExportBar from "../src/components/ExportBar";
 import PrintStamp from "../src/components/PrintStamp";
@@ -400,6 +401,32 @@ function ChipScene() {
  * Escape assertion is meaningless — a sheet handed an onClose that does
  * nothing looks exactly like a sheet that ignores Escape.
  */
+/**
+ * A paste, typed in for real.
+ *
+ * `ImportSheet` keeps the pasted text in its own state, which is right for the
+ * app and awkward for a scene: the interesting layout is the *filled* sheet —
+ * the summary, the three disclosure lists, the long unimportable lines that are
+ * the most likely thing to push the page sideways. So the harness pastes the
+ * way a person does, through the field, using React's own change path: the
+ * native value setter plus an `input` event is what a real paste dispatches.
+ *
+ * Harness-only. Nothing in `src/` knows this exists.
+ */
+function Pasted({ text, children }: { text: string; children: JSX.Element }) {
+  useEffect(() => {
+    const field = document.querySelector("textarea");
+    if (!field) return;
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(field, text);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  }, [text]);
+  return children;
+}
+
 function Closeable({ render }: { render: (close: () => void) => JSX.Element }) {
   const [open, setOpen] = useState(true);
   if (!open)
@@ -853,6 +880,54 @@ export const SCENES: Record<string, () => JSX.Element> = {
           onApply={() => {}}
           onClose={close}
         />
+      )}
+    />
+  ),
+  /**
+   * The import sheet with a paste in it: a section that resolves, one whose
+   * instructor is not on the roster, a course the catalogue does not hold, and
+   * a quiz line — so all three disclosure lists are open to measure.
+   */
+  "import-sheet": () => (
+    <Closeable
+      render={(close) => (
+        <Pasted
+          text={[
+            "CSS 143 COMPUTER PROGRAMMING II",
+            "12890 A 5 MW 115-315 UW1 050 Stride,Jeff Open 30/ 48",
+            "12891 B 5 TTh 545-745P UW1 030 Rajanna,Madhu Open 11/ 48",
+            "CSS 999 A COURSE THAT IS NOT IN THE CATALOGUE",
+            "13100 A 5 MW 845-1045 UW2 131 Nixon,David Open 1/ 20",
+            "CSS 342 DATA STRUCTURES",
+            "12901 AA QZ F 1030-1120A UW1 041",
+          ].join("\n")}
+        >
+          <ImportSheet
+            termLabel="Autumn 2026"
+            quarter="autumn"
+            courses={[
+              { id: "c143", code: "CSS 143", number: 143 },
+              { id: "c342", code: "CSS 342", number: 342 },
+            ]}
+            roster={[
+              { id: "i-stride", full_name: "Jeff Stride", is_active: true },
+              { id: "i-nixon", full_name: "David Nixon", is_active: true },
+            ]}
+            timeSlots={TIME_SLOTS.map((t) => ({
+              id: t.id,
+              days: t.days,
+              start_time: t.start_time,
+              end_time: t.end_time,
+            }))}
+            rooms={[{ id: "r050", label: "UW1 050" }]}
+            termId="au"
+            existingKeys={new Set(["au|c143|A"])}
+            academicYear="2026-27"
+            applying={false}
+            onApply={() => {}}
+            onClose={close}
+          />
+        </Pasted>
       )}
     />
   ),

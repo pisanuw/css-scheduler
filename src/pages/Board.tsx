@@ -11,6 +11,7 @@ import { countBySeverity, detectConflicts, type Severity } from '../lib/conflict
 import { loadTallies, type SectionRow } from '../lib/snapshot'
 import { useScenarioSnapshot } from '../hooks/useScenarioSnapshot'
 import {
+  useApplySeedPlan,
   useAssign,
   useBulkAssign,
   useDeleteSection,
@@ -32,6 +33,7 @@ import {
   type DragSource,
 } from '../lib/dnd'
 import { useAuth } from '../lib/auth'
+import { useAcademicYears } from '../hooks/preferences'
 import { suggestAssignments } from '../lib/suggest'
 import SectionCard from '../components/board/SectionCard'
 import DragPill from '../components/board/DragPill'
@@ -42,6 +44,7 @@ import LoadPanel from '../components/board/LoadPanel'
 import QuarterTabs from '../components/board/QuarterTabs'
 import HistoryPanel from '../components/board/HistoryPanel'
 import SuggestSheet from '../components/board/SuggestSheet'
+import ImportSheet from '../components/board/ImportSheet'
 import { useToast } from '../components/Toast'
 import SectionEditor, {
   toFormValue,
@@ -94,8 +97,9 @@ export default function Board() {
     return (list.find((s) => s.status === 'official') ?? list.find((s) => s.status !== 'archived'))?.id
   }, [routeId, scenarios.data])
 
-  const { scenario, snapshot, board, terms, courses, timeSlots, rooms, cycleId } =
+  const { scenario, snapshot, board, terms, courses, instructors, timeSlots, rooms, cycleId } =
     useScenarioSnapshot(resolvedId)
+  const years = useAcademicYears()
 
   const changes = useScenarioChanges(resolvedId)
   const saveSection = useSaveSection(resolvedId ?? '')
@@ -105,6 +109,7 @@ export default function Board() {
   const bulkAssign = useBulkAssign(resolvedId ?? '')
   const move = useMoveAssignment(resolvedId ?? '')
   const undo = useUndoChanges(resolvedId ?? '')
+  const applyImport = useApplySeedPlan()
   const { profile } = useAuth()
   const toast = useToast()
 
@@ -114,6 +119,7 @@ export default function Board() {
   const [editorError, setEditorError] = useState<string | null>(null)
   const [highlighted, setHighlighted] = useState<string | null>(null)
   const [suggesting, setSuggesting] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [dragging, setDragging] = useState<DragSource | null>(null)
   const [overSectionId, setOverSectionId] = useState<string | null>(null)
 
@@ -150,7 +156,8 @@ export default function Board() {
       // Never steal undo from a field being typed into, or from an open sheet.
       const el = e.target as HTMLElement | null
       if (el?.closest('input, textarea, select, [contenteditable="true"]')) return
-      if (!resolvedId || editing || assigning || suggesting || locked || undo.isPending) return
+      if (!resolvedId || editing || assigning || suggesting || importing || locked || undo.isPending)
+        return
       e.preventDefault()
       // Both halves of a move, so ⌘Z after a drag puts the person back on the
       // section they came from rather than leaving them on neither.
@@ -170,6 +177,7 @@ export default function Board() {
     editing,
     assigning,
     suggesting,
+    importing,
     locked,
     undo.isPending,
     runUndo,
@@ -233,6 +241,21 @@ export default function Board() {
   const assigningSection = useMemo(
     () => snapshot.sections.find((s) => s.id === assigning) ?? null,
     [snapshot.sections, assigning],
+  )
+
+  /**
+   * What the scenario already holds, keyed the way the sections table's unique
+   * constraint is. An import into a quarter that is half-built has to know, or
+   * one collision would fail the whole insert.
+   */
+  const existingKeys = useMemo(
+    () =>
+      new Set(
+        (board.data?.sections ?? []).map(
+          (s) => `${s.term_id}|${s.course_id}|${s.section_letter.toUpperCase()}`,
+        ),
+      ),
+    [board.data?.sections],
   )
 
   /**
@@ -467,6 +490,14 @@ export default function Board() {
               {termLabel(termId)} — {visible.length} section{visible.length === 1 ? '' : 's'}
             </h2>
             <div className="ml-auto flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setImporting(true)}
+                disabled={locked}
+                className="flex min-h-11 items-center rounded-md border border-slate-300 bg-surface px-3 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Import
+              </button>
               {unstaffedCount > 0 && (
                 <button
                   type="button"
@@ -494,9 +525,18 @@ export default function Board() {
           ) : visible.length === 0 ? (
             <div className="rounded-lg bg-surface p-6 ring-1 ring-slate-200">
               <p className="text-sm text-slate-600">
-                No sections in {termLabel(termId)} yet. Add the first one, then tap it to assign an
+                No sections in {termLabel(termId)} yet. Paste the published time schedule to start
+                from what is already there, or add the first one by hand and tap it to assign an
                 instructor.
               </p>
+              <button
+                type="button"
+                onClick={() => setImporting(true)}
+                disabled={locked}
+                className="mt-3 flex min-h-11 items-center rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Import {termLabel(termId)} from a time schedule
+              </button>
             </div>
           ) : (
             <ul className="space-y-3">
@@ -589,6 +629,40 @@ export default function Board() {
               },
               onError: (e) => toast.failed('Could not apply the suggestions', e),
             })
+          }
+        />
+      )}
+
+      {importing && termId && (
+        <ImportSheet
+          termLabel={termLabel(termId)}
+          quarter={snapshot.terms.find((t) => t.id === termId)?.quarter ?? 'autumn'}
+          courses={courses.data ?? []}
+          roster={instructors.data ?? []}
+          timeSlots={timeSlots.data ?? []}
+          rooms={rooms.data ?? []}
+          termId={termId}
+          existingKeys={existingKeys}
+          academicYear={
+            years.data?.find((y) => y.id === scenario.data?.academic_year_id)?.name ?? ''
+          }
+          applying={applyImport.isPending}
+          onClose={() => setImporting(false)}
+          onApply={(plan) =>
+            applyImport.mutate(
+              { scenarioId: resolvedId!, plan },
+              {
+                onSuccess: ({ sections, assignments }) => {
+                  setImporting(false)
+                  toast.ok(
+                    `Imported ${sections} section${sections === 1 ? '' : 's'} and ${assignments} assignment${
+                      assignments === 1 ? '' : 's'
+                    } into ${termLabel(termId)}.`,
+                  )
+                },
+                onError: (e) => toast.failed('Could not import that schedule', e),
+              },
+            )
           }
         />
       )}

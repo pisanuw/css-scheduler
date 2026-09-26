@@ -9,6 +9,13 @@ candidate list is ordered by who actually fits — what they said about the
 course, whether it clashes with something they already teach, how far it would
 push them past their teaching target.
 
+A quarter does not have to be typed in. Copy the CSS listing out of the
+published UW time schedule, paste it into the board's import sheet, and it
+arrives as a draft: courses matched against the catalogue, names matched
+against the roster, meetings landed on the standard grid, and everything it
+could not place named rather than dropped. Nothing is written until you confirm
+it. See **Importing a quarter** in [docs/DESIGN.md](docs/DESIGN.md).
+
 **Live:** https://uwb-css-scheduler.netlify.app — sign-in needs the Google
 OAuth client set up first (see **Setting up Google sign-in** below).
 

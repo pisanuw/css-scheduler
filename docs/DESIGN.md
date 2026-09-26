@@ -781,7 +781,8 @@ coordinator dashboard showing who has responded with a copyable chase list.
 Reminder emails are not built.
 
 **3 — The assignment board (done).** Scenarios (create, rename, archive, mark
-one official per year, delete), seeding a scenario from a past year's schedule,
+one official per year, delete), seeding a scenario from a past year's schedule
+or importing a quarter from a pasted time schedule,
 section CRUD against all three timing shapes, ranked tap-to-assign, dragging
 as an accelerator over the top of it, the live conflict panel and
 per-instructor load tallies. Undo — of an assignment, a move, a burst of them,
@@ -796,10 +797,9 @@ naming and the same confirmation from either page, and each carries a
 print-only date stamp — a printout with no date on it cannot be told from last
 week's.
 
-**5 — Partly done.** Solver-assisted suggestions for unfilled sections and
-student-facing conflict checks are built. Importing a quarter directly from a
-pasted UW time schedule is not; seeding from an already-imported year covers
-most of what it was for.
+**5 — Done.** Solver-assisted suggestions for unfilled sections,
+student-facing conflict checks, and importing a quarter from a pasted UW time
+schedule — see **Importing a quarter** below.
 
 **Polish.** Undo, one voice for feedback, focus management, tables as cards,
 code splitting, dragging, print output, dark mode and an installable,
@@ -906,3 +906,71 @@ The page is open to everyone signed in, not just coordinators. Row level
 security already limits non-coordinators to the official scenario, so an
 adviser sees the published schedule and nothing else, with no extra rule
 needed.
+
+## Importing a quarter
+
+The coordinator already has the schedule. It is on a web page, published by the
+registrar, and typing eighty sections of it back into this app by hand is the
+work the app exists to remove. So the board takes a paste: copy the CSS listing
+out of the time schedule, drop it into the import sheet, and the quarter arrives
+as a draft to edit.
+
+**The parser does not count characters.** The published schedule is fixed-width
+text inside a `<pre>`, and every instinct says to read it by column. A paste
+does not preserve columns — a phone paste especially, and a copy out of a PDF
+collapses runs of spaces on its own. `src/lib/timeSchedule.ts` recognises each
+field by its own shape instead, and claims them in the order UW writes them: the
+five-digit SLN, then the letter, then the type, credits, days, time, room,
+instructor, status, enrolment. A line whose columns have collapsed to single
+spaces parses identically to one that has not.
+
+**One field is taken by position on purpose.** `F` is both a valid section
+letter and Friday, and nothing but its place after the SLN tells the two apart.
+Everything else is recognised by shape, and the exception is commented where it
+happens.
+
+**The meridiem is institutional knowledge, not string parsing.** UW writes
+`1100-100` for an eleven o'clock class that ends at one. The two halves of one
+range get different meridiems, which no general time parser would do. The rule —
+a trailing `P` carries the whole range, otherwise hours 8 to 11 are morning and
+everything else is afternoon — is ported from `scripts/generate_seed.py`, which
+is what read the three real schedules in the first place. It is the one part of
+the parser that cannot be derived from the text, and it is tested against all
+six blocks of the real grid.
+
+**An import resolves into `HistoryRow`, then goes through the seed planner.**
+This is the reason the two features share a shape. `planFromHistory` already
+knows how to match a meeting against the standard grid, keep an off-grid time as
+a custom one, merge a co-taught section rather than inserting it twice, resolve
+a room label, and respect the unique key on `(term, course, letter)`. Writing
+any of that a second time for the import would be writing a second chance to get
+it wrong. The import adds one thing the planner needed: `existingKeys`, so that
+importing into a quarter that already holds sections reports the collisions as
+skipped instead of failing the whole insert on the first one.
+
+**A name that could mean two people matches neither.** `matchInstructor` tries
+the full surname and given name, then a shortened given name (`Steve` for
+`Stephen`), then a surname on its own — and at each step a tie is not a match.
+Silently picking one of two Wangs would put a section on the wrong person's load
+and look exactly like a correct import. An unmatched name is reported by name,
+and the section still lands, unstaffed, for the coordinator to assign.
+
+**Nothing is written until the sheet is confirmed.** The summary, the unmatched
+names and the lines that could not be imported all recompute as the text
+changes, so a paste of the wrong quarter, or of half a page, is visible before
+anything reaches the database rather than afterwards.
+
+**What it will not do.** It does not invent instructors: a name the roster does
+not hold stays unstaffed rather than creating a row nobody reviewed. It does not
+invent courses: `CSS 999` is reported and left out. Quiz and lab rows are named
+and skipped, because this app schedules the lecture sections that carry the
+teaching load. A section that meets twice keeps its first meeting and says so —
+the schema holds one meeting per section, and halving one quietly would be the
+worst of the three options.
+
+**Checked against the real thing.** `src/lib/timeSchedule.real.test.ts` writes
+all 240 rows of `scripts/data/history_sections.csv` back out in published layout
+and requires the parser to recover every field of every one. It is a round trip,
+so it cannot prove the layout is faithful — but it is the only check that
+exercises every real course, room, name and time block together, including the
+awkward ones: `* *` for no room, `to be arranged`, and a cap written `48E`.

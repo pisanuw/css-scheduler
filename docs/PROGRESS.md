@@ -12,12 +12,100 @@ this file is the state of play.
 | 2 — Preference collection | done |
 | 3 — Assignment board | done |
 | 4 — Reporting | done (export and print on both the report and the comparison) |
-| 5 — Solver, import, student checks | suggestions and student checks done; time-schedule import not started |
+| 5 — Solver, import, student checks | done |
 | Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA and the Supabase trim done |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-26 (thirteenth run) — the schedule, pasted
+
+**Built.** The last unbuilt piece of the original plan: importing a quarter from
+a pasted UW time schedule. Iteration 5 is now complete.
+
+- `src/lib/timeSchedule.ts` — the parser and the resolver, both pure.
+  `parseTimeSchedule` reads the published listing; `resolveImport` turns what it
+  read into the `HistoryRow` shape the seed planner already understands;
+  `matchInstructor` maps a schedule name onto the roster.
+- `src/lib/seedPlan.ts` — one addition, `existingKeys`. Importing into a quarter
+  that already holds sections would otherwise fail the whole insert on the first
+  `(term, course, letter)` collision.
+- `src/components/board/ImportSheet.tsx` — paste, see what it read, confirm.
+  Everything below the textarea recomputes as the text changes.
+- `src/pages/Board.tsx` — an Import button in the quarter toolbar, and the empty
+  quarter now offers the import rather than only "add a section".
+- `src/hooks/useScenarioSnapshot.ts` — returns `instructors` as rows. The
+  snapshot narrows them to id and name; matching needs `full_name` and
+  `is_active`.
+
+**Verified.** 420 tests (369 before, 51 new), typecheck and build all green.
+All 29 mobile scenes clean at 375px including the new `import-sheet` — measured
+with a paste actually in the field, not on an empty sheet, so the summary, the
+three disclosure lists and the long unimportable lines are what got measured.
+The dialog checks came free with it: focus enters the sheet, Tab and Shift+Tab
+stay inside it for 16 presses each, Escape closes it. Routing and drag checks
+still clean. No migration: the import writes to `sections` and
+`section_instructors` through the same `useApplySeedPlan` the seeding path
+already used, so there is no new table, view or policy — and nothing for the
+RLS suite to grow.
+
+**Learned.**
+
+- *Reading fixed-width text by column is the obvious approach and the wrong
+  one.* The published schedule is a `<pre>`, so counting characters looks
+  right — but the coordinator gets the text by copying it, and a copy collapses
+  runs of spaces. Recognising each field by its own shape costs a little more
+  code and survives the paste. One field is still taken by position, and it has
+  to be: `F` is both a section letter and Friday, and only its place after the
+  SLN tells them apart.
+- *The time format carries a rule that is not in the string.* `1100-100` is
+  11:00 to 13:00 — the two halves of one range get different meridiems. That
+  rule was already in `scripts/generate_seed.py` from the original PDF parse.
+  Porting it rather than re-deriving it is the whole reason the six real time
+  blocks come out right.
+- *Resolving into `HistoryRow` and reusing `planFromHistory` was worth more than
+  it looked.* Grid matching, off-grid times, co-teaching merges, room
+  resolution and the unique-key rules all applied to the import for free, and
+  the import needed exactly one new thing from the planner. Two importers with
+  two sets of edge cases was the alternative.
+- *A tie must not be a match.* `matchInstructor` returns null rather than
+  picking one of two people with the same surname. A wrong match is worse than
+  no match here: it lands a section on somebody's annual load and looks exactly
+  like a correct import.
+- *The round-trip test paid for itself immediately.* Writing all 240 real rows
+  back out in published layout and parsing them found nothing on the first run
+  that the hand-written tests had not — but only because the hand-written tests
+  had already been fixed by it. Two bugs: a regex that made the meridiem suffix
+  mandatory, so every morning class failed to parse; and a course-heading
+  pattern loose enough that the `W` on a continuation meeting line read as a
+  subject code and `115-315` as its course number.
+
+**Deliberately not done.** No instructor or course rows are created by an
+import. A name the roster does not hold is reported and the section lands
+unstaffed; `CSS 999` is reported and left out. Creating reference rows from a
+paste nobody reviewed is the kind of convenience that is very hard to undo.
+
+**Watch out for.** `describePlan` does not singularise, so a one-section import
+reads "1 sections · 0 assignments" in the summary while the button beside it
+correctly says "Import 1 section". It is shared with the Scenarios seed dialog,
+where it has always read that way. A small fix with a test, worth doing next
+time something else touches that file.
+
+**Next run should pick up — in this order.**
+
+1. **An offline banner.** Unchanged from last run and now the most valuable
+   thing left: the app renders offline and says nothing about it, so a
+   coordinator tapping Assign with no signal gets a Supabase error rather than
+   an explanation. The service worker already knows; the app does not ask.
+2. **`npm audit` reports 7 vulnerabilities** (1 critical, 1 high), all in dev
+   tooling as far as two runs have looked. Now that the lockfile is committed,
+   upgrading is a deliberate act with a diff — worth a run of its own.
+3. **`describePlan` pluralisation**, per above.
+4. `.env.asc` arrived in `dd09666` with nothing saying which key opens it or
+   what to do with it — worth a line in the README, from whoever added it.
 
 ---
 
