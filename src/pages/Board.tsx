@@ -3,12 +3,20 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { countBySeverity, detectConflicts, type Severity } from '../lib/conflicts'
 import { loadTallies, type SectionRow } from '../lib/snapshot'
 import { useScenarioSnapshot } from '../hooks/useScenarioSnapshot'
-import { useAssign, useDeleteSection, useSaveSection, useScenarios, useUnassign } from '../hooks/scheduling'
+import {
+  useAssign,
+  useDeleteSection,
+  useSaveSection,
+  useScenarioChanges,
+  useScenarios,
+  useUnassign,
+} from '../hooks/scheduling'
 import SectionCard from '../components/board/SectionCard'
 import AssignSheet from '../components/board/AssignSheet'
 import ConflictPanel from '../components/board/ConflictPanel'
 import LoadPanel from '../components/board/LoadPanel'
 import QuarterTabs from '../components/board/QuarterTabs'
+import HistoryPanel from '../components/board/HistoryPanel'
 import SectionEditor, {
   toFormValue,
   toRow,
@@ -63,6 +71,7 @@ export default function Board() {
   const { scenario, snapshot, board, terms, courses, timeSlots, rooms, cycleId } =
     useScenarioSnapshot(resolvedId)
 
+  const changes = useScenarioChanges(resolvedId)
   const saveSection = useSaveSection(resolvedId ?? '')
   const deleteSection = useDeleteSection(resolvedId ?? '')
   const assign = useAssign(resolvedId ?? '')
@@ -340,6 +349,7 @@ export default function Board() {
         <div className="space-y-4">
           <ConflictPanel conflicts={conflicts} counts={counts} onPick={reveal} />
           <LoadPanel tallies={tallies} terms={snapshot.terms} />
+          <HistoryPanel changes={changes.data ?? []} loading={changes.isLoading} />
           {!cycleId && (
             <p className="rounded-lg bg-white p-3 text-xs text-slate-500 ring-1 ring-slate-200">
               No preference cycle exists for this year, so nothing is checked against what

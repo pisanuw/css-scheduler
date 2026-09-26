@@ -283,11 +283,84 @@ begin
   delete from auth.users where email in ('coord-probe@uw.edu','later-probe@uw.edu');
   delete from bootstrap_coordinators where note = 'rls-test probe';
 
+  -- --------------------------------------------------------- change log --
+  -- Everything above already wrote to it: the sections and assignments this
+  -- suite created were logged by trigger, without anyone asking.
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub', v_coord::text, true);
+
+  -- A change made through the policies, the way the board makes them, so the
+  -- entry has an actor. The setup above ran as the owner and left those null.
+  insert into sections (scenario_id,term_id,course_id,section_letter,time_slot_id)
+    values (v_official,v_oterm,v_course,'B',v_slot);
+  insert into _res(check_name,result,expected)
+    select 'the log names who made the change',
+           (select actor_email::text from scenario_changes
+             where scenario_id = v_official and summary = 'CSS 343 B'), 'rls-test-a@uw.edu';
+
+  insert into _res(check_name,result,expected)
+    select 'section changes are logged without the client helping',
+           (select string_agg(distinct action::text, ',' order by action::text)
+              from scenario_changes where scenario_id = v_official), 'assigned,created';
+  insert into _res(check_name,result,expected)
+    select 'the log entry names the section',
+           (select summary from scenario_changes
+             where scenario_id = v_official and action = 'created'
+             order by id limit 1), 'CSS 343 A';
+
+  -- The log is append-only to everyone, coordinators included: an audit trail
+  -- its subject can edit is not one.
+  begin
+    insert into scenario_changes (scenario_id, action, summary)
+      values (v_official, 'deleted', 'rls-test forged');
+    insert into _res(check_name,result,expected) values ('coordinator forges a log entry','INSERTED','blocked');
+  exception when insufficient_privilege then
+    insert into _res(check_name,result,expected) values ('coordinator forges a log entry','blocked','blocked');
+  end;
+
+  begin
+    update scenario_changes set summary = 'rls-test tampered' where scenario_id = v_official;
+    get diagnostics n = row_count;
+    insert into _res(check_name,result,expected)
+      values ('coordinator edits the log', case when n>0 then 'EDITED' else 'blocked' end, 'blocked');
+  exception when insufficient_privilege then
+    insert into _res(check_name,result,expected) values ('coordinator edits the log','blocked','blocked');
+  end;
+
+  begin
+    delete from scenario_changes where scenario_id = v_official;
+    get diagnostics n = row_count;
+    insert into _res(check_name,result,expected)
+      values ('coordinator erases the log', case when n>0 then 'ERASED' else 'blocked' end, 'blocked');
+  exception when insufficient_privilege then
+    insert into _res(check_name,result,expected) values ('coordinator erases the log','blocked','blocked');
+  end;
+
+  -- Visible exactly where the scenario is.
+  perform set_config('request.jwt.claim.sub', v_inst::text, true);
+  select count(*) into n from scenario_changes where scenario_id = v_draft;
+  insert into _res(check_name,result,expected) values ('instructor reads a draft log', n::text, '0');
+  select count(*) into n from scenario_changes where scenario_id = v_official;
+  insert into _res(check_name,result,expected)
+    values ('instructor reads the official log', (n > 0)::text, 'true');
+  reset role;
+
+  -- Deleting a scenario that still holds sections and assignments has to
+  -- work. The cascade removes the scenario before the rows beneath it, and
+  -- the change-log triggers once failed on the dangling reference, taking the
+  -- whole delete down with them. See 20260926000200_log_survives_cascade.sql.
+  begin
+    delete from academic_years where id=v_ayt;   -- cascades three levels
+    insert into _res(check_name,result,expected)
+      values ('deleting a scenario cascades cleanly','ok','ok');
+  exception when others then
+    insert into _res(check_name,result,expected)
+      values ('deleting a scenario cascades cleanly','FAILED: '||sqlerrm,'ok');
+  end;
+
   -- -------------------------------------------------------------- cleanup --
   delete from sections where scenario_id=v_draft;
   delete from scenarios where id=v_draft;
-  -- Cascades through terms, the official scenario, its section and assignment.
-  delete from academic_years where id=v_ayt;
   delete from preference_cycles where id in (v_cycle, v_closed);
   delete from auth.users where email like 'rls-test-%';
   -- Every throwaway account this suite creates also lands in access_log, and
@@ -310,11 +383,13 @@ begin
              where c.name like 'rls-test %')::text || ' submissions, ' ||
            (select count(*) from scenarios where name like 'rls-test %')::text || ' scenarios, ' ||
            (select count(*) from academic_years where start_year = 1999)::text || ' test years, ' ||
+           (select count(*) from scenario_changes
+             where actor_email like 'rls-test-%')::text || ' change rows, ' ||
            (select count(*) from bootstrap_coordinators where note = 'rls-test probe')::text || ' probes, ' ||
            (select count(*) from teaching_releases where reason like 'rls-test %')::text || ' releases, ' ||
            (select count(*) from access_log
              where email like 'rls-test-%' or email like '%-probe@uw.edu')::text || ' log rows',
-           '0 users, 0 profiles, 0 submissions, 0 scenarios, 0 test years, 0 probes, 0 releases, 0 log rows';
+           '0 users, 0 profiles, 0 submissions, 0 scenarios, 0 test years, 0 change rows, 0 probes, 0 releases, 0 log rows';
 end $$;
 
 select check_name, result, expected,

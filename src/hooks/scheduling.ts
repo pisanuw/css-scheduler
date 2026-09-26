@@ -198,6 +198,7 @@ export function useApplySeedPlan() {
     },
     onSuccess: (_r, { scenarioId }) => {
       qc.invalidateQueries({ queryKey: ['board', scenarioId] })
+      qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
     },
   })
 }
@@ -302,8 +303,10 @@ export const useTeachingHistoryPairs = () =>
 
 // ------------------------------------------------------------- section writes
 
+/** Any board write also writes a change-log entry, by trigger. */
 function invalidateBoard(qc: QueryClient, scenarioId: string) {
   qc.invalidateQueries({ queryKey: ['board', scenarioId] })
+  qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
 }
 
 export type SectionDraft = Omit<SectionRow, 'id'> & { id?: string }
@@ -363,7 +366,10 @@ export function useAssign(scenarioId: string) {
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) qc.setQueryData(key, ctx.previous)
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: key }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: key })
+      qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
+    },
   })
 }
 
@@ -395,6 +401,44 @@ export function useUnassign(scenarioId: string) {
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) qc.setQueryData(key, ctx.previous)
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: key }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: key })
+      qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
+    },
   })
 }
+
+// ---------------------------------------------------------------- change log
+
+export type ChangeAction = 'created' | 'updated' | 'deleted' | 'assigned' | 'unassigned'
+
+export interface ScenarioChange {
+  id: number
+  scenario_id: string
+  section_id: string | null
+  action: ChangeAction
+  summary: string
+  actor_email: string | null
+  occurred_at: string
+}
+
+/**
+ * Who changed what, newest first. Written by database triggers, so this is
+ * read-only by construction — there is no policy that would let anyone insert,
+ * edit or remove an entry.
+ */
+export const useScenarioChanges = (scenarioId?: string, limit = 200) =>
+  useQuery({
+    enabled: !!scenarioId,
+    queryKey: ['scenario_changes', scenarioId, limit],
+    queryFn: async () =>
+      rows<ScenarioChange>(
+        await supabase
+          .from('scenario_changes')
+          .select('*')
+          .eq('scenario_id', scenarioId!)
+          .order('occurred_at', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(limit),
+      ),
+  })
