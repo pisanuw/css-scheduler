@@ -123,6 +123,28 @@ and it is a feature, not feedback.
    the colours are already centralised enough that the contrast check would
    catch a bad pair, and the check should be taught to run each scene twice.
 
+**Deployed and verified.** Commit `54f7c41` is live. The served
+`index-CakV4AsO.js` is **byte-for-byte identical** to a local build made with
+the key recovered from the served bundle, and `index-CJj915yG.css` matches too.
+Six strings only the new code contains are present in the served JavaScript
+(`Skip to the page`, `useToast must be used inside a ToastProvider`,
+`No conflicts.`, `to your downloads`, `is now the official schedule for this
+year`, `Nothing of yours left to undo`). The shipped bytes were then served
+locally and rendered at 375px in Chromium: the sign-in card lays out correctly,
+the button is the full-width 44px one, and the console is clean.
+
+**A note on checking a deploy from here.** Chromium in this sandbox cannot
+reach `*.netlify.app` directly — the egress proxy re-terminates TLS and there
+is no `certutil` to load its CA into the browser's NSS store, so `page.goto`
+fails with `ERR_CERT_AUTHORITY_INVALID`. `curl` is fine, because it reads the
+bundle from the environment. So: fetch the assets with `curl`, serve them from
+a local directory, and point the browser at that. Do **not** reach for
+`ignoreHTTPSErrors`. One trap in doing this: a one-line static server that
+derives the content type from the *request path* serves `/` as `text/plain`,
+and the browser then renders the HTML as text. The first run of that check
+reported "no console errors, no sideways scroll" about a page of source code.
+Derive the type from the resolved file, and look at the screenshot.
+
 **Watch out for.**
 
 - `npm run check:mobile` needs Playwright. The cloud sandbox has it installed
