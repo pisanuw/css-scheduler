@@ -304,17 +304,26 @@ Splitting moves a failure that used to be impossible into the middle of a
 navigation. There are two causes and they want opposite handling, so
 `src/lib/chunkError.ts` holds both as pure functions.
 
-A **stale deploy** is the common one and is specific to how this ships. Netlify
-names every asset by its hash, so a deploy replaces `Board-DkQ2.js` with
-`Board-9fLp.js` and stops serving the old name. A coordinator with the tab open
-from before the deploy is holding an entry chunk asking for a file that no
-longer exists. Nothing they can do fixes it, so the app reloads itself once.
+A **stale deploy**: every asset is named by its hash, so a deploy replaces
+`Board-DkQ2.js` with `Board-9fLp.js`, and a coordinator with the tab open from
+before it is holding an entry chunk that asks for the old name.
+
+How often that actually breaks was measured rather than assumed, and the
+answer was reassuring: Netlify keeps previous deploys' assets addressable, and
+the single bundle from the deploy before this one still answered 200 after the
+split shipped. So on this host, on an ordinary deploy, the old chunk usually
+still resolves. It stops resolving when a deploy is deleted, rolled back or
+purged, and on any host that does not keep them — and the failure is total
+when it happens, because the page the coordinator asked for simply never
+appears. Reloading picks up the new `index.html` and everything follows, so
+the app does it once, by itself.
 
 A **dead connection** looks identical from here — both surface as a module
-fetch rejection — but reloading a phone with no signal replaces a working app
-with a browser error page. So the automatic reload fires at most once per
-document, recorded in `sessionStorage`; come back still broken and the cause
-was not the deploy, and the coordinator gets a button instead of a loop.
+fetch rejection — and on this host it is the likelier of the two. Reloading a
+phone with no signal replaces a working app with a browser error page. So the
+automatic reload fires at most once per document, recorded in `sessionStorage`;
+come back still broken and the cause was not the deploy, and the coordinator
+gets a button instead of a loop.
 
 `RouteErrorBoundary` catches and obeys those rules; `RouteErrorNotice` is the
 markup. They are separate because catching means logging a stack, which the

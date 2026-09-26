@@ -8,13 +8,14 @@
  *
  * There are two causes and they want opposite handling.
  *
- * A *stale deploy* is the common one and is specific to how this app ships.
- * Netlify names every asset by its hash, so a deploy replaces
- * `Board-DkQ2.js` with `Board-9fLp.js` and stops serving the old name. A
- * coordinator with the page open from before the deploy is holding an entry
- * chunk that asks for a file that no longer exists. Nothing they can do fixes
- * it; reloading picks up the new index.html and everything follows. So: reload,
- * once, automatically.
+ * A *stale deploy*. Every asset is named by its hash, so a deploy replaces
+ * `Board-DkQ2.js` with `Board-9fLp.js`, and a tab open from before it holds an
+ * entry chunk that asks for the old name. Netlify usually keeps the old file
+ * addressable — measured, not assumed: the bundle from the previous deploy
+ * still answered 200 after this one shipped — so this is rarer here than on a
+ * host that purges. It still happens when a deploy is deleted, rolled back or
+ * purged, and when it does the page simply never appears. Reloading picks up
+ * the new index.html and everything follows. So: reload, once, automatically.
  *
  * A *dead connection* looks identical from here — both surface as a module
  * fetch rejection — but reloading on a phone with no signal replaces a working

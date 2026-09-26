@@ -13,13 +13,137 @@ this file is the state of play.
 | 3 — Assignment board | done |
 | 4 — Reporting | done |
 | 5 — Solver, import, student checks | suggestions and student checks done; time-schedule import not started |
-| Polish | undo, toasts, focus management and tables-as-cards done; drag and drop, dark mode, PWA open |
+| Polish | undo, toasts, focus management, tables-as-cards and code splitting done; drag and drop, dark mode, PWA open |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
 
 ---
+
+## 2026-09-26 (sixth run) — every page its own chunk
+
+**Built.** The oldest item on the list, five runs unattended: the bundle was
+one 585 kB file and is now an entry chunk of **17 kB**, three vendor chunks and
+a chunk per page.
+
+- **Nobody downloads the whole app any more.** An instructor who only opens My
+  preferences was downloading the assignment board, the report, the scenario
+  comparison and the access log to get there. A signed-out visitor now loads
+  four chunks and sees the sign-in button; `Login` is the one page deliberately
+  *not* split, because making the first paint wait on a second request to show
+  one button is a poor trade.
+- **Three vendor chunks, grouped by how often they change** — `react` 165 kB,
+  `supabase` 227 kB, `query` 41 kB. A deploy that changes a label no longer
+  invalidates the 380 kB that did not move. Grouped rather than split per
+  package: React, the router and the scheduler refer to one another, and
+  cutting between them produces circular chunks that cost a request each and
+  buy nothing. The chunk-size warning is down from 500 kB to 250 kB now that
+  nothing should be near it.
+- **`src/lib/routes.ts` is the whole nav and the whole router.** There were two
+  hand-maintained lists describing the same thirteen pages with nothing holding
+  them together. It is also what makes the split safe to do well: a page
+  arrives over the network now, so something must decide when to fetch it, and
+  the loader belongs beside the label a finger is about to touch. The table is
+  data and imports no page, so a Node test reads it without constructing a
+  Supabase client — including one that lists `src/pages` on disk and fails if a
+  page is not routed.
+- **Nobody waits when there is nothing to wait for.** The dashboard's chunk
+  starts as soon as a session exists, in parallel with the profile request it
+  would otherwise queue behind. Every other page is fetched when a pointer
+  settles on its nav link, a focus ring lands on it, or a finger touches down
+  — `touchstart` to `click` is the ~100 ms it takes to lift a finger, which is
+  most of a fetch off a warm CDN. `RouteFallback` fades in over the first
+  second rather than appearing at once, because a skeleton that flashes for one
+  frame on a cached chunk reads as a fault.
+- **A floor under a failure that used to be impossible.** `RouteErrorBoundary`
+  plus the pure rules in `src/lib/chunkError.ts`: reload once for a chunk that
+  will not load, never for a render bug, and at most once per document so a
+  phone with no signal gets a button instead of a loop.
+- **`npm run check:routes`** — the built bundle in a real browser with Supabase
+  stubbed and a fabricated session, no credentials, nothing reaching the live
+  project. It asserts a signed-out visitor does not download the board, every
+  destination renders, a deep link stays where it was typed, one tap fetches
+  one page, hovering prefetches, an instructor reaches no coordinator page by
+  nav or URL, and the console stays clean.
+
+**Learned.**
+
+- *The new check found a bug that was not the one it was written for, and had
+  been shipped for four runs.* `AuthProvider` kept `loading` as its own flag,
+  and between the render that received the session and the effect that set the
+  flag back to true there was one commit with a session, no profile and
+  `loading` false — long enough for the router to conclude the reader was not a
+  coordinator and redirect. **A coordinator opening a bookmarked
+  `/board/:scenarioId` landed on the dashboard**, and those links are ones the
+  app generates itself. It was invisible until now because with one bundle
+  there was no observable difference between rendering the board and
+  redirecting away from it; with chunks, the Board chunk is simply never
+  requested. `loading` is now derived from which user the profile in hand
+  belongs to, so the window does not exist rather than being narrow. Reverting
+  the fix makes the check fail on all seven coordinator pages — the teeth were
+  confirmed, not assumed.
+- *A rejected prefetch must be forgotten, not cached.* The first version
+  memoised the promise unconditionally. One flaky fetch in a tunnel would then
+  poison that route for the rest of the session, and `React.lazy` would inherit
+  the rejection — a page permanently unreachable without a reload, caused by a
+  guess nobody asked for.
+- *The error boundary had to be split in two to be testable.* Catching means
+  logging a stack, and the mobile check reads any console error as a failure.
+  `RouteErrorNotice` is now the markup and `RouteErrorBoundary` only catches,
+  so the check renders the notice directly and measures what actually ships.
+- *`DESIGN.md` claimed something this run measured to be false.* It said a
+  Netlify deploy "stops serving the old name". After the split shipped, the
+  previous single bundle still answered **200**. Netlify keeps previous
+  deploys' assets addressable, so a stale chunk usually still resolves here and
+  the dead connection is the likelier of the two causes. The recovery is still
+  worth having — deletions, rollbacks and purges do break it, and the failure
+  is total when it happens — but the doc now says what was measured.
+
+**Verified.** 274 unit tests (38 new across `routes.test.ts` and
+`chunkError.test.ts`), typecheck and build green with no chunk-size warning, 19
+harness scenes clean at 375px (two new: the loading skeleton and both variants
+of the error notice), routing check clean. No database change this run, so no
+migration and no RLS run.
+
+**Deployed and verified.** Commit `d83a66c` pushed to `main`; Netlify built it
+automatically. **All 27 assets are byte-for-byte identical** to a local build
+made with the key recovered from the served bundle — that key is the
+`sb_publishable_…` one, not the legacy anon JWT, which is why a local build
+with the JWT produces a different entry hash and the comparison has to recover
+the key first. The served HTML references the new `react`, `query` and
+`supabase` chunks, and the SPA fallback still returns `index.html` for
+`/board/abc123`. The whole routing check was then re-run against those exact
+bytes and passed.
+
+One limit of this sandbox worth recording: **Chromium cannot reach the live
+site**, because the agent proxy's CA is not in its trust store
+(`ERR_CERT_AUTHORITY_INVALID`), and disabling TLS verification is not an option.
+`curl` works, so byte comparison is available; driving the *live* URL in a
+browser is not. Since `dist/` was proved identical to what is served, serving
+those bytes locally and driving them is equivalent — but that equivalence has
+to be established by the byte comparison first, every time.
+
+**Deliberately not done.** Drag and drop. Export and print on Compare. Dark
+mode. The PWA. `@dnd-kit` and `zod` are both still dependencies and **neither
+is imported anywhere** — they cost nothing in the bundle, but `zod` at least
+looks like it should be removed rather than left as a promise.
+
+**Next run should pick up — in this order.**
+
+1. **Drag and drop on the board**, as an addition to tapping and never a
+   replacement. `@dnd-kit` is already a dependency and has never been used.
+   `npm run check:routes` and `npm run check:mobile` both have to stay clean.
+2. **Export and print on the Compare page**, matching the report's.
+3. **Dark mode.** The contrast check should be taught to run each scene twice,
+   which is most of the work of doing it safely.
+4. The installable PWA. Worth noting the split makes this more valuable: a
+   service worker can now precache the shell and fetch pages on demand, rather
+   than having one 585 kB file to cache or not.
+5. **Supabase is 227 kB of the 408 kB a signed-out visitor loads**, and the
+   realtime and storage clients inside it look unused. Confirming that and
+   trimming them is the largest remaining byte win, and the first one that
+   needs care rather than configuration.
 
 ## 2026-09-26 (fifth run) — the five list pages on a phone
 
