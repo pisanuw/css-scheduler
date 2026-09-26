@@ -80,46 +80,57 @@ No migration this run: the schema from iteration 1 covered everything.
 4. Then the polish list: undo/redo on the board, toasts, drag and drop, dark
    mode, PWA.
 
-**Not deployed — the sandbox cannot reach Netlify.** The code is committed and
-pushed to `main`, but the live site is unchanged and still predates the board.
-This run could not fix that, and it is not a code problem:
+**Deployed and verified.** The board is live at
+https://uwb-css-scheduler.netlify.app.
 
-```
-api.netlify.com            BLOCKED by egress policy
-netlify-mcp.netlify.app    BLOCKED by egress policy
-uwb-css-scheduler.netlify.app  BLOCKED by egress policy
-github.com                 reachable
-```
+Two things changed after the first attempt failed, both on the account rather
+than in the repo, and both are now the standing setup:
 
-The `npx @netlify/mcp … --proxy-path …` deploy reports `403 Forbidden`, which
-is the egress proxy refusing CONNECT rather than Netlify refusing the upload;
-two attempts with freshly minted tokens failed identically. The Netlify MCP
-*read* tools still work, because they travel through the MCP server rather than
-this sandbox's network, which is also how every database operation in this run
-reached Supabase — `abvnaelzfriusckqqrfc.supabase.co` is blocked to direct HTTP
-too.
+- **Netlify builds from GitHub.** The site is connected to `pisanuw/css-scheduler`,
+  so a push to `main` deploys by itself. It used to deploy by upload
+  (`commit_ref: null`, `title: "Deploy triggered by upload"`), which meant a
+  push shipped nothing and every release depended on the sandbox reaching
+  Netlify. It no longer does. Because Netlify runs the build, `VITE_SUPABASE_URL`
+  and `VITE_SUPABASE_ANON_KEY` must stay set as build environment variables on
+  the Netlify project.
+- **The cloud environment allows `*.netlify.app`.** Runs can fetch the served
+  site and check what actually shipped. `abvnaelzfriusckqqrfc.supabase.co` is
+  reachable now too. Both were blocked before, which is why the first attempt
+  failed with `403` on CONNECT — the egress proxy, not Netlify.
 
-Consequently the post-deploy check the project insists on — fetch the served
-HTML, compare its `/assets/index-*.js` hash against `dist/` — could not be run
-either. **Nothing here should be read as "the deploy worked".**
+Deploy `6ab7195dc11a338e9f096e00` built commit `b1fb068` from `main` and
+published in 20s.
 
-To ship it, run from a machine that can reach Netlify:
+### Verifying a deploy — read this before calling one broken
+
+**A clean local build will NOT match the served hash, and that is not a
+failure.** Vite inlines `import.meta.env.VITE_*` at build time, so a build
+without `.env.local` bakes in `undefined` where the deployed bundle has the
+real Supabase URL and key. Different bytes, different hash. The CSS matches
+either way, because no CSS depends on those values. This cost a detour once;
+do not read it as a bad deploy.
+
+To compare properly, build with the same values Netlify used. The key is
+publishable — the README explains why that is safe — and the deployed bundle
+contains it, so it can be recovered from the bundle itself rather than stored:
 
 ```bash
-npm ci && npm run build
-npx netlify-cli deploy --prod --dir=dist --site 70a62744-9ef1-471e-baec-937c28de8503
-curl -s https://uwb-css-scheduler.netlify.app/ | grep -o 'assets/index-[^"]*'
+curl -sS -o /tmp/served.js "https://uwb-css-scheduler.netlify.app$(
+  curl -sS https://uwb-css-scheduler.netlify.app/ | grep -oE '/assets/index-[A-Za-z0-9_-]+\.js')"
+KEY=$(grep -oE 'sb_publishable_[A-Za-z0-9_-]+' /tmp/served.js | head -1)
+printf 'VITE_SUPABASE_URL=https://abvnaelzfriusckqqrfc.supabase.co\nVITE_SUPABASE_ANON_KEY=%s\n' "$KEY" > .env.local
+npm run build && cmp dist/assets/index-*.js /tmp/served.js && echo IDENTICAL
+rm -f .env.local    # gitignored, but do not leave it lying around
 ```
 
-The last line must print the same hash as `ls dist/assets/`. As of this commit
-a clean build produces `index-BEMl9wqC.js`. Note the site deploys by upload,
-not from GitHub: the live deploy has `commit_ref: null` and
-`title: "Deploy triggered by upload"`, so pushing to `main` does not ship
-anything by itself. Connecting the repo to Netlify would remove this whole
-class of problem and is worth doing.
+That was run for this commit and reported `IDENTICAL` — byte for byte, not
+merely a matching hash. A quicker smoke check, when an exact match is not
+needed, is to grep the served bundle for a string only the new code contains,
+such as `Best fit first, from submitted preferences`.
 
 **Watch out for.** `npm run db:test:rls` and `npm run test:e2e` read a token
-from a macOS keychain and cannot run in the cloud sandbox — run the SQL through
-the Supabase MCP tools instead, as this run did. The bundle is now 532 kB
-(148 kB gzipped) and Vite warns about it; not a problem yet, but code-splitting
-the board off the main chunk is the obvious fix when it becomes one.
+from a macOS keychain, which does not exist in the cloud sandbox, so they still
+fail there whatever the network allows — run the SQL through the Supabase MCP
+tools instead, as this run did. The bundle is now 532 kB (148 kB gzipped) and
+Vite warns about it; not a problem yet, but code-splitting the board off the
+main chunk is the obvious fix when it becomes one.
