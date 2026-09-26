@@ -36,8 +36,9 @@ Tests and typecheck:
 
 ```bash
 npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
-                  # reporting, suggestions, undo, the toast queue, the focus
-                  # trap, the route table and chunk recovery (274 tests)
+                  # reporting, suggestions, undo, drag rules, the toast queue,
+                  # the focus trap, the route table and chunk recovery
+                  # (312 tests)
 npm run typecheck
 npm run build
 ```
@@ -49,6 +50,7 @@ npm run check:mobile            # every over-the-page component at 375px
 npm run check:mobile -- chips   # one scene
 SHOTS=1 npm run check:mobile    # and write PNGs to dist-harness/shots
 npm run check:routes            # the built bundle in a browser: chunks, deep links, roles
+npm run check:drag              # a real mouse and a real finger on the board
 ```
 
 This builds `harness/` — a second Vite entry that renders the components with
@@ -67,7 +69,17 @@ assignment board, that every destination renders once its chunk arrives, that
 a deep link such as `/board/:scenarioId` is still where it was typed, that one
 tap fetches one page, that hovering a nav link prefetches it, and that an
 instructor can reach no coordinator page by nav or by URL. It needs no
-credentials and never reaches the live project.
+credentials and never reaches the live project: it builds into
+`dist-routecheck/` with placeholder Supabase values, because every request to
+the project is intercepted anyway and `dist/` should be left alone.
+
+`check:drag` drives an actual pointer at an actual board — a mouse, and a
+finger through the browser's real touch pipeline — because what makes dragging
+work or not work is whether a gesture is recognised as a drag at all, and no
+unit test can answer that. It asserts that a name dragged from the load panel
+assigns, that a chip dragged between cards moves, that a drop on nothing does
+nothing, and — the two that matter most on a phone — that clicking the × still
+unassigns and that a flick down the list still scrolls.
 
 ## Database
 

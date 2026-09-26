@@ -19,7 +19,8 @@
     "test:e2e": "python3 scripts/e2e_test.py",
     "build:harness": "vite build --config harness/vite.config.ts",
     "check:mobile": "npm run build:harness && node scripts/mobile_check.mjs",
-    "check:routes": "npm run build && node scripts/route_check.mjs"
+    "check:drag": "npm run build:harness && node scripts/drag_check.mjs",
+    "check:routes": "VITE_SUPABASE_URL=https://abvnaelzfriusckqqrfc.supabase.co VITE_SUPABASE_ANON_KEY=route-check-placeholder vite build --outDir dist-routecheck && ROUTE_CHECK_DIST=dist-routecheck node scripts/route_check.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

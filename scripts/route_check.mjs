@@ -32,7 +32,11 @@ import { extname, join, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
 const ROOT = resolve(import.meta.dirname, '..')
-const DIST = join(ROOT, 'dist')
+/**
+ * Which build to drive. `npm run check:routes` points this at its own output
+ * so the check never depends on — or disturbs — whatever is in `dist/`.
+ */
+const DIST = join(ROOT, process.env.ROUTE_CHECK_DIST ?? 'dist')
 const VIEWPORT = { width: 375, height: 812 } // The coordinator's phone, as ever.
 const PROJECT_REF = 'abvnaelzfriusckqqrfc'
 
@@ -156,7 +160,7 @@ async function signIn(page, base, user) {
 
 const { chromium } = loadPlaywright()
 if (!existsSync(DIST)) {
-  console.error('dist is missing. `npm run build` first.')
+  console.error(`${DIST} is missing. Run \`npm run check:routes\`, which builds it first.`)
   process.exit(2)
 }
 
@@ -195,6 +199,22 @@ async function newPage(user) {
   const loaded = chunkNames(requested)
   const leaked = loaded.filter((n) => ['Board', 'Report', 'Compare', 'Scenarios', 'AccessLog'].includes(n))
   if (leaked.length) fail(`signed out: downloaded ${leaked.join(', ')} to show a sign-in button`)
+  /*
+   * Vite inlines `import.meta.env.VITE_*` at build time, so a bundle built
+   * without them throws before it renders anything and every later assertion
+   * times out waiting for an element that will never exist. Say so here
+   * instead: it cost a run once to work out from a 30-second timeout.
+   */
+  if (noise.some((n) => /Missing VITE_SUPABASE/.test(n))) {
+    console.error(
+      'This build has no VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY baked in, so the app\n' +
+        'throws on boot. Run `npm run check:routes`, which builds with placeholders — every\n' +
+        'request to the project is intercepted, so their values do not matter.',
+    )
+    await browser.close()
+    server.close()
+    process.exit(2)
+  }
   for (const n of noise) fail(`signed out: console ${n}`)
   console.log(`✓ signed out — sign-in page on ${loaded.length} chunks: ${loaded.join(', ')}`)
   await page.close()

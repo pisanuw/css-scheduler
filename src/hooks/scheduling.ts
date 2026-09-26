@@ -389,6 +389,78 @@ export function useBulkAssign(scenarioId: string) {
   })
 }
 
+/**
+ * Moving one person from one section to another, as one gesture on the board.
+ *
+ * Two writes, because an assignment is a row and there is no such thing as
+ * moving one: the old row goes, the new row arrives. If the second write is
+ * refused — the row already exists, a policy says no, the connection drops —
+ * the first is put back, because a move that half happened leaves the
+ * coordinator worse off than one that did not happen at all. That compensating
+ * write is honest in the change log: it appears as the unassign and the
+ * re-assign it was.
+ */
+export function useMoveAssignment(scenarioId: string) {
+  const qc = useQueryClient()
+  const key = ['board', scenarioId]
+  return useMutation({
+    mutationFn: async ({
+      instructorId,
+      from,
+      to,
+    }: {
+      instructorId: string
+      from: string
+      to: string
+    }) => {
+      const removed = await supabase
+        .from('section_instructors')
+        .delete()
+        .eq('section_id', from)
+        .eq('instructor_id', instructorId)
+      if (removed.error) throw new Error(removed.error.message)
+
+      const added = await supabase
+        .from('section_instructors')
+        .insert({ section_id: to, instructor_id: instructorId })
+      if (added.error) {
+        await supabase
+          .from('section_instructors')
+          .insert({ section_id: from, instructor_id: instructorId })
+        throw new Error(added.error.message)
+      }
+    },
+    onMutate: async ({ instructorId, from, to }) => {
+      await qc.cancelQueries({ queryKey: key })
+      const previous = qc.getQueryData<BoardData>(key)
+      if (previous) {
+        qc.setQueryData<BoardData>(key, {
+          ...previous,
+          assignments: [
+            ...previous.assignments.filter(
+              (a) => !(a.section_id === from && a.instructor_id === instructorId),
+            ),
+            {
+              id: `pending-${to}-${instructorId}`,
+              section_id: to,
+              instructor_id: instructorId,
+              is_primary: true,
+            },
+          ],
+        })
+      }
+      return { previous }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) qc.setQueryData(key, ctx.previous)
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: key })
+      qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
+    },
+  })
+}
+
 export function useUnassign(scenarioId: string) {
   const qc = useQueryClient()
   const key = ['board', scenarioId]

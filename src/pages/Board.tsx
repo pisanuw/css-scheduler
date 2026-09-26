@@ -1,4 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  DndContext,
+  DragOverlay,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { countBySeverity, detectConflicts, type Severity } from '../lib/conflicts'
 import { loadTallies, type SectionRow } from '../lib/snapshot'
@@ -7,16 +14,28 @@ import {
   useAssign,
   useBulkAssign,
   useDeleteSection,
+  useMoveAssignment,
   useSaveSection,
   useScenarioChanges,
   useScenarios,
   useUnassign,
   useUndoChanges,
 } from '../hooks/scheduling'
-import { myLastUndoable, undoneMessage } from '../lib/undo'
+import { myLastUndoableIds, undoneMessage } from '../lib/undo'
+import {
+  describeDrop,
+  dragAnnouncement,
+  dropHints,
+  parseDragId,
+  parseDropId,
+  planDrop,
+  type DragSource,
+} from '../lib/dnd'
 import { useAuth } from '../lib/auth'
 import { suggestAssignments } from '../lib/suggest'
 import SectionCard from '../components/board/SectionCard'
+import DragPill from '../components/board/DragPill'
+import { boardCollisionDetection, useBoardSensors } from '../components/board/dragSetup'
 import AssignSheet from '../components/board/AssignSheet'
 import ConflictPanel from '../components/board/ConflictPanel'
 import LoadPanel from '../components/board/LoadPanel'
@@ -84,6 +103,7 @@ export default function Board() {
   const assign = useAssign(resolvedId ?? '')
   const unassign = useUnassign(resolvedId ?? '')
   const bulkAssign = useBulkAssign(resolvedId ?? '')
+  const move = useMoveAssignment(resolvedId ?? '')
   const undo = useUndoChanges(resolvedId ?? '')
   const { profile } = useAuth()
   const toast = useToast()
@@ -94,6 +114,8 @@ export default function Board() {
   const [editorError, setEditorError] = useState<string | null>(null)
   const [highlighted, setHighlighted] = useState<string | null>(null)
   const [suggesting, setSuggesting] = useState(false)
+  const [dragging, setDragging] = useState<DragSource | null>(null)
+  const [overSectionId, setOverSectionId] = useState<string | null>(null)
 
   // Default to the first quarter once the terms arrive.
   useEffect(() => {
@@ -130,12 +152,14 @@ export default function Board() {
       if (el?.closest('input, textarea, select, [contenteditable="true"]')) return
       if (!resolvedId || editing || assigning || suggesting || locked || undo.isPending) return
       e.preventDefault()
-      const target = myLastUndoable(changes.data ?? [], profile?.email)
-      if (!target) {
+      // Both halves of a move, so ⌘Z after a drag puts the person back on the
+      // section they came from rather than leaving them on neither.
+      const ids = myLastUndoableIds(changes.data ?? [], profile?.email)
+      if (!ids) {
         toast.say('Nothing of yours left to undo.')
         return
       }
-      runUndo([target.id])
+      runUndo(ids)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -210,6 +234,82 @@ export default function Board() {
     () => snapshot.sections.find((s) => s.id === assigning) ?? null,
     [snapshot.sections, assigning],
   )
+
+  /**
+   * Dragging is an accelerator laid over the taps, never a replacement for
+   * them: everything it does is also reachable from the card's Assign button
+   * and the × on a chip, which is what a phone and a keyboard use. The sensor
+   * tuning that keeps it out of the way lives in `dragSetup`, where the check
+   * that drives a real pointer can use the same numbers.
+   */
+  const sensors = useBoardSensors()
+
+  /**
+   * Computed when the drag starts, not as it moves: it ranks the roster once
+   * per visible section, which is nothing on a quarter's worth of cards and
+   * wasteful at sixty frames a second.
+   */
+  const hints = useMemo(
+    () => (dragging ? dropHints(snapshot, dragging, visible) : null),
+    [dragging, snapshot, visible],
+  )
+
+  const onDragStart = (e: DragStartEvent) => {
+    setDragging(parseDragId(e.active.id))
+    setOverSectionId(null)
+  }
+
+  const onDragOver = (e: DragOverEvent) => setOverSectionId(parseDropId(e.over?.id ?? null))
+
+  const onDragEnd = (e: DragEndEvent) => {
+    const source = parseDragId(e.active.id)
+    const targetId = parseDropId(e.over?.id ?? null)
+    const hint = targetId ? (hints?.get(targetId) ?? null) : null
+    setDragging(null)
+    setOverSectionId(null)
+    if (!source || locked) return
+
+    const plan = planDrop(snapshot, source, targetId)
+    const message = describeDrop(snapshot, plan, hint)
+    if (plan.type === 'none') {
+      if (message) toast.say(message)
+      return
+    }
+    if (plan.type === 'assign') {
+      assign.mutate(
+        { sectionId: plan.sectionId, instructorId: plan.instructorId },
+        {
+          onSuccess: () => message && toast.ok(message),
+          onError: (err) => toast.failed('Could not assign', err),
+        },
+      )
+      return
+    }
+    move.mutate(
+      { instructorId: plan.instructorId, from: plan.from, to: plan.to },
+      {
+        onSuccess: () => message && toast.ok(message),
+        onError: (err) => toast.failed('Could not move that assignment', err),
+      },
+    )
+  }
+
+  const cancelDrag = () => {
+    setDragging(null)
+    setOverSectionId(null)
+  }
+
+  /** dnd-kit would otherwise read the raw ids out loud. */
+  const announcements = {
+    onDragStart: ({ active }: { active: { id: unknown } }) =>
+      dragAnnouncement(snapshot, 'start', active.id, null),
+    onDragOver: ({ active, over }: { active: { id: unknown }; over: { id: unknown } | null }) =>
+      dragAnnouncement(snapshot, 'over', active.id, over?.id ?? null),
+    onDragEnd: ({ active, over }: { active: { id: unknown }; over: { id: unknown } | null }) =>
+      dragAnnouncement(snapshot, 'end', active.id, over?.id ?? null),
+    onDragCancel: ({ active }: { active: { id: unknown } }) =>
+      dragAnnouncement(snapshot, 'cancel', active.id, null),
+  }
 
   if (!resolvedId) return <BoardPicker />
   if (scenario.isLoading) return <p className="text-sm text-slate-500">Loading board…</p>
@@ -351,6 +451,15 @@ export default function Board() {
         </p>
       )}
 
+      <DndContext
+        sensors={sensors}
+        collisionDetection={boardCollisionDetection}
+        accessibility={{ announcements }}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragEnd={onDragEnd}
+        onDragCancel={cancelDrag}
+      >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div>
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -404,6 +513,8 @@ export default function Board() {
                     worst={finding?.worst ?? null}
                     conflictCount={finding?.count ?? 0}
                     highlighted={highlighted === s.id}
+                    dragEnabled={!locked}
+                    hint={hints?.get(s.id) ?? null}
                     onAssign={() => setAssigning(s.id)}
                     onUnassign={(instructorId) =>
                       unassign.mutate(
@@ -421,7 +532,7 @@ export default function Board() {
 
         <div className="space-y-4">
           <ConflictPanel conflicts={conflicts} counts={counts} onPick={reveal} />
-          <LoadPanel tallies={tallies} terms={snapshot.terms} />
+          <LoadPanel tallies={tallies} terms={snapshot.terms} draggable={!locked} />
           <HistoryPanel
             changes={changes.data ?? []}
             loading={changes.isLoading}
@@ -437,6 +548,16 @@ export default function Board() {
           )}
         </div>
       </div>
+
+        <DragOverlay dropAnimation={null}>
+          {dragging && (
+            <DragPill
+              name={instructorName.get(dragging.instructorId) ?? 'Instructor'}
+              hint={overSectionId ? (hints?.get(overSectionId) ?? null) : null}
+            />
+          )}
+        </DragOverlay>
+      </DndContext>
 
       {assigningSection && (
         <AssignSheet

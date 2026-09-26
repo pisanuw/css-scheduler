@@ -21,6 +21,30 @@ import type {
 } from "../src/lib/conflicts";
 import { countBySeverity, detectConflicts } from "../src/lib/conflicts";
 import AssignSheet from "../src/components/board/AssignSheet";
+import SectionCard from "../src/components/board/SectionCard";
+import LoadPanel from "../src/components/board/LoadPanel";
+import DragPill from "../src/components/board/DragPill";
+import {
+  describeDrop,
+  dragAnnouncement,
+  dropHints,
+  parseDragId,
+  parseDropId,
+  planDrop,
+  type DragSource,
+} from "../src/lib/dnd";
+import {
+  boardCollisionDetection,
+  useBoardSensors,
+} from "../src/components/board/dragSetup";
+import {
+  DndContext,
+  DragOverlay,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { loadTallies } from "../src/lib/snapshot";
 import SectionEditor, {
   type SectionFormValue,
 } from "../src/components/board/SectionEditor";
@@ -548,6 +572,139 @@ function ToolbarScene() {
   );
 }
 
+/**
+ * A working board in miniature: the real sensors, the real collision
+ * detection, the real drop rules, wired the way `src/pages/Board.tsx` wires
+ * them and with the mutations replaced by a list of what would have happened.
+ *
+ * This is the scene `scripts/drag_check.mjs` drives with an actual mouse and
+ * an actual finger. Everything about a drop is pure and unit-tested; whether a
+ * gesture *becomes* a drop is not, and cannot be, without a pointer. It is
+ * also where the promise that matters is kept or broken: that a tap still taps
+ * and a scroll still scrolls.
+ */
+function DragSandbox() {
+  const sensors = useBoardSensors();
+  const [dragging, setDragging] = useState<DragSource | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const [log, setLog] = useState<string[]>([]);
+  const [sections, setSections] = useState(SNAPSHOT.sections);
+  const snap = { ...SNAPSHOT, sections };
+
+  const record = (line: string) => setLog((l) => [...l, line]);
+
+  const onDragStart = (e: DragStartEvent) => {
+    setDragging(parseDragId(e.active.id));
+    setOverId(null);
+    record(dragAnnouncement(snap, "start", e.active.id, null) ?? "start?");
+  };
+  const onDragOver = (e: DragOverEvent) =>
+    setOverId(parseDropId(e.over?.id ?? null));
+  const onDragEnd = (e: DragEndEvent) => {
+    const source = parseDragId(e.active.id);
+    const target = parseDropId(e.over?.id ?? null);
+    const hint = target ? (hintsFor(snap, dragging)?.get(target) ?? null) : null;
+    setDragging(null);
+    setOverId(null);
+    if (!source) return;
+    const plan = planDrop(snap, source, target);
+    record(`${plan.type}: ${describeDrop(snap, plan, hint) ?? "(nothing)"}`);
+    if (plan.type === "assign" || plan.type === "move") {
+      const from = plan.type === "move" ? plan.from : null;
+      setSections((prev) =>
+        prev.map((s) => {
+          if (s.id === from)
+            return {
+              ...s,
+              instructorIds: s.instructorIds.filter(
+                (i) => i !== plan.instructorId,
+              ),
+            };
+          const to = plan.type === "assign" ? plan.sectionId : plan.to;
+          if (s.id === to)
+            return { ...s, instructorIds: [...s.instructorIds, plan.instructorId] };
+          return s;
+        }),
+      );
+    }
+  };
+
+  const hints = hintsFor(snap, dragging);
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={boardCollisionDetection}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragEnd={onDragEnd}
+      onDragCancel={() => {
+        setDragging(null);
+        setOverId(null);
+        record("cancelled");
+      }}
+    >
+      <div className="bg-slate-50 p-4">
+        {/* Tall enough that a flick has somewhere to scroll to. */}
+        <ul className="space-y-3">
+          {sections.map((s) => (
+            <SectionCard
+              key={s.id}
+              section={s}
+              instructorNames={s.instructorIds.map((id) => ({
+                id,
+                name: SNAPSHOT.instructors.find((i) => i.id === id)?.name ?? id,
+              }))}
+              worst={null}
+              conflictCount={0}
+              highlighted={false}
+              dragEnabled
+              hint={hints?.get(s.id) ?? null}
+              onAssign={() => record(`assign-tapped: ${s.id}`)}
+              onUnassign={(id) => {
+                record(`unassign-tapped: ${s.id} ${id}`);
+                setSections((prev) =>
+                  prev.map((x) =>
+                    x.id === s.id
+                      ? { ...x, instructorIds: x.instructorIds.filter((i) => i !== id) }
+                      : x,
+                  ),
+                );
+              }}
+              onEdit={() => record(`edit-tapped: ${s.id}`)}
+            />
+          ))}
+        </ul>
+        <div className="mt-4">
+          <LoadPanel tallies={loadTallies(snap)} terms={snap.terms} draggable />
+        </div>
+        {/* Read by the check script rather than by anyone's eyes. */}
+        <ol id="drag-log" className="mt-4 text-xs text-slate-600">
+          {log.map((line, i) => (
+            <li key={i} data-drop={line}>
+              {line}
+            </li>
+          ))}
+        </ol>
+      </div>
+      <DragOverlay dropAnimation={null}>
+        {dragging && (
+          <DragPill
+            name={
+              SNAPSHOT.instructors.find((i) => i.id === dragging.instructorId)
+                ?.name ?? "Instructor"
+            }
+            hint={overId ? (hints?.get(overId) ?? null) : null}
+          />
+        )}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+const hintsFor = (snap: ScheduleSnapshot, source: DragSource | null) =>
+  source ? dropHints(snap, source, snap.sections) : null;
+
 export const SCENES: Record<string, () => JSX.Element> = {
   toasts: () => <ToastScene inset={false} />,
   "toasts-inset": () => <ToastScene inset />,
@@ -679,6 +836,100 @@ export const SCENES: Record<string, () => JSX.Element> = {
         counts={countBySeverity(CONFLICTS)}
         onPick={() => {}}
       />
+    </div>
+  ),
+
+  /*
+   * The cards themselves, with the longest name on the roster on them: the
+   * chip, its × and the two buttons all have to stay inside 375px and stay
+   * tappable. Rendered outside a DndContext on purpose — dragging is inert
+   * without one, which is exactly what a scene wants, and it proves the card
+   * is not broken by the absence of a provider.
+   */
+  "section-cards": () => (
+    <div className="bg-slate-50 p-4">
+      <ul className="space-y-3">
+        {SNAPSHOT.sections.slice(0, 4).map((s) => (
+          <SectionCard
+            key={s.id}
+            section={s}
+            instructorNames={s.instructorIds.map((id) => ({
+              id,
+              name: SNAPSHOT.instructors.find((i) => i.id === id)?.name ?? id,
+            }))}
+            worst={s.instructorIds.length === 0 ? "warning" : null}
+            conflictCount={s.instructorIds.length === 0 ? 1 : 0}
+            highlighted={s.id === "s3"}
+            dragEnabled
+            onAssign={() => {}}
+            onUnassign={() => {}}
+            onEdit={() => {}}
+          />
+        ))}
+      </ul>
+    </div>
+  ),
+
+  /*
+   * The same cards mid-drag, one of each verdict: where the name came from,
+   * where they already are, where they would fit, where it would cost
+   * something and where it would clash. The colours have to clear contrast
+   * against the tinted backgrounds, which is the thing that is easy to get
+   * wrong and impossible to notice by eye.
+   */
+  "section-cards-dragging": () => {
+    const source: DragSource = {
+      kind: "assignment",
+      instructorId: "i1",
+      sectionId: "s1",
+    };
+    const hints = dropHints(SNAPSHOT, source, SNAPSHOT.sections);
+    return (
+      <div className="bg-slate-50 p-4">
+        <ul className="space-y-3">
+          {SNAPSHOT.sections.map((s) => (
+            <SectionCard
+              key={s.id}
+              section={s}
+              instructorNames={s.instructorIds.map((id) => ({
+                id,
+                name: SNAPSHOT.instructors.find((i) => i.id === id)?.name ?? id,
+              }))}
+              worst={null}
+              conflictCount={0}
+              highlighted={false}
+              dragEnabled
+              hint={hints.get(s.id) ?? null}
+              onAssign={() => {}}
+              onUnassign={() => {}}
+              onEdit={() => {}}
+            />
+          ))}
+        </ul>
+      </div>
+    );
+  },
+
+  /* The roster and the load numbers, which double as the drag source. */
+  "load-panel": () => (
+    <div className="bg-slate-50 p-4">
+      <LoadPanel tallies={loadTallies(SNAPSHOT)} terms={SNAPSHOT.terms} draggable />
+    </div>
+  ),
+
+  "drag-sandbox": () => <DragSandbox />,
+
+  /* What follows the finger, in each verdict it can carry. */
+  "drag-pill": () => (
+    <div className="flex flex-col items-start gap-3 bg-slate-50 p-4">
+      <DragPill name="Wolfgang Amadeus Featherstonehaugh" hint={null} />
+      <DragPill name="Bo Li" hint={{ tone: "ok", note: "wants this course" }} />
+      <DragPill name="Bo Li" hint={{ tone: "caution", note: "new preparation" }} />
+      <DragPill
+        name="Bo Li"
+        hint={{ tone: "blocked", note: "clashes with another section" }}
+      />
+      <DragPill name="Bo Li" hint={{ tone: "present", note: "Already here" }} />
     </div>
   ),
 

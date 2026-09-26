@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ScenarioChange } from '../hooks/scheduling'
-import { groupUndo, isUndoable, myLastUndoable, undoneMessage } from './undo'
+import { groupUndo, isUndoable, myLastUndoable, myLastUndoableIds, undoneMessage } from './undo'
 
 const at = (seconds: number) => new Date(Date.UTC(2026, 8, 26, 12, 0, seconds)).toISOString()
 
@@ -99,6 +99,55 @@ describe('myLastUndoable', () => {
   it('finds nothing when the profile has not loaded yet', () => {
     expect(myLastUndoable(log, null)).toBeNull()
     expect(myLastUndoable(log, undefined)).toBeNull()
+  })
+})
+
+describe('myLastUndoableIds', () => {
+  const ME = 'pisan@uw.edu'
+
+  const moved = [
+    change({ id: 9, action: 'assigned', occurred_at: at(2), detail: { section_id: 's2', instructor_id: 'i1' } }),
+    change({ id: 8, action: 'unassigned', occurred_at: at(1), detail: { section_id: 's1', instructor_id: 'i1' } }),
+    change({ id: 7, action: 'created', occurred_at: at(0), detail: { section_id: 's2' } }),
+  ]
+
+  it('takes back both halves of a move, newest first', () => {
+    expect(myLastUndoableIds(moved, ME)).toEqual([9, 8])
+  })
+
+  it('takes back one change when the last thing was not a move', () => {
+    expect(myLastUndoableIds(moved.slice(1), ME)).toEqual([8])
+  })
+
+  // Adding a second instructor to a section is not a move, however close it
+  // follows someone else being taken off a different one.
+  it('does not pair an assign with an unassign of somebody else', () => {
+    const log = [
+      change({ id: 9, action: 'assigned', occurred_at: at(2), detail: { section_id: 's2', instructor_id: 'i1' } }),
+      change({ id: 8, action: 'unassigned', occurred_at: at(1), detail: { section_id: 's1', instructor_id: 'i2' } }),
+    ]
+    expect(myLastUndoableIds(log, ME)).toEqual([9])
+  })
+
+  it('does not pair across a long pause', () => {
+    const log = [
+      change({ id: 9, action: 'assigned', occurred_at: at(40), detail: { section_id: 's2', instructor_id: 'i1' } }),
+      change({ id: 8, action: 'unassigned', occurred_at: at(1), detail: { section_id: 's1', instructor_id: 'i1' } }),
+    ]
+    expect(myLastUndoableIds(log, ME)).toEqual([9])
+  })
+
+  it('ignores somebody else’s changes on either half', () => {
+    const log = [
+      change({ id: 9, action: 'assigned', occurred_at: at(2), detail: { section_id: 's2', instructor_id: 'i1' } }),
+      change({ id: 8, action: 'unassigned', actor_email: 'mashhadi@uw.edu', occurred_at: at(1), detail: { section_id: 's1', instructor_id: 'i1' } }),
+    ]
+    expect(myLastUndoableIds(log, ME)).toEqual([9])
+  })
+
+  it('finds nothing when there is nothing of mine left', () => {
+    expect(myLastUndoableIds([change({ id: 1, undone_at: at(9) })], ME)).toBeNull()
+    expect(myLastUndoableIds(moved, null)).toBeNull()
   })
 })
 

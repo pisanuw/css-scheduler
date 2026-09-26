@@ -2,6 +2,7 @@ node_modules/
 package-lock.json
 dist/
 dist-harness/
+dist-routecheck/
 coverage/
 .env
 .env.status

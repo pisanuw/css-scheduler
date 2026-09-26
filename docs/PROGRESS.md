@@ -13,13 +13,117 @@ this file is the state of play.
 | 3 — Assignment board | done |
 | 4 — Reporting | done |
 | 5 — Solver, import, student checks | suggestions and student checks done; time-schedule import not started |
-| Polish | undo, toasts, focus management, tables-as-cards and code splitting done; drag and drop, dark mode, PWA open |
+| Polish | undo, toasts, focus management, tables-as-cards, code splitting and drag and drop done; dark mode, PWA open |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
 
 ---
+
+## 2026-09-26 (seventh run) — drag and drop, and a check that uses a finger
+
+**Built.** The top item on the list for five runs: a name can be dragged from
+the load panel onto a section card, and a name on a card can be dragged to
+another card, which moves it rather than copying it. Tapping is untouched and
+still the primary path.
+
+- **`src/lib/dnd.ts` is what a drop means**, pure over a snapshot as the
+  conflict engine is: whether a drop is an assignment, a move or nothing;
+  what colour every visible card wears for the person in the air; what the
+  confirmation says afterwards. 32 tests, no browser.
+- **A move is judged against where the instructor is going.** `withoutAssignment`
+  takes the old assignment off a copy of the snapshot before ranking, because
+  otherwise dragging someone from one Monday 8:45 section to another reports a
+  clash with the section they are in the act of leaving and every move looks
+  forbidden. The same copy is what makes a move past a quarter maximum legal
+  when an addition would not be — they end on the same number of sections.
+- **Red is a warning, not a veto**, exactly as the assign sheet ranks an
+  unwilling instructor last rather than hiding them. A disliked card still
+  takes the drop and the toast carries the reason: "Assigned Bo Li to CSS 342 A
+  — clashes with another section."
+- **`useMoveAssignment`** does the delete and the insert, puts the delete back
+  if the insert is refused, and updates the cached board optimistically so the
+  conflict panel reacts on the same gesture.
+- **⌘Z understands a move.** It is two entries in the change log — an
+  assignment is a row and there is no such thing as moving one — so
+  `myLastUndoableIds` recognises the pair (same instructor, different sections,
+  seconds apart, both mine) and reverses both. Without it, ⌘Z after a drag left
+  the person teaching neither section, which reads as a broken undo.
+- **`npm run check:drag`** drives a real mouse and a real finger at a real
+  board: the sandbox scene wires the board's own sensors, collision detection
+  and drop rules, with the mutations replaced by a list of what would have
+  happened. Touch goes through CDP `Input.dispatchTouchEvent` rather than
+  synthetic DOM events, because a synthetic touchmove cannot scroll a page and
+  scrolling is one of the things being asserted.
+
+**Learned.**
+
+- *The tap having right of way is the whole design, and it is two numbers.* A
+  mouse must travel 6px before a press is a drag; a finger must rest 250ms
+  within 8px before a hold is. Both were checked by breaking them on purpose:
+  with the touch delay swapped for a 4px distance, "a flick down the list
+  scrolls the page and starts no drag" fails, and with the mouse distance at 0
+  a shaky click on the × picks the chip up instead of unassigning. The checks
+  have teeth because they were seen to fail.
+- *The scenes found a contrast bug that had been shipping for four runs.* The ×
+  that unassigns somebody was `text-slate-500` on the chip's `slate-100` —
+  4.35:1, where AA wants 4.5. Nothing was wrong with the mobile check; the
+  section card simply had no scene until this run put one there. Every
+  component the board renders now has one.
+- *Dragging adds no keyboard path, and that is the honest choice.* dnd-kit
+  offers one, but taking it means a tab stop on every name in the load panel
+  and a `role="button"` wrapped around the real button inside each chip — to
+  reach a destination the card's own Assign button already reaches in two
+  keystrokes. The chips take the library's pointer listeners and not its ARIA
+  attributes. Screen readers hear `dragAnnouncement` instead of dnd-kit's
+  default, which reads the drag id aloud, and this board's ids are
+  `assignment:<uuid>:<uuid>`.
+- *`npm run check:routes` had been broken since the moment the sandbox stopped
+  having a `.env.local`, and said so only as a 30-second timeout.* Vite inlines
+  `import.meta.env.VITE_*` at build time, so a build without them throws on
+  boot and every assertion waits for an element that will never exist. It now
+  builds its own bundle into `dist-routecheck/` with placeholder values — every
+  request to the project is intercepted anyway — and says plainly what is wrong
+  if it ever happens again. **This failure predates this run's changes**: it
+  reproduces on `7c0ff5b` untouched.
+- *There is no `package-lock.json` in this repository — it is gitignored.* So
+  `npm ci` cannot run, and a fresh sandbox resolves whatever minor versions are
+  current that day (`@supabase/supabase-js` came back as 2.117.2 against a
+  `^2.45.0` range). Nothing broke this time. It is worth deciding on purpose
+  rather than by omission.
+
+**Verified.** 312 unit tests (38 new across `dnd.test.ts` and the move-aware
+undo), typecheck and build green with no chunk-size warning, 24 harness scenes
+clean at 375px (four new: the cards, the cards mid-drag, the load panel and the
+drag pill), the routing check clean once it could build, and the new drag check
+green on both a mouse and a finger. No database change this run, so no
+migration and no RLS run.
+
+**Cost.** The board's chunk went from 40.3 kB to 90.5 kB (11.4 kB to 27.5 kB
+gzipped): dnd-kit, paid only by a coordinator who opens the board, and only
+once per deploy that touches it. If it ever matters, the wiring could be a
+dynamic import that the board renders without until it arrives — worth about
+16 kB gzipped and some complexity, which is not a trade worth making yet.
+
+**Deliberately not done.** Export and print on Compare. Dark mode. The PWA.
+Dragging a chip off a card to unassign — the × is right there, 44px, and a
+gesture whose whole meaning is "drop this in the bin" wants a bin to drop it
+in, which is a design decision rather than a wiring one.
+
+**Next run should pick up — in this order.**
+
+1. **Export and print on the Compare page**, matching the report's. The
+   smallest remaining piece of iteration 4 and the last one that is missing.
+2. **Dark mode.** Teach the contrast check to run each scene twice, which is
+   most of the work of doing it safely.
+3. **The installable PWA**, which the chunk split made more worthwhile: a
+   service worker can precache the shell and fetch pages on demand.
+4. **Trim Supabase's realtime and storage clients**, which look unused and are
+   227 kB of the 408 kB a signed-out visitor loads. The largest remaining byte
+   win, and the first that needs care rather than configuration.
+5. Decide about `package-lock.json`, and about `zod`, which is still a
+   dependency and still imported nowhere.
 
 ## 2026-09-26 (sixth run) — every page its own chunk
 

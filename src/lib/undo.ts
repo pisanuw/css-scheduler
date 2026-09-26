@@ -62,6 +62,53 @@ export function myLastUndoable(
   return changes.find((c) => c.actor_email === email && isUndoable(c)) ?? null
 }
 
+/**
+ * How far apart two entries can be and still be halves of one move. Long
+ * enough to cover a slow round trip, short enough that two deliberate edits a
+ * coffee apart are never mistaken for one gesture.
+ */
+const MOVE_WINDOW_MS = 5_000
+
+const detailString = (c: ScenarioChange, key: string): string | null => {
+  const v = c.detail?.[key]
+  return typeof v === 'string' ? v : null
+}
+
+/**
+ * What ⌘Z should actually take back — one id usually, two when the last thing
+ * I did was move someone.
+ *
+ * A move is an unassign and an assign written as one gesture, so reversing
+ * only the assign would leave that person teaching neither section: the board
+ * would look like the undo had gone wrong, and the coordinator would be right.
+ * The two are recognised by substance rather than by a flag the log does not
+ * carry — same instructor, different sections, seconds apart, both mine — and
+ * that is the correct reading even when the coordinator typed them as two
+ * separate actions, because that is a move too.
+ *
+ * `undo_changes` reverses by descending id, which puts the assign back before
+ * the unassign, which is the only order that works.
+ */
+export function myLastUndoableIds(
+  changes: ScenarioChange[],
+  email: string | null | undefined,
+): number[] | null {
+  if (!email) return null
+  const mine = changes.filter((c) => c.actor_email === email && isUndoable(c))
+  const last = mine[0]
+  if (!last) return null
+  const before = mine[1]
+  const isMove =
+    before &&
+    last.action === 'assigned' &&
+    before.action === 'unassigned' &&
+    detailString(last, 'instructor_id') !== null &&
+    detailString(last, 'instructor_id') === detailString(before, 'instructor_id') &&
+    detailString(last, 'section_id') !== detailString(before, 'section_id') &&
+    new Date(last.occurred_at).getTime() - new Date(before.occurred_at).getTime() <= MOVE_WINDOW_MS
+  return isMove ? [last.id, before!.id] : [last.id]
+}
+
 /** What the toast says once a reversal has gone through. */
 export function undoneMessage(count: number, summary: string | null): string {
   if (count > 1) return `Undid ${count} changes.`

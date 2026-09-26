@@ -171,9 +171,10 @@ reason the conflict engine is: they re-run on every tap and every keystroke.
 The coordinator does this work on a phone, so 375px is the width the layout is
 designed at, not one it degrades to. Three rules hold everywhere:
 
-- **Tap to assign.** Tap a section, tap an instructor. There is no drag and
-  drop yet, and when it arrives it will be an addition to this path rather than
-  a replacement for it.
+- **Tap to assign.** Tap a section, tap an instructor. Dragging exists now,
+  and it is an addition to this path rather than a replacement for it: every
+  assignment, move and removal a drag performs is also two taps away, which is
+  what a phone uses when a hand is full and what a keyboard uses always.
 - **No horizontal page scroll, at any width.** The quarter tab strip is the one
   element allowed to scroll sideways, and only within itself.
 - **Every control at least 44px tall.** Including the small ones — the chip
@@ -196,6 +197,48 @@ half, and a cell holding only a placeholder (`—`, styled or bare) is left off
 altogether, because a table needs a dash to keep its columns lined up and a
 card has no columns to line up. `src/lib/cards.ts` holds all of that as pure
 functions, tested without a browser; `src/components/DataTable.tsx` renders it.
+
+### Dragging
+
+A name can be dragged from the load panel onto a section card, and a name on a
+card can be dragged to another card, which moves it rather than copying it.
+Three decisions hold this together.
+
+**The tap has right of way.** A mouse must travel 6px before a press counts as
+a drag, and a finger must rest 250ms within 8px before a hold does. Without
+the first, the × that unassigns somebody would stop working for anyone whose
+hand moves a pixel between press and release; without the second, a flick down
+a list of sections would pick up whatever the finger happened to land on
+instead of scrolling. Both numbers live in
+`src/components/board/dragSetup.ts`, which the board and the check that drives
+a real pointer both use, so the thing tested is the thing that ships.
+
+**What a drop means is pure.** `src/lib/dnd.ts` decides, over a snapshot,
+whether a drop is an assignment, a move, or nothing at all, and what to say
+about it afterwards; `dropHints` colours every card for the person in the air.
+A move is judged against the snapshot with the old assignment already removed
+— otherwise dragging someone from one 8:45 Monday section to another would
+report a clash with the section they are in the act of leaving, and every move
+would look forbidden.
+
+**Red is a warning, not a veto.** A card the engine dislikes takes a red ring
+and still accepts the drop, and the confirmation carries the reason — "Assigned
+Bo Li to CSS 342 A — clashes with another section". This is the same judgement
+the assign sheet makes when it ranks an unwilling instructor last rather than
+hiding them: the coordinator sometimes has to ask.
+
+Dragging adds no keyboard path, deliberately. dnd-kit offers one, but it would
+mean a tab stop on every name in the load panel and a `role="button"` wrapped
+around the real button inside each chip, to reach a destination the card's own
+Assign button already reaches in two keystrokes. The chips take the library's
+pointer listeners and not its ARIA attributes. Screen readers are told what is
+happening by `dragAnnouncement`, because dnd-kit's default announcement reads
+out the drag id, and this board's ids are `assignment:<uuid>:<uuid>`.
+
+A move writes two entries in the change log — the unassign and the assign —
+because an assignment is a row and there is no such thing as moving one.
+`myLastUndoableIds` recognises that pair, so ⌘Z after a drag puts the person
+back where they were instead of leaving them on neither section.
 
 Which shape appears is decided by `matchMedia`, not by rendering both and
 hiding one: the teaching history is over a thousand rows and six columns, and
@@ -621,10 +664,11 @@ Reminder emails are not built.
 
 **3 — The assignment board (done).** Scenarios (create, rename, archive, mark
 one official per year, delete), seeding a scenario from a past year's schedule,
-section CRUD against all three timing shapes, ranked tap-to-assign, the live
-conflict panel and per-instructor load tallies. Undo — of an assignment, a
-burst of them, or a section added, edited or removed — arrived with the change
-log; see above. Not yet: drag and drop as an alternative to tapping.
+section CRUD against all three timing shapes, ranked tap-to-assign, dragging
+as an accelerator over the top of it, the live conflict panel and
+per-instructor load tallies. Undo — of an assignment, a move, a burst of them,
+or a section added, edited or removed — arrived with the change log; see
+above.
 
 **4 — Reporting (done).** How well preferences were met, CSV export of both
 the schedule and the report, a print stylesheet, side-by-side scenario
