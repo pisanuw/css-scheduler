@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
 import { pwa } from './vite-plugins/pwa'
+import { supabaseTrimAliases } from './vite-plugins/supabaseTrim'
 
 /**
  * Three vendor chunks, because they change on different clocks.
@@ -40,7 +41,12 @@ export default defineConfig({
     pwa({ swSrc: 'src/sw.ts', pages: ['Dashboard', 'Board'] }),
   ],
   resolve: {
-    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Realtime, storage and edge functions, which this app does not use and
+      // `supabase-js` constructs anyway. See `vite-plugins/supabaseTrim.ts`.
+      ...supabaseTrimAliases(),
+    },
   },
   build: {
     rollupOptions: { output: { manualChunks: vendorChunk } },

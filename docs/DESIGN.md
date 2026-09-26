@@ -306,9 +306,9 @@ What ships now:
 
 | Chunk | Size | Changes when |
 | --- | --- | --- |
-| `index` | 17 kB | the shell, the router or sign-in does |
+| `index` | 21 kB | the shell, the router or sign-in does |
 | `react` | 165 kB | React, the router or the scheduler is upgraded |
-| `supabase` | 227 kB | `@supabase/*` is upgraded |
+| `supabase` | 136 kB | `@supabase/*` is upgraded |
 | `query` | 41 kB | React Query is upgraded |
 | a page | 1–40 kB | that page does |
 
@@ -320,7 +320,35 @@ it: a page that crosses it has pulled in something unexpected.
 
 A signed-out visitor loads four chunks and sees the sign-in button. `Login` is
 the one page that is *not* split — making the first paint wait on a second
-request to show a single button is a poor trade.
+request to show a single button is a poor trade. That first load is 401 kB,
+117 kB over the wire.
+
+### The Supabase clients that are not in it
+
+`supabase` was the largest chunk, at 227 kB, and most of it was code this app
+never runs. `@supabase/supabase-js` is five clients in one package — PostgREST,
+auth, realtime, storage and edge functions — and its constructor builds a
+`RealtimeClient` and a `StorageClient` whether anything asks for them or not,
+so no bundler can prove them dead. A WebSocket client, a Phoenix channel
+implementation, a presence layer, an uploader and a function caller were
+downloaded by every instructor who opened the sign-in page.
+
+`vite-plugins/supabaseTrim.ts` aliases those three package names onto
+stand-ins in `src/lib/supabase-trim/`, which takes the chunk to 136 kB — 90 kB
+off the first load, 24 kB of it over the wire. The app uses none of the three:
+it reads through PostgREST, refreshes through React Query rather than a socket
+(a schedule is edited by one coordinator at a time), generates every export in
+the browser, and keeps the decisions that must not be the client's in
+row-level security rather than in an edge function.
+
+Each stand-in constructs silently, because `SupabaseClient` constructs it
+unasked, and throws the moment anything *uses* it, naming the file to edit. The
+silent alternative would turn "this build has no realtime" into a subscription
+that never fires, which looks like a database problem and cannot be found from
+the console. Which members have to exist is a fact about a dependency, not
+about this code, so a test reads the installed `supabase-js` and asserts the
+stubs cover every `this.realtime.*` and `this.storage.*` call in it — an
+upgrade that adds one fails there rather than on somebody's sign-in.
 
 ### One list of destinations
 

@@ -45,7 +45,8 @@ Tests and typecheck:
 npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
                   # reporting, suggestions, undo, drag rules, the toast queue,
                   # the focus trap, the theme rules, the route table, chunk
-                  # recovery and the service worker's rules (362 tests)
+                  # recovery, the service worker's rules and the Supabase
+                  # clients this build leaves out (369 tests)
 npm run typecheck
 npm run build
 ```
@@ -240,6 +241,14 @@ explicitly `max-age=0, must-revalidate`: it is the one file that decides
 whether every other file can be replaced, so a cached copy is not a stale page
 but an app that can never update itself again, on a phone whose cache nobody
 can clear.
+
+The first load is 401 kB, 117 kB over the wire: the shell, React, React Query
+and Supabase, with every page fetched when it is opened. Three of the five
+clients inside `@supabase/supabase-js` — realtime, storage and edge functions —
+are aliased out of the build by `vite-plugins/supabaseTrim.ts`, because this
+app uses none of them and `SupabaseClient` constructs two of them whether
+anything asks or not. `src/lib/supabase-trim/README.md` explains what to delete
+if that changes.
 
 The app is installable. `public/manifest.webmanifest` and the icons in
 `public/icons/` are what a phone reads to offer "Add to home screen"; the icons

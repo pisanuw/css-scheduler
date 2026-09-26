@@ -13,13 +13,75 @@ this file is the state of play.
 | 3 — Assignment board | done |
 | 4 — Reporting | done (export and print on both the report and the comparison) |
 | 5 — Solver, import, student checks | suggestions and student checks done; time-schedule import not started |
-| Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode and the installable PWA done |
+| Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA and the Supabase trim done |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
 
 ---
+
+## 2026-09-26 (eleventh run) — three clients nobody here uses
+
+**Built.** `@supabase/supabase-js` is five clients in one package, and this app
+uses two of them. Realtime, storage and edge functions are now aliased out of
+the build.
+
+- **`src/lib/supabase-trim/`** holds a stand-in for each, with a README
+  explaining what to delete to get the real one back.
+  **`vite-plugins/supabaseTrim.ts`** maps the three package names onto them,
+  and is shared by the app's build and the harness's so the mobile check
+  measures what ships.
+- **Measured, both ways.** The `supabase` chunk goes from 227 kB to 136 kB, and
+  a signed-out visitor's first load from 491 kB to 401 kB — 141 kB to 117 kB
+  over the wire. That is 17% of what somebody on a phone waits for, to delete
+  a WebSocket client, a Phoenix channel implementation, a presence layer, an
+  uploader and a function caller that no line of this app calls.
+
+**Learned.**
+
+- *No bundler could have done this.* `SupabaseClient`'s constructor builds a
+  `RealtimeClient` and a `StorageClient` unconditionally, so the code is
+  reachable and ships. Aliasing is the smallest honest lever; the alternative,
+  assembling a client by hand out of `postgrest-js` and `auth-js`, means owning
+  the wiring between auth state and PostgREST headers, which is the part of
+  `supabase-js` actually worth having.
+- *A stub has two opposite obligations.* Silent where the client uses it
+  unasked — the constructor, and `realtime.setAuth()` on every sign-in, sign-out
+  and token refresh, which would otherwise break signing in for a reason with
+  nothing to do with realtime. Loud everywhere else, naming the file to edit,
+  because a stub that quietly did nothing would turn "this build has no
+  realtime" into a subscription that never fires: a bug that reads as a
+  database problem and cannot be found from the console.
+- *What the stubs must cover is a fact about a dependency, so it is read out of
+  the dependency.* A test scans the installed `supabase-js` for every
+  `this.realtime.*` and `this.storage.*` call and asserts the stubs implement
+  each one. An upgrade that adds a call fails there, at `npm test`, rather than
+  on somebody's sign-in. Proved by deleting `getChannels` from the stub and
+  watching it fail.
+
+**Verified.** 369 unit tests (7 new), typecheck and build green. The routing
+check drives the real trimmed bundle — sign-in, profile, all thirteen pages,
+both roles, both themes — and the mobile (28 scenes), drag and PWA checks are
+clean against it. The harness builds with the same aliases, so its client is
+constructed from the stubs too.
+
+**Deliberately not done.** Trimming `auth-js`, which is most of the remaining
+136 kB and is load-bearing. Splitting `query` further: React Query is 41 kB and
+every page uses it.
+
+**Next run should pick up — in this order.**
+
+1. **Decide about `package-lock.json`**, and about `zod`, still a dependency
+   and still imported nowhere. Deleting `zod` is another ~12 kB if anything
+   pulls it in, and nothing should.
+2. **Importing a quarter from a pasted UW time schedule** — the one part of
+   iteration 5 still unbuilt, and the only thing left in the original plan.
+3. **An offline banner.** The app renders offline and says nothing about it, so
+   a coordinator tapping Assign with no signal gets a Supabase error rather
+   than an explanation. The service worker already knows; the app does not ask.
+4. `.env.asc` arrived in `dd09666` with nothing saying which key opens it or
+   what to do with it — worth a line in the README, from whoever added it.
 
 ## 2026-09-26 (tenth run) — installable, and able to replace itself
 
