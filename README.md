@@ -134,6 +134,21 @@ assigns, that a chip dragged between cards moves, that a drop on nothing does
 nothing, and — the two that matter most on a phone — that clicking the × still
 unassigns and that a flick down the list still scrolls.
 
+### Dependencies
+
+`package-lock.json` is committed, so `npm ci` — which is what Netlify runs when
+it finds a lockfile — installs the exact versions every check in this
+repository was last run against. Without it each deploy re-resolved every
+`^` range at build time, which means the app that reaches the coordinator is
+not the app anybody tested: `@supabase/supabase-js: ^2.45.0` currently resolves
+to 2.117.2, and a future minor of it landing straight in production with no one
+watching is the kind of surprise this project cannot see until somebody cannot
+sign in.
+
+Upgrade deliberately (`npm update <package>`, then the checks above, then
+commit the lockfile with the result). `zod` used to be a dependency and was
+imported nowhere; it is gone.
+
 ## Database
 
 The hosted project is `css-scheduler` (ref `abvnaelzfriusckqqrfc`, us-west-1).

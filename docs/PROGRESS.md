@@ -21,6 +21,50 @@ See the newest entry below for the specific handoff.
 
 ---
 
+## 2026-09-26 (twelfth run) — the same app twice
+
+**Built.** Nothing visible: this run is about the build being reproducible.
+
+- **`package-lock.json` is committed.** It was in `.gitignore`, which meant
+  Netlify re-resolved every `^` range at build time and the app that reached
+  the coordinator was not the app anybody had run a check against.
+  `@supabase/supabase-js: ^2.45.0` resolves to 2.117.2 today; a future minor
+  arriving straight in production, unattended, is exactly the failure this
+  project cannot see until somebody cannot sign in — and it would take the
+  `supabase-trim` stubs with it, since those track a specific client's calls.
+  Netlify runs `npm ci` when it finds a lockfile, so this is now pinned.
+- **`zod` is gone.** A dependency imported nowhere, and in no chunk; it had
+  been on the "decide about this" list for four runs.
+
+**Verified.** `node_modules` deleted and reinstalled with `npm ci` from the
+committed lockfile, then everything: 369 tests, typecheck, build, and all four
+browser checks (28 mobile scenes, routing, drag, PWA). The build produced
+`supabase-obE7GL4B.js` — the same hash as the build that is deployed and was
+verified byte-for-byte, which is the point of a lockfile stated as an
+observation rather than a hope.
+
+**Learned.** *The decision had been deferred four times, and each deferral was
+a deploy that could have shipped something untested.* The reason it kept being
+deferred is that it is policy rather than code; the reason to stop deferring is
+that the cost of the default was invisible and the cost of the fix is a file.
+It is reversible in one commit if the maintainer disagrees.
+
+**Next run should pick up — in this order.**
+
+1. **Importing a quarter from a pasted UW time schedule** — the one part of
+   iteration 5 still unbuilt, and the only thing left in the original plan.
+2. **An offline banner.** The app renders offline and says nothing about it, so
+   a coordinator tapping Assign with no signal gets a Supabase error rather
+   than an explanation. The service worker already knows; the app does not ask.
+3. **`npm audit` reports 7 vulnerabilities** (1 critical, 1 high) in the
+   dependency tree, all in dev tooling as far as this run looked. Now that the
+   lockfile is committed, upgrading is a deliberate act with a diff — worth a
+   run of its own.
+4. `.env.asc` arrived in `dd09666` with nothing saying which key opens it or
+   what to do with it — worth a line in the README, from whoever added it.
+
+---
+
 ## 2026-09-26 (eleventh run) — three clients nobody here uses
 
 **Built.** `@supabase/supabase-js` is five clients in one package, and this app
