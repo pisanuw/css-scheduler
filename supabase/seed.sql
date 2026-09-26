@@ -510,6 +510,14 @@ left join instructors i on i.full_name = h.instructor_name
 left join courses c on c.subject = 'CSS' and c.number = h.course_num
 on conflict (academic_year, quarter, sln, section_letter) do nothing;
 
+-- Rooms CSS actually teaches in, learned from the imported schedules.
+insert into rooms (building_id, room_number)
+select distinct b.id, substr(h.room_label, position(' ' in h.room_label) + 1)
+from teaching_history h
+join buildings b on b.code = split_part(h.room_label, ' ', 1)
+where h.room_label is not null and position(' ' in h.room_label) > 0
+  on conflict (building_id, room_number) do nothing;
+
 -- Anyone who has taught a course is presumed qualified to teach it again.
 insert into instructor_qualifications (instructor_id, course_id, source)
 select distinct th.instructor_id, th.course_id, 'history'::qualification_source

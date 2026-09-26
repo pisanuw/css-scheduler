@@ -1,14 +1,21 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useAcademicYears } from '../hooks/preferences'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAcademicYears, useTerms } from '../hooks/preferences'
+import { useInstructors } from '../hooks/queries'
 import {
+  useApplySeedPlan,
   useDeleteScenario,
+  useHistoryForYear,
+  useHistoryYears,
   useMakeOfficial,
+  useRooms,
   useSaveScenario,
   useScenarios,
+  useTimeSlots,
   type Scenario,
   type ScenarioStatus,
 } from '../hooks/scheduling'
+import { describePlan, planFromHistory } from '../lib/seedPlan'
 
 const STATUS_STYLE: Record<ScenarioStatus, string> = {
   draft: 'bg-slate-100 text-slate-700',
@@ -17,20 +24,51 @@ const STATUS_STYLE: Record<ScenarioStatus, string> = {
 }
 
 export default function Scenarios() {
+  const navigate = useNavigate()
   const years = useAcademicYears()
   const scenarios = useScenarios()
   const save = useSaveScenario()
   const makeOfficial = useMakeOfficial()
   const remove = useDeleteScenario()
+  const applyPlan = useApplySeedPlan()
   const [editing, setEditing] = useState<Partial<Scenario> | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  /** '' means start empty; otherwise the academic year to copy. */
+  const [seedFrom, setSeedFrom] = useState('')
+
+  // Everything the planner needs. All of it is cached and shared with the
+  // board, so opening this dialog costs nothing extra in practice.
+  const historyYears = useHistoryYears()
+  const history = useHistoryForYear(seedFrom || undefined)
+  const terms = useTerms(editing?.academic_year_id)
+  const timeSlots = useTimeSlots()
+  const rooms = useRooms()
+  const instructors = useInstructors()
+
+  const plan = useMemo(() => {
+    if (!seedFrom || !history.data || !terms.data || !timeSlots.data || !instructors.data) return null
+    return planFromHistory({
+      history: history.data,
+      terms: terms.data,
+      timeSlots: timeSlots.data,
+      rooms: rooms.data ?? [],
+      activeInstructorIds: new Set(instructors.data.filter((i) => i.is_active).map((i) => i.id)),
+    })
+  }, [seedFrom, history.data, terms.data, timeSlots.data, rooms.data, instructors.data])
 
   const yearName = (id: string) => years.data?.find((y) => y.id === id)?.name ?? '—'
 
   const startNew = () => {
     const current = years.data?.find((y) => y.is_current) ?? years.data?.[0]
+    setSeedFrom('')
     setEditing({ academic_year_id: current?.id, name: '', description: '', status: 'draft' })
+  }
+
+  const closeDialog = () => {
+    setEditing(null)
+    setError(null)
+    setSeedFrom('')
   }
 
   const submit = () => {
@@ -47,9 +85,34 @@ export default function Scenarios() {
         description: editing.description?.trim() || null,
         status: editing.status ?? 'draft',
       },
-      { onSuccess: () => setEditing(null), onError: (e) => setError((e as Error).message) },
+      {
+        onSuccess: (saved) => {
+          // Seeding is part of creating the scenario, so a failure here has to
+          // surface rather than leaving a silently empty board behind.
+          if (!editing.id && plan && plan.sections.length > 0) {
+            applyPlan.mutate(
+              { scenarioId: saved.id, plan },
+              {
+                onSuccess: () => {
+                  closeDialog()
+                  navigate(`/board/${saved.id}`)
+                },
+                onError: (e) =>
+                  setError(
+                    `The scenario was created but copying the schedule failed: ${(e as Error).message}`,
+                  ),
+              },
+            )
+            return
+          }
+          closeDialog()
+        },
+        onError: (e) => setError((e as Error).message),
+      },
     )
   }
+
+  const busy = save.isPending || applyPlan.isPending
 
   return (
     <section>
@@ -213,6 +276,53 @@ export default function Scenarios() {
                   className="mt-1 block min-h-11 w-full rounded-md border border-slate-300 px-2"
                 />
               </label>
+              {!editing.id && (historyYears.data ?? []).length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Start from
+                    <select
+                      value={seedFrom}
+                      onChange={(e) => setSeedFrom(e.target.value)}
+                      className="mt-1 block min-h-11 w-full rounded-md border border-slate-300 px-2"
+                    >
+                      <option value="">An empty board</option>
+                      {(historyYears.data ?? []).map((y) => (
+                        <option key={y} value={y}>
+                          The {y} schedule as it was taught
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {seedFrom && (
+                    <p className="mt-1 text-sm text-slate-600">
+                      {history.isLoading || !plan ? (
+                        'Reading that year…'
+                      ) : (
+                        <>
+                          Copies <strong>{describePlan(plan)}</strong>. Nothing is published — it is a
+                          draft you edit.
+                        </>
+                      )}
+                    </p>
+                  )}
+                  {plan && plan.skipped.length > 0 && (
+                    <details className="mt-1 text-sm text-amber-700">
+                      <summary className="cursor-pointer">
+                        {plan.skipped.length} row{plan.skipped.length === 1 ? '' : 's'} cannot be
+                        copied
+                      </summary>
+                      <ul className="mt-1 list-disc pl-5 text-xs">
+                        {plan.skipped.slice(0, 12).map((k, i) => (
+                          <li key={i}>
+                            {k.detail} — {k.reason}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              )}
+
               <label className="block text-sm font-medium text-slate-700">
                 What is this draft for?
                 <textarea
@@ -227,21 +337,18 @@ export default function Scenarios() {
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
             <div className="mt-5 flex justify-end gap-2">
               <button
-                onClick={() => {
-                  setEditing(null)
-                  setError(null)
-                }}
+                onClick={closeDialog}
                 className="flex min-h-11 items-center rounded-md border border-slate-300 px-4 text-sm text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
                 onClick={submit}
-                disabled={save.isPending}
+                disabled={busy}
                 style={{ background: 'var(--uw-purple)' }}
                 className="flex min-h-11 items-center rounded-md px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
               >
-                {save.isPending ? 'Saving…' : 'Save'}
+                {applyPlan.isPending ? 'Copying schedule…' : busy ? 'Saving…' : 'Save'}
               </button>
             </div>
           </div>

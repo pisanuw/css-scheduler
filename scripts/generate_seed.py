@@ -262,6 +262,21 @@ w("left join instructors i on i.full_name = h.instructor_name")
 w("left join courses c on c.subject = 'CSS' and c.number = h.course_num")
 w("on conflict (academic_year, quarter, sln, section_letter) do nothing;")
 w("")
+
+# --- rooms ----------------------------------------------------------------
+# Derived from the schedules rather than typed out: the import is the only
+# place we learn which rooms CSS actually teaches in, and a room nobody has
+# ever used is not worth modelling. Runs after the history insert because it
+# reads from it. Labels are 'CODE NUMBER', e.g. 'UW1 050'.
+w("-- Rooms CSS actually teaches in, learned from the imported schedules.")
+w("insert into rooms (building_id, room_number)")
+w("select distinct b.id, substr(h.room_label, position(' ' in h.room_label) + 1)")
+w("from teaching_history h")
+w("join buildings b on b.code = split_part(h.room_label, ' ', 1)")
+w("where h.room_label is not null and position(' ' in h.room_label) > 0")
+w("  on conflict (building_id, room_number) do nothing;")
+w("")
+
 w("-- Anyone who has taught a course is presumed qualified to teach it again.")
 w("insert into instructor_qualifications (instructor_id, course_id, source)")
 w("select distinct th.instructor_id, th.course_id, 'history'::qualification_source")

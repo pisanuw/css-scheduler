@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import type { AssignmentRow, SectionRow, SubmissionBundle, TimeSlotRow } from '../lib/snapshot'
+import type { HistoryRow, SeedPlan } from '../lib/seedPlan'
 
 function rows<T>({ data, error }: { data: T[] | null; error: { message: string } | null }): T[] {
   if (error) throw new Error(error.message)
@@ -103,11 +104,103 @@ export const useTimeSlots = () =>
       ),
   })
 
+/**
+ * Rooms labelled the way a time schedule writes them, 'UW1 050'. The table's
+ * generated `label` column holds only the room number, which is ambiguous
+ * across buildings, so the building code is joined on here instead.
+ */
 export const useRooms = () =>
   useQuery({
     queryKey: ['rooms'],
-    queryFn: async () => rows<{ id: string; label: string }>(await supabase.from('rooms').select('id, label')),
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const [roomRows, buildingRows] = await Promise.all([
+        supabase.from('rooms').select('id, building_id, room_number'),
+        supabase.from('buildings').select('id, code'),
+      ])
+      const roomList = rows<{ id: string; building_id: string; room_number: string }>(roomRows)
+      const codeById = new Map(
+        rows<{ id: string; code: string }>(buildingRows).map((b) => [b.id, b.code]),
+      )
+      return roomList
+        .map((r) => ({ id: r.id, label: `${codeById.get(r.building_id) ?? '?'} ${r.room_number}` }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+    },
   })
+
+/** Academic years the imported schedules cover, newest first. */
+export const useHistoryYears = () =>
+  useQuery({
+    queryKey: ['history_years'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const all = rows<{ academic_year: string }>(
+        await supabase.from('teaching_history').select('academic_year'),
+      )
+      return [...new Set(all.map((r) => r.academic_year))].sort().reverse()
+    },
+  })
+
+/** The full imported schedule for one year, for seeding a scenario from it. */
+export const useHistoryForYear = (year?: string) =>
+  useQuery({
+    enabled: !!year,
+    queryKey: ['history_year', year],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () =>
+      rows<HistoryRow>(
+        await supabase
+          .from('teaching_history')
+          .select(
+            'id, course_id, instructor_id, instructor_name_raw, course_code_raw, academic_year, quarter, section_letter, days, start_time, end_time, room_label, modality, enrollment_cap',
+          )
+          .eq('academic_year', year!),
+      ),
+  })
+
+/**
+ * Writes a plan: sections first, then the assignments, which need the ids the
+ * insert hands back. Sections are matched to their plan by the same key the
+ * table is unique on, so a section that collided and was not inserted simply
+ * gets no assignments rather than the wrong ones.
+ */
+export function useApplySeedPlan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ scenarioId, plan }: { scenarioId: string; plan: SeedPlan }) => {
+      if (plan.sections.length === 0) return { sections: 0, assignments: 0 }
+
+      const payload = plan.sections.map(({ instructorIds: _ignored, ...s }) => ({
+        ...s,
+        scenario_id: scenarioId,
+        status: 'planned' as const,
+      }))
+      const { data, error } = await supabase
+        .from('sections')
+        .insert(payload)
+        .select('id, term_id, course_id, section_letter')
+      if (error) throw new Error(error.message)
+
+      const idByKey = new Map(
+        (data as { id: string; term_id: string; course_id: string; section_letter: string }[]).map(
+          (r) => [`${r.term_id}|${r.course_id}|${r.section_letter}`, r.id],
+        ),
+      )
+      const links = plan.sections.flatMap((s) => {
+        const id = idByKey.get(`${s.term_id}|${s.course_id}|${s.section_letter}`)
+        return id ? s.instructorIds.map((instructor_id) => ({ section_id: id, instructor_id })) : []
+      })
+      if (links.length > 0) {
+        const { error: linkError } = await supabase.from('section_instructors').insert(links)
+        if (linkError) throw new Error(linkError.message)
+      }
+      return { sections: payload.length, assignments: links.length }
+    },
+    onSuccess: (_r, { scenarioId }) => {
+      qc.invalidateQueries({ queryKey: ['board', scenarioId] })
+    },
+  })
+}
 
 export interface BoardData {
   sections: SectionRow[]
