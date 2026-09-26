@@ -12,6 +12,7 @@
 
 import type { Modality, Quarter } from './conflicts'
 import { toHM } from './snapshot'
+import { plural } from './format'
 
 export interface HistoryRow {
   id: string
@@ -211,11 +212,12 @@ export function planFromHistory(input: SeedInput): SeedPlan {
 /** One line summarising a plan, for the confirmation step before it is written. */
 export function describePlan(plan: SeedPlan): string {
   const { stats } = plan
-  const bits = [`${stats.sections} sections`, `${stats.assignments} assignments`]
+  const bits = [plural(stats.sections, 'section'), plural(stats.assignments, 'assignment')]
   if (stats.merged) bits.push(`${stats.merged} co-taught`)
-  if (stats.customTimes) bits.push(`${stats.customTimes} off-grid times`)
+  if (stats.customTimes) bits.push(`${plural(stats.customTimes, 'off-grid time')}`)
   if (stats.arranged) bits.push(`${stats.arranged} to be arranged`)
-  if (stats.instructorsDropped) bits.push(`${stats.instructorsDropped} instructors no longer on the roster`)
+  if (stats.instructorsDropped)
+    bits.push(`${plural(stats.instructorsDropped, 'instructor')} no longer on the roster`)
   if (plan.skipped.length) bits.push(`${plan.skipped.length} skipped`)
   return bits.join(' · ')
 }

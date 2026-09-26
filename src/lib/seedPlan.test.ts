@@ -232,7 +232,9 @@ describe('planFromHistory', () => {
 describe('describePlan', () => {
   it('leads with what will be created', () => {
     const plan = planFromHistory(input({ history: [row()] }))
-    expect(describePlan(plan)).toBe('1 sections · 1 assignments')
+    // Singular, and it used to read "1 sections · 1 assignments" — which the
+    // import sheet showed next to a button correctly saying "Import 1 section".
+    expect(describePlan(plan)).toBe('1 section · 1 assignment')
   })
 
   it('mentions every caveat it has', () => {
@@ -246,8 +248,8 @@ describe('describePlan', () => {
       }),
     )
     const text = describePlan(plan)
-    expect(text).toContain('off-grid times')
-    expect(text).toContain('no longer on the roster')
+    expect(text).toContain('1 off-grid time')
+    expect(text).toContain('1 instructor no longer on the roster')
     expect(text).toContain('skipped')
   })
 })

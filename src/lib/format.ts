@@ -27,6 +27,19 @@ export function titleCase(s: string): string {
 }
 
 /**
+ * `3 changes`, `1 change`.
+ *
+ * Small, and worth having in one place: the app counts sections, assignments,
+ * conflicts, queued writes and skipped rows, and every one of those was
+ * spelling `n === 1 ? '' : 's'` inline, or — in the seed summary — not
+ * spelling it at all, so importing a single section read "1 sections".
+ * Irregular plurals are given rather than guessed; nothing here needs one yet.
+ */
+export function plural(n: number, word: string, plural?: string): string {
+  return `${n} ${n === 1 ? word : (plural ?? `${word}s`)}`
+}
+
+/**
  * The conflict tally as a sentence, for the board's live region.
  *
  * The pills above the list already say "2 errors · 0 warnings · 1 note", which
@@ -44,7 +57,7 @@ export function conflictSummary(counts: { error: number; warning: number; info: 
     ] as const
   )
     .filter(([n]) => n > 0)
-    .map(([n, word]) => `${n} ${word}${n === 1 ? '' : 's'}`)
+    .map(([n, word]) => plural(n, word))
 
   if (parts.length === 0) return 'No conflicts.'
   if (parts.length === 1) return `${parts[0]}.`

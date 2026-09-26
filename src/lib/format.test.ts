@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   conflictSummary,
+  plural,
   formatDays,
   formatTime,
   formatTimeRange,
@@ -103,5 +104,21 @@ describe('printedOn', () => {
 
   it('does not pad the day', () => {
     expect(printedOn(new Date(2027, 0, 4))).toBe('Printed January 4, 2027')
+  })
+})
+
+describe('plural', () => {
+  it('drops the s for one', () => {
+    expect(plural(1, 'section')).toBe('1 section')
+  })
+
+  it('keeps it for everything else, nought included', () => {
+    expect(plural(0, 'section')).toBe('0 sections')
+    expect(plural(2, 'section')).toBe('2 sections')
+  })
+
+  it('takes an irregular plural rather than guessing at one', () => {
+    expect(plural(1, 'person', 'people')).toBe('1 person')
+    expect(plural(3, 'person', 'people')).toBe('3 people')
   })
 })

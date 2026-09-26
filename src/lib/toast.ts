@@ -6,6 +6,8 @@
  * own — are rules, and rules are worth testing without a browser.
  */
 
+import { isOfflineError, offlineFailureText } from './online'
+
 export type ToastTone = 'info' | 'success' | 'error'
 
 /**
@@ -110,8 +112,17 @@ export function clearToasts(state: ToastState): ToastState {
   return state.items.length === 0 ? state : { ...state, items: [] }
 }
 
-/** The message shown when a mutation fails, from whatever the layer below threw. */
+/**
+ * The message shown when a mutation fails, from whatever the layer below threw.
+ *
+ * A request that never reached the server is translated rather than quoted.
+ * Every failing write in this app funnels through here, so this is the one
+ * place that has to know the difference — and it is the case a coordinator on
+ * a phone hits most often, where the browser's own wording ("Failed to fetch")
+ * reads as a bug in the scheduler.
+ */
 export function failureText(prefix: string, e: unknown): string {
+  if (isOfflineError(e)) return offlineFailureText(prefix)
   const detail = e instanceof Error ? e.message : String(e ?? '')
   return detail ? `${prefix}: ${detail}` : prefix
 }

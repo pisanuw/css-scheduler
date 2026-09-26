@@ -135,6 +135,20 @@ describe('failureText', () => {
   it('copes with something that is not an Error', () => {
     expect(failureText('Could not archive', 'timed out')).toBe('Could not archive: timed out')
   })
+
+  it('explains a dead connection instead of quoting the browser at the coordinator', () => {
+    // The case a phone hits most: the request never left. "Could not assign:
+    // TypeError: Failed to fetch" reads as a bug in the scheduler.
+    const text = failureText('Could not assign', new Error('TypeError: Failed to fetch'))
+    expect(text).not.toContain('TypeError')
+    expect(text).toContain('no connection')
+  })
+
+  it('still quotes the server when the server is the one refusing', () => {
+    expect(
+      failureText('Could not save', new Error('new row violates row-level security policy')),
+    ).toBe('Could not save: new row violates row-level security policy')
+  })
 })
 
 describe('a message with something to do about it', () => {

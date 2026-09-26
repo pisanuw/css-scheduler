@@ -8,6 +8,8 @@ import RouteErrorBoundary from './components/RouteErrorBoundary'
 import { LANDING_PATH, pathsOf, prefetchRouteQuietly, ROUTES, routesFor } from './lib/routes'
 import { useTheme } from './hooks/useTheme'
 import { useServiceWorker } from './hooks/useServiceWorker'
+import { useConnection } from './hooks/useConnection'
+import OfflineBanner from './components/OfflineBanner'
 
 /**
  * Every page is its own chunk. `Login` is not: it is what an unauthenticated
@@ -34,6 +36,13 @@ export default function App() {
    * shipped while it sat there.
    */
   useServiceWorker()
+  /*
+   * Above the early returns too, and rendered in both branches. Signing in is
+   * the one thing in this app that genuinely cannot be done offline — it is a
+   * round trip to Google — so the sign-in page is where an unexplained failure
+   * is most likely and least recoverable.
+   */
+  const { banner } = useConnection()
 
   /*
    * Start the dashboard's chunk on the way down while the profile request is
@@ -55,10 +64,16 @@ export default function App() {
   const routes = useMemo(() => routesFor(isCoordinator), [isCoordinator])
 
   if (loading && session) return <div className="p-8 text-slate-500">Loading…</div>
-  if (!session) return <Login />
+  if (!session)
+    return (
+      <>
+        <OfflineBanner banner={banner} />
+        <Login />
+      </>
+    )
 
   return (
-    <Layout theme={theme}>
+    <Layout theme={theme} banner={banner}>
       {/*
         The boundary is keyed on the path so that recovering is a matter of
         going somewhere else: a page that threw stays broken until its key

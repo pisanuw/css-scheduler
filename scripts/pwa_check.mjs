@@ -303,7 +303,13 @@ try {
   }
 
   if (await reload.isVisible()) {
-    const message = await page.locator('[role="status"]').innerText()
+    /*
+     * The strip the Reload button is in, not any `role="status"` on the page.
+     * There is more than one — the connection banner keeps an empty live region
+     * in the document at all times, because a region that appears together with
+     * its text is a region several screen readers never announce.
+     */
+    const message = await reload.locator('xpath=ancestor::*[@role="status"][1]').innerText()
     if (!/new version/i.test(message)) fail(`the offer reads "${message.trim().slice(0, 60)}"`)
 
     // Nothing may move until the offer is taken: a worker that swaps itself in

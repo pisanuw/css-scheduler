@@ -5,6 +5,8 @@ import { useAuth } from '../lib/auth'
 import ThemeToggle from './ThemeToggle'
 import type { ThemeState } from '../hooks/useTheme'
 import { prefetchRouteQuietly, routesFor, type AppRoute } from '../lib/routes'
+import OfflineBanner from './OfflineBanner'
+import type { Banner } from '../lib/online'
 
 /**
  * The nav is a drawer below `md` and a row above it. Seven destinations do not
@@ -20,9 +22,12 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 export default function Layout({
   children,
   theme,
+  banner,
 }: {
   children: ReactNode
   theme: ThemeState
+  /** The connection banner, when there is one. Owned by `App`; see `useConnection`. */
+  banner?: Banner | null
 }) {
   const { profile, signOut, isCoordinator } = useAuth()
   const [open, setOpen] = useState(false)
@@ -164,6 +169,16 @@ export default function Layout({
           </nav>
         )}
       </header>
+      {/*
+        Between the nav and the page, and outside `main`, because it is about
+        the app rather than about the page — it stays put across navigations.
+
+        That does put it before `#main`, so the skip link jumps over it. The
+        live region is what covers that: it is announced when it appears
+        wherever it sits in the document, which is more use to a screen reader
+        than being the first thing after a skip.
+      */}
+      <OfflineBanner banner={banner ?? null} />
       <main id="main" className="mx-auto max-w-7xl px-4 py-6 print:px-0 print:py-0">
         {children}
       </main>

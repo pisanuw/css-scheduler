@@ -13,11 +13,119 @@ this file is the state of play.
 | 3 — Assignment board | done |
 | 4 — Reporting | done (export and print on both the report and the comparison) |
 | 5 — Solver, import, student checks | done |
-| Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA and the Supabase trim done |
+| Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA, the Supabase trim and offline awareness done |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-26 (fourteenth run) — the change that looked saved
+
+**Built.** The app now says when it is offline, and says what that means for
+the changes made while it is.
+
+- `src/lib/online.ts` — the rules, pure. `nextConnection` is a three-state
+  machine (`online`, `offline`, `restored`); `bannerFor` turns it plus the
+  number of queued writes into the one sentence to show; `isOfflineError`
+  recognises a request that never arrived; `offlineFailureText` is what to say
+  instead of the browser's words for it.
+- `src/hooks/useConnection.ts` — subscribes to React Query's `onlineManager`
+  and counts paused mutations out of the cache with `useMutationState`.
+- `src/components/OfflineBanner.tsx` — the strip, in the flow between the nav
+  and the page, from a live region that is always in the document.
+- `src/App.tsx`, `src/components/Layout.tsx` — one hook call above the early
+  returns, rendered in both branches, so the sign-in page has it too. Signing in
+  is the only thing in this app that genuinely cannot work offline.
+- `src/lib/toast.ts` — `failureText` now translates a dead connection. Every
+  failing write in the app funnels through it, so this was one change rather
+  than thirty.
+- `src/lib/format.ts` — a `plural` helper, and with it the `describePlan`
+  singularisation the last run left on the list: importing one section read
+  "1 sections · 0 assignments" next to a button correctly saying "Import 1
+  section". `conflictSummary` now uses it rather than its own inline copy.
+
+**Learned.**
+
+- *The handoff note was wrong about the symptom, and the truth was worse.* It
+  said a coordinator tapping Assign with no signal "gets a Supabase error".
+  They do not. React Query's default `networkMode: 'online'` **pauses** a
+  mutation started while the browser is offline: `onMutate` runs so the
+  optimistic pill appears, `mutationFn` never runs so nothing reaches Supabase,
+  and the mutation waits in the cache until the connection returns. An error
+  would have been a message. What actually happened was a change that looked
+  saved, with a spinner nobody watches, for as long as the signal was out. That
+  is the bug this run fixes, and `src/lib/online.test.ts` pins the React Query
+  behaviour the banner's promise depends on — if a future version rejects
+  instead of pausing, "they go through when the connection comes back" becomes a
+  lie and that test is what says so.
+- *Measuring the queue rather than keeping a count of it was the only honest
+  option.* React Query resumes paused mutations by itself on reconnect, so any
+  counter the app kept would have drifted within a second of the signal
+  returning. `useMutationState` filtered on `isPaused` cannot drift: it is the
+  same cache the resume reads.
+- *`onlineManager` over `window`.* Both would have worked and only one cannot
+  disagree with the app. The manager is what decides whether a mutation runs or
+  pauses; a banner reading `window`'s events directly could say the connection
+  was back while React Query still held every write.
+- *An always-present empty live region is the correct accessibility choice and
+  it broke a check.* A region that appears together with its text is, in several
+  screen readers, a region that is never announced. Keeping it in the document
+  empty means `[role="status"]` now matches two elements on every page, which is
+  what `scripts/pwa_check.mjs` was using to read the update offer. Fixed by
+  asking for the region *containing the Reload button* — a better locator than
+  the one it had.
+- *A three-state machine, not a boolean, for one reason: browsers lie about
+  coming back.* `online` fires on waking from sleep and on changing access
+  point. Treating every one as a recovery would flash "Back online" at somebody
+  whose connection never dropped, which is how a banner becomes something people
+  learn to ignore.
+
+**Verified.** 446 tests (420 before, 26 new), typecheck and build green. All 30
+mobile scenes clean at 375px including the new `offline-banner`, measured with
+the longest wording it can produce (12 queued changes, four lines at 375px) —
+the shortest one would have proved nothing. Drag and PWA checks clean. And the
+routing check now drops the connection for real with
+`context.setOffline(true)`: the banner arrives on the sign-in page and on the
+board, sits between the header and the page, is not fixed, does not overflow
+375px, and goes away by itself when the signal returns. That is the only
+assertion covering the wiring between `online.ts` and the browser, and it reads
+`RESTORED_MS` out of the source rather than carrying its own copy of the number.
+
+No migration: no new table, view, column or policy, so there is nothing for
+`supabase/tests/rls_test.sql` to grow.
+
+**Deliberately not done.** Buttons are not disabled while offline. The
+temptation is obvious and it would make the app worse: React Query's pause
+means an assignment made offline really does get saved, so taking the button
+away would remove a working feature to prevent a problem the banner already
+explains. Reading and planning on a phone with no signal, with the writes
+catching up later, is the behaviour worth having.
+
+**Watch out for.** The banner trusts the browser about being online, which is
+the half `navigator.onLine` gets right. The other half — connected to a portal
+that answers everything with a login page — has no event, so there is no banner
+for it; what that case gets is the translated failure message on the first
+write that dies. Closing the gap properly would mean a heartbeat against
+Supabase, which is a request every N seconds on a phone, for a case the
+translated message already explains.
+
+**Next run should pick up — in this order.**
+
+1. **`npm audit` reports 7 vulnerabilities** (1 critical, 1 high), all in dev
+   tooling as far as three runs have looked. The lockfile is committed now, so
+   upgrading is a deliberate act with a reviewable diff — worth a run of its
+   own, and it is the oldest thing on this list.
+2. **Keyboard shortcuts on the board.** The last unbuilt item on the polish
+   list with real value for the coordinator: undo exists but only as a button,
+   and there is no `?` telling anyone what is available.
+3. `.env.asc` arrived in `dd09666` with nothing saying which key opens it or
+   what to do with it — worth a line in the README, from whoever added it.
+4. **An `aria-busy` or equivalent on a paused write.** The banner says how many
+   changes are waiting in total; the individual pill on the board still looks
+   exactly like a saved one. Worth doing only if the banner turns out not to be
+   enough in practice.
 
 ---
 

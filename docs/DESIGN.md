@@ -868,6 +868,75 @@ offline assertions had to be rewritten once when it turned out that
 Playwright's offline mode does not apply to a service worker's own fetches, so
 they were passing against a worker that had cached nothing at all.
 
+### Saying that the connection is gone
+
+Being installable and offline-capable created a failure the app did not have
+before it, and it is the worst kind: a change that looks saved and is not.
+
+The mechanism is React Query's default `networkMode: 'online'`. A mutation
+started while the browser reports itself offline is **paused**, not failed.
+`onMutate` runs, so the board's optimistic pill appears; `mutationFn` does not,
+so nothing reaches Supabase; the mutation sits in the cache marked `isPaused`
+until the connection returns, and then goes through. That behaviour is right —
+nothing is lost, and the coordinator does not have to redo the work — but it is
+completely invisible. A coordinator in a building with no signal could assign
+six instructors, see six pills, and put the phone away. The
+`src/lib/online.test.ts` case named "pauses a mutation with its optimistic
+update applied, and runs nothing" pins that behaviour, because the banner's
+promise is a lie if it ever changes.
+
+So:
+
+- **A banner, not a toast.** Toasts in this app are events and they expire.
+  Being offline is a condition that lasts as long as it lasts, and somebody who
+  arrives at the board thirty seconds after the signal dropped still needs to be
+  told. The banner (`src/components/OfflineBanner.tsx`) is rendered from state
+  and is on screen for exactly as long as the state holds. In the flow, below
+  the nav and above the page, rather than fixed: on a 375px screen a fixed
+  banner covers either the nav or the first row of the board.
+- **It counts what is waiting.** "Offline — 2 changes waiting to save. Nothing
+  is lost; they go through when the connection comes back." The count comes from
+  the mutation cache (`useMutationState`, filtered on `isPaused`) rather than
+  from a counter of the app's own, which would drift the moment React Query
+  resumed one. With nothing queued the wording promises less, because nothing
+  has been risked yet.
+- **Coming back is worth four seconds and then silence.** `nextConnection` is a
+  three-state machine — `online`, `offline`, `restored` — and the third exists
+  only so that recovery can be acknowledged and then stop being mentioned. An
+  `online` event that follows no outage is ignored: browsers fire it on waking
+  from sleep and on changing access point, and a green banner on a connection
+  that never dropped teaches people to ignore the amber one.
+- **It is driven by React Query's `onlineManager`, not by `window`.** The
+  manager is what actually decides whether a mutation runs or pauses. A banner
+  driven off `window`'s events directly could say the connection was back while
+  React Query still held every write.
+- **The other half has no event at all.** A hotel portal or a half-associated
+  access point leaves `navigator.onLine` true, the request is attempted, and it
+  dies. There the app has an exception rather than a state, and what it must not
+  do is show the coordinator the browser's words for it. `isOfflineError`
+  recognises each browser's wording — matched on the message, because by the
+  time one of these reaches the app postgrest-js has flattened it to a plain
+  object and this app has rethrown it as `new Error(error.message)` — and
+  `failureText` translates it. Anything uncertain is treated as a real failure:
+  dressing a genuine RLS refusal up as a connection problem would send somebody
+  to check their signal over a broken policy.
+- **No dismiss button.** The state is not the coordinator's to dismiss, and a
+  banner they had already closed would have to reappear unbidden the next time a
+  write queued up.
+- **The live region is always in the document, empty.** A region that appears at
+  the same moment as its text is, in several screen readers, a region that is
+  never announced — nothing about it changed. This is why `[role="status"]`
+  matches more than one element on every page, which `scripts/pwa_check.mjs` had
+  to be taught.
+
+Checked in a real browser rather than believed: `npm run check:routes` drops the
+connection with `context.setOffline(true)` and asserts the banner arrives on both
+sides of the sign-in, sits between the header and the page, is not fixed, does
+not overflow 375px, and goes away on its own when the signal returns. That is
+the only assertion in the repository that covers the wiring between
+`src/lib/online.ts` and the browser; everything above it is pure and tested in
+`src/lib/online.test.ts`.
+
 ## Suggestions
 
 `src/lib/suggest.ts` proposes instructors for unstaffed sections. It is not a

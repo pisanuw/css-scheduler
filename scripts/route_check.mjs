@@ -42,6 +42,19 @@ const DIST = join(ROOT, process.env.ROUTE_CHECK_DIST ?? 'dist')
 const VIEWPORT = { width: 375, height: 812 } // The coordinator's phone, as ever.
 const PROJECT_REF = 'abvnaelzfriusckqqrfc'
 
+/*
+ * Read out of the source rather than repeated here: how long "Back online"
+ * stays is a product decision, and a check carrying its own copy of the number
+ * would keep passing a day after somebody changed it.
+ */
+const RESTORED_MS = Number(
+  /RESTORED_MS = (\d+)/.exec(await readFile(join(ROOT, 'src/lib/online.ts'), 'utf8'))?.[1],
+)
+if (!Number.isFinite(RESTORED_MS)) {
+  console.error('Could not read RESTORED_MS out of src/lib/online.ts — has it been renamed?')
+  process.exit(2)
+}
+
 
 const MIME = {
   '.html': 'text/html',
@@ -479,6 +492,98 @@ const DESTINATIONS = [
   await context.close()
   if (!problems.some((p) => /in the dark/.test(p)))
     console.log(`✓ dark sweep — ${DESTINATIONS.length} pages, no daylight surface left in any of them`)
+}
+
+// ── 8. Offline: the app says so, on both sides of the sign-in ────────────────
+/*
+ * The one assertion the unit tests cannot make. `src/lib/online.ts` is pure and
+ * covered, but what it is wired to is not: React Query's `onlineManager`, which
+ * listens to the browser rather than to anything this repository controls. So
+ * this drops the connection for real and looks at the page.
+ *
+ * It also pins the reason the banner exists. A write started offline does not
+ * fail — React Query pauses it — so the coordinator's own evidence is the pill
+ * appearing on the board. Nothing on screen contradicts that except this.
+ */
+{
+  const context = await browser.newContext(NO_WORKER)
+  const page = await context.newPage()
+  const noise = []
+  /*
+   * Offline means the app's own requests fail, and several of them are meant
+   * to: React Query logs nothing, but the fetch itself is reported by the
+   * browser. Only messages that are not about a failed request are findings
+   * here.
+   */
+  const EXPECTED_OFFLINE = /Failed to load resource|net::ERR_INTERNET_DISCONNECTED|Failed to fetch|registration blocked by Playwright|\[sw\] registration failed/
+  page.on('console', (m) => {
+    if ((m.type() === 'error' || m.type() === 'warning') && !EXPECTED_OFFLINE.test(m.text()))
+      noise.push(`${m.type()}: ${m.text()}`)
+  })
+  page.on('pageerror', (e) => noise.push(`pageerror: ${e.message}`))
+
+  const banner = page.getByTestId('offline-banner')
+
+  // Signed out, connected: nothing to say.
+  await page.goto(`${base}/`, { waitUntil: 'networkidle' })
+  if (await banner.count()) fail('a connected sign-in page showed the offline banner')
+
+  // Signed out, disconnected: signing in is the one thing that cannot work
+  // offline, so this is where an unexplained failure would hurt most.
+  await context.setOffline(true)
+  await page.waitForTimeout(300)
+  if (!(await banner.count())) {
+    fail('the sign-in page said nothing when the connection dropped')
+  } else {
+    const text = await banner.innerText()
+    if (!/^Offline/.test(text)) fail(`the offline banner on the sign-in page read "${text}"`)
+  }
+
+  // And back: a moment of reassurance, which then goes away on its own.
+  await context.setOffline(false)
+  await page.waitForTimeout(300)
+  const restored = (await banner.count()) ? await banner.innerText() : ''
+  if (!/Back online/.test(restored)) fail(`coming back online read "${restored}"`)
+  await page.waitForTimeout(RESTORED_MS + 500)
+  if (await banner.count()) fail('the "Back online" banner never went away')
+
+  // Now the coordinator's side, where the banner has a header to sit under.
+  await stubSupabase(page, USERS.coordinator)
+  await signIn(page, base, USERS.coordinator)
+  await page.goto(`${base}/board`, { waitUntil: 'networkidle' })
+  await context.setOffline(true)
+  await page.waitForTimeout(300)
+  if (!(await banner.count())) {
+    fail('the board said nothing when the connection dropped')
+  } else {
+    /*
+     * Below the nav and above the page, and in the flow rather than over it:
+     * a banner that covers the first row of the board is a banner that costs
+     * something to show.
+     */
+    const geometry = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="offline-banner"]')
+      const header = document.querySelector('header')
+      const main = document.getElementById('main')
+      const r = el.getBoundingClientRect()
+      return {
+        fixed: getComputedStyle(el).position === 'fixed',
+        belowHeader: r.top >= header.getBoundingClientRect().bottom - 1,
+        aboveMain: r.bottom <= main.getBoundingClientRect().top + 1,
+        overflows: r.right > window.innerWidth + 0.5 || r.left < -0.5,
+      }
+    })
+    if (geometry.fixed) fail('the offline banner is fixed, so it covers the page rather than moving it')
+    if (!geometry.belowHeader) fail('the offline banner is not below the header')
+    if (!geometry.aboveMain) fail('the offline banner is not above the page')
+    if (geometry.overflows) fail('the offline banner sticks out past a 375px viewport')
+  }
+
+  for (const n of noise) fail(`offline: console ${n}`)
+  await page.close()
+  await context.close()
+  if (!problems.some((p) => /offline|Back online|banner/.test(p)))
+    console.log('✓ offline — the banner arrives, sits under the nav, and leaves when the signal returns')
 }
 
 await browser.close()

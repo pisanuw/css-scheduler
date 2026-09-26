@@ -57,6 +57,8 @@ import { Side as ComparisonSide } from "../src/pages/Compare";
 import { compareScenarios } from "../src/lib/report";
 import RouteFallback from "../src/components/RouteFallback";
 import RouteErrorNotice from "../src/components/RouteErrorNotice";
+import OfflineBanner from "../src/components/OfflineBanner";
+import { bannerFor } from "../src/lib/online";
 import Dialog from "../src/components/Dialog";
 import ThemeToggle from "../src/components/ThemeToggle";
 import { useTheme } from "../src/hooks/useTheme";
@@ -1170,6 +1172,27 @@ export const SCENES: Record<string, () => JSX.Element> = {
       <RouteErrorNotice
         error={new TypeError("Cannot read properties of null (reading 'sections')")}
       />
+    </div>
+  ),
+
+  /*
+   * The connection banner, in its three shapes, stacked — and the longest
+   * wording is the one that matters here. At 375px "Offline — 12 changes
+   * waiting to save. Nothing is lost; they go through when the connection comes
+   * back." is four lines, which is exactly why it is measured: it is the only
+   * piece of app chrome that can grow taller than the header it sits under.
+   *
+   * Rendered from `bannerFor` rather than from hand-written props, so the
+   * strings the check measures are the strings the app will show.
+   */
+  "offline-banner": () => (
+    <div>
+      <OfflineBanner banner={bannerFor("offline", 0)} />
+      <OfflineBanner banner={bannerFor("offline", 12)} />
+      <OfflineBanner banner={bannerFor("restored", 1)} />
+      <p className="p-4 text-sm text-slate-700">
+        The page underneath, which the banner pushes down rather than covers.
+      </p>
     </div>
   ),
 };
