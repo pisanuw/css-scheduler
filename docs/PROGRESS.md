@@ -111,6 +111,14 @@ Dragging a chip off a card to unassign — the × is right there, 44px, and a
 gesture whose whole meaning is "drop this in the bin" wants a bin to drop it
 in, which is a design decision rather than a wiring one.
 
+**Deployed and verified.** Commit `5c5b503` pushed to `main`; Netlify built it
+automatically and published within about three minutes. **All 27 assets are
+byte-for-byte identical** to a local build made with the `sb_publishable_…`
+key recovered from the served entry chunk, by the procedure the sixth run
+wrote down — which worked exactly as written. The served `Board-*.js` contains
+"Drag a name onto a section to assign it", so the new code is the code being
+served and not a matching hash on old bytes.
+
 **Next run should pick up — in this order.**
 
 1. **Export and print on the Compare page**, matching the report's. The
