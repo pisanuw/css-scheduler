@@ -13,6 +13,34 @@ body {
 }
 
 /*
+ * The skeleton behind a page whose chunk is still arriving. It starts
+ * invisible and fades in over the first second: a chunk served from cache
+ * lands in a few milliseconds, and a skeleton that flashes for one frame on
+ * every navigation reads as a fault rather than as progress. Only a wait long
+ * enough to notice is worth acknowledging.
+ */
+@keyframes routefade {
+  0%,
+  35% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/*
+ * Respect the setting: someone who has asked for less motion still needs to
+ * know the page is coming, so show it immediately and without the fade.
+ */
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-[routefade"] {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/*
  * Print: the coordinator hands the final schedule round a table, so it has to
  * come out of a printer legibly. Tailwind's `print:hidden` takes care of the
  * controls; these are the rules that apply to everything.

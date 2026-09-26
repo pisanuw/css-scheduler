@@ -26,6 +26,8 @@ import SectionEditor, {
 } from "../src/components/board/SectionEditor";
 import SuggestSheet from "../src/components/board/SuggestSheet";
 import ConflictPanel from "../src/components/board/ConflictPanel";
+import RouteFallback from "../src/components/RouteFallback";
+import RouteErrorNotice from "../src/components/RouteErrorNotice";
 import Dialog from "../src/components/Dialog";
 import { ChipGroup, Section as Card, TriState } from "../src/components/Chips";
 import { useToast, useToastInset } from "../src/components/Toast";
@@ -676,6 +678,44 @@ export const SCENES: Record<string, () => JSX.Element> = {
         conflicts={CONFLICTS}
         counts={countBySeverity(CONFLICTS)}
         onPick={() => {}}
+      />
+    </div>
+  ),
+
+  /*
+   * What a page looks like while its chunk is arriving. The skeleton must sit
+   * inside the viewport at 375px like any other page — a fixed-width block
+   * here would scroll the whole app sideways for the duration of every
+   * navigation, on the slow connections where it is the only thing showing.
+   */
+  "route-fallback": () => (
+    <div className="p-4">
+      <RouteFallback />
+    </div>
+  ),
+
+  /*
+   * What a coordinator sees when a page will not load — the two variants,
+   * because their text differs in length and the longer one is the layout
+   * that can break. The notice is rendered directly rather than thrown into
+   * the boundary: catching logs a stack, and this check reads an error in the
+   * console as a failure.
+   */
+  "route-error-chunk": () => (
+    <div className="p-4">
+      <RouteErrorNotice
+        error={
+          new TypeError(
+            "Failed to fetch dynamically imported module: /assets/Board-DkQ2.js",
+          )
+        }
+      />
+    </div>
+  ),
+  "route-error-bug": () => (
+    <div className="p-4">
+      <RouteErrorNotice
+        error={new TypeError("Cannot read properties of null (reading 'sections')")}
       />
     </div>
   ),

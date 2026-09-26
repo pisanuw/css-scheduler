@@ -26,7 +26,19 @@ const AuthContext = createContext<AuthState | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
+  /*
+   * Whose profile the state above holds, which is not the same question as
+   * "is a request in flight". `loading` used to be its own flag, and between
+   * the render that received the session and the effect that set the flag
+   * back to true there was one commit with a session, no profile, and
+   * `loading` false — long enough for the router to decide the reader was not
+   * a coordinator and send them home. A coordinator opening a bookmarked
+   * `/board/:scenarioId` landed on the dashboard, and the deeper the link the
+   * more it mattered. Deriving the answer from the data removes the window
+   * rather than narrowing it.
+   */
+  const [profileFor, setProfileFor] = useState<string | null>(null)
+  const loading = session ? profileFor !== session.user.id : false
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
@@ -38,19 +50,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     if (!session) {
       setProfile(null)
-      setLoading(false)
+      setProfileFor(null)
       return
     }
-    setLoading(true)
+    const userId = session.user.id
     supabase
       .from('profiles')
       .select('id, email, full_name, role, instructor_id')
-      .eq('id', session.user.id)
+      .eq('id', userId)
       .single()
       .then(({ data }) => {
         if (cancelled) return
         setProfile((data as Profile) ?? null)
-        setLoading(false)
+        /*
+         * Marked resolved even when nothing came back. A signed-in reader
+         * with no profile row gets the app with no coordinator pages, which
+         * is both true and recoverable; leaving them on "Loading…" for ever
+         * is neither.
+         */
+        setProfileFor(userId)
       })
     return () => {
       cancelled = true

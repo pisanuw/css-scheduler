@@ -36,8 +36,8 @@ Tests and typecheck:
 
 ```bash
 npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
-                  # reporting, suggestions, undo, the toast queue and the
-                  # focus trap (214 tests)
+                  # reporting, suggestions, undo, the toast queue, the focus
+                  # trap, the route table and chunk recovery (274 tests)
 npm run typecheck
 npm run build
 ```
@@ -48,6 +48,7 @@ Mobile and accessibility:
 npm run check:mobile            # every over-the-page component at 375px
 npm run check:mobile -- chips   # one scene
 SHOTS=1 npm run check:mobile    # and write PNGs to dist-harness/shots
+npm run check:routes            # the built bundle in a browser: chunks, deep links, roles
 ```
 
 This builds `harness/` — a second Vite entry that renders the components with
@@ -58,6 +59,15 @@ console is clean, and that dialogs trap Tab and close on Escape. Playwright is
 not a dependency; the script finds it locally or globally and tells you what to
 install if it finds neither (`npm i -D playwright && npx playwright install
 chromium`).
+
+`check:routes` is the other half: it builds the app and drives the *real*
+bundle, with Supabase stubbed and a fabricated session, to check that the code
+splitting holds up — that a signed-out visitor does not download the
+assignment board, that every destination renders once its chunk arrives, that
+a deep link such as `/board/:scenarioId` is still where it was typed, that one
+tap fetches one page, that hovering a nav link prefetches it, and that an
+instructor can reach no coordinator page by nav or by URL. It needs no
+credentials and never reaches the live project.
 
 ## Database
 

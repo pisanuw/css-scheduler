@@ -1,47 +1,72 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useMemo } from 'react'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './lib/auth'
 import Layout from './components/Layout'
 import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import Courses from './pages/Courses'
-import Instructors from './pages/Instructors'
-import History from './pages/History'
-import MyPreferences from './pages/MyPreferences'
-import Cycles from './pages/Cycles'
-import Responses from './pages/Responses'
-import AccessLog from './pages/AccessLog'
-import Scenarios from './pages/Scenarios'
-import Board from './pages/Board'
-import Report from './pages/Report'
-import Compare from './pages/Compare'
-import StudentCheck from './pages/StudentCheck'
+import RouteFallback from './components/RouteFallback'
+import RouteErrorBoundary from './components/RouteErrorBoundary'
+import { LANDING_PATH, pathsOf, prefetchRouteQuietly, ROUTES, routesFor } from './lib/routes'
+
+/**
+ * Every page is its own chunk. `Login` is not: it is what an unauthenticated
+ * visitor sees, and making the first paint wait on a second request to show a
+ * single button would be a poor trade.
+ *
+ * `lazy` is called once per route at module scope — doing it inside the
+ * component would hand React a new type on every render and remount the page.
+ */
+const LAZY = new Map(ROUTES.map((r) => [r.path, lazy(r.load)]))
 
 export default function App() {
   const { session, loading, isCoordinator } = useAuth()
+  const location = useLocation()
+
+  /*
+   * Start the dashboard's chunk on the way down while the profile request is
+   * still in flight. That is a round trip to Supabase; the chunk is a few
+   * kilobytes from the same CDN as the page already loaded. Overlapping them
+   * is why splitting the bundle costs nothing visible on the one page everyone
+   * is guaranteed to see.
+   *
+   * Gated on the session because signing in leaves the page — Google, then
+   * back — so a chunk fetched for a visitor who has not signed in yet is spent
+   * on a document that is about to be thrown away.
+   */
+  useEffect(() => {
+    if (!session) return
+    const landing = ROUTES.find((r) => r.preload)
+    if (landing) prefetchRouteQuietly(landing)
+  }, [session])
+
+  const routes = useMemo(() => routesFor(isCoordinator), [isCoordinator])
 
   if (loading && session) return <div className="p-8 text-slate-500">Loading…</div>
   if (!session) return <Login />
 
   return (
     <Layout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/preferences" element={<MyPreferences />} />
-        <Route path="/courses" element={<Courses />} />
-        <Route path="/instructors" element={<Instructors />} />
-        <Route path="/history" element={<History />} />
-        <Route path="/student-check" element={<StudentCheck />} />
-        {isCoordinator && <Route path="/scenarios" element={<Scenarios />} />}
-        {isCoordinator && <Route path="/board" element={<Board />} />}
-        {isCoordinator && <Route path="/board/:scenarioId" element={<Board />} />}
-        {isCoordinator && <Route path="/report" element={<Report />} />}
-        {isCoordinator && <Route path="/report/:scenarioId" element={<Report />} />}
-        {isCoordinator && <Route path="/compare" element={<Compare />} />}
-        {isCoordinator && <Route path="/cycles" element={<Cycles />} />}
-        {isCoordinator && <Route path="/responses" element={<Responses />} />}
-        {isCoordinator && <Route path="/access" element={<AccessLog />} />}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      {/*
+        The boundary is keyed on the path so that recovering is a matter of
+        going somewhere else: a page that threw stays broken until its key
+        changes, and every other page still works.
+      */}
+      <RouteErrorBoundary resetKey={location.pathname}>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            {routes.flatMap((route) => {
+              const Page = LAZY.get(route.path)!
+              return pathsOf(route).map((path) => (
+                <Route key={path} path={path} element={<Page />} />
+              ))
+            })}
+            {/*
+              Anything else — including a coordinator-only path reached by
+              someone who is not one — goes home rather than showing a blank.
+            */}
+            <Route path="*" element={<Navigate to={LANDING_PATH} replace />} />
+          </Routes>
+        </Suspense>
+      </RouteErrorBoundary>
     </Layout>
   )
 }

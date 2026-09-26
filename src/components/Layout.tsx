@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useAuth } from '../lib/auth'
+import { prefetchRouteQuietly, routesFor, type AppRoute } from '../lib/routes'
 
 /**
  * The nav is a drawer below `md` and a row above it. Seven destinations do not
@@ -43,21 +44,19 @@ export default function Layout({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
-  const links = [
-    { to: '/', label: 'Dashboard', end: true, show: true },
-    { to: '/board', label: 'Board', show: isCoordinator },
-    { to: '/scenarios', label: 'Scenarios', show: isCoordinator },
-    { to: '/report', label: 'Report', show: isCoordinator },
-    { to: '/compare', label: 'Compare', show: isCoordinator },
-    { to: '/preferences', label: 'My preferences', show: true },
-    { to: '/cycles', label: 'Cycles', show: isCoordinator },
-    { to: '/responses', label: 'Responses', show: isCoordinator },
-    { to: '/courses', label: 'Courses', show: true },
-    { to: '/instructors', label: 'Instructors', show: true },
-    { to: '/history', label: 'History', show: true },
-    { to: '/student-check', label: 'Student check', show: true },
-    { to: '/access', label: 'Access', show: isCoordinator },
-  ].filter((l) => l.show)
+  const links = routesFor(isCoordinator)
+
+  /*
+   * Fetch a page's chunk at the first sign someone means to go there, rather
+   * than when they arrive. A pointer settling on a link, a focus ring landing
+   * on it, or a finger touching down all happen a beat before the navigation
+   * — on a phone, `touchstart` to `click` is the ~100ms it takes to lift a
+   * finger, which is most of a chunk fetch off a warm CDN. The prefetch is
+   * memoised and its failures are swallowed: a guess that does not pay off
+   * must cost nothing, and the navigation itself will surface a real problem
+   * through the route boundary.
+   */
+  const prefetch = (route: AppRoute) => () => prefetchRouteQuietly(route)
 
   return (
     <div className="min-h-screen">
@@ -94,7 +93,15 @@ export default function Layout({ children }: { children: ReactNode }) {
 
           <nav aria-label="Main" className="hidden flex-wrap gap-1 md:flex">
             {links.map((l) => (
-              <NavLink key={l.to} to={l.to} className={linkClass} end={l.end}>
+              <NavLink
+                key={l.path}
+                to={l.path}
+                className={linkClass}
+                end={l.end}
+                onPointerEnter={prefetch(l)}
+                onFocus={prefetch(l)}
+                onTouchStart={prefetch(l)}
+              >
                 {l.label}
               </NavLink>
             ))}
@@ -133,7 +140,15 @@ export default function Layout({ children }: { children: ReactNode }) {
               {isCoordinator && ' · coordinator'}
             </p>
             {links.map((l) => (
-              <NavLink key={l.to} to={l.to} className={linkClass} end={l.end}>
+              <NavLink
+                key={l.path}
+                to={l.path}
+                className={linkClass}
+                end={l.end}
+                onPointerEnter={prefetch(l)}
+                onFocus={prefetch(l)}
+                onTouchStart={prefetch(l)}
+              >
                 {l.label}
               </NavLink>
             ))}

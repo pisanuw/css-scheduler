@@ -246,6 +246,129 @@ throwaway `VITE_SUPABASE_URL` — importing a page reaches `src/lib/supabase.ts`
 which refuses to load without one. A client is constructed and never used; no
 request is ever made.
 
+## Loading the app
+
+Every page is its own chunk, fetched when it is asked for.
+
+Until this was done the whole app was one 585 kB file. An instructor who only
+ever opens My preferences downloaded the assignment board, the report, the
+scenario comparison and the access log to get there; a coordinator on campus
+wifi re-downloaded React, Supabase and React Query after every deploy,
+including the ones that changed a label. On a phone on a slow connection that
+is the difference between a page and a wait.
+
+What ships now:
+
+| Chunk | Size | Changes when |
+| --- | --- | --- |
+| `index` | 17 kB | the shell, the router or sign-in does |
+| `react` | 165 kB | React, the router or the scheduler is upgraded |
+| `supabase` | 227 kB | `@supabase/*` is upgraded |
+| `query` | 41 kB | React Query is upgraded |
+| a page | 1–40 kB | that page does |
+
+The three vendor chunks are grouped rather than split per package, because
+React, the router and the scheduler refer to one another and cutting between
+them produces circular chunks that cost a request each and buy nothing. The
+build's chunk-size warning is set to 250 kB now that no chunk should be near
+it: a page that crosses it has pulled in something unexpected.
+
+A signed-out visitor loads four chunks and sees the sign-in button. `Login` is
+the one page that is *not* split — making the first paint wait on a second
+request to show a single button is a poor trade.
+
+### One list of destinations
+
+`src/lib/routes.ts` is the whole nav and the whole router. There used to be
+two lists — a `<Route>` each in `App.tsx` and a `{ to, label, show }` each in
+`Layout.tsx` — with nothing holding them together, so a coordinator-only page
+reachable by typing its path, or a nav link to a route that no longer existed,
+was a copy-paste away. It is also what makes the split safe to do well: a page
+arrives over the network now, so something has to decide when to fetch it, and
+the loader belongs beside the label the finger is about to touch.
+
+The table is data and imports no page, so a unit test can read it in Node
+without constructing a Supabase client. One of those tests lists `src/pages`
+on disk and fails if a page is not routed.
+
+**The route gating is convenience, not security.** `routesFor(false)` keeps
+coordinator pages out of an instructor's nav and out of their router, and the
+chunks are never fetched — but the page is still on the CDN, and anyone can
+ask for it. What actually protects the data is row level security; see
+**Security** below. The gating exists so that an instructor is not offered a
+page that would show them nothing but errors.
+
+### When the chunk does not arrive
+
+Splitting moves a failure that used to be impossible into the middle of a
+navigation. There are two causes and they want opposite handling, so
+`src/lib/chunkError.ts` holds both as pure functions.
+
+A **stale deploy** is the common one and is specific to how this ships. Netlify
+names every asset by its hash, so a deploy replaces `Board-DkQ2.js` with
+`Board-9fLp.js` and stops serving the old name. A coordinator with the tab open
+from before the deploy is holding an entry chunk asking for a file that no
+longer exists. Nothing they can do fixes it, so the app reloads itself once.
+
+A **dead connection** looks identical from here — both surface as a module
+fetch rejection — but reloading a phone with no signal replaces a working app
+with a browser error page. So the automatic reload fires at most once per
+document, recorded in `sessionStorage`; come back still broken and the cause
+was not the deploy, and the coordinator gets a button instead of a loop.
+
+`RouteErrorBoundary` catches and obeys those rules; `RouteErrorNotice` is the
+markup. They are separate because catching means logging a stack, which the
+mobile check reads as a failure — this way the check renders the notice
+directly and measures what ships.
+
+### Not waiting when there is nothing to wait for
+
+Two things keep the split from being felt.
+
+The dashboard's chunk starts downloading as soon as a session exists, in
+parallel with the profile request it would otherwise queue behind. Both come
+from the same CDN as the page; overlapping them is why the page everyone lands
+on costs nothing extra. It is gated on the session because signing in leaves
+the document — Google, then back — so a chunk fetched for a visitor who has
+not signed in yet is spent on a page about to be thrown away.
+
+Every other page is fetched at the first sign someone means to go there: a
+pointer settling on a nav link, a focus ring landing on it, or a finger
+touching down. On a phone, `touchstart` to `click` is the ~100 ms it takes to
+lift a finger, which is most of a chunk fetch off a warm CDN. A prefetch is a
+guess, so it is memoised, its failures are swallowed rather than logged, and a
+*failed* one is forgotten — otherwise one flaky fetch in a tunnel would poison
+that route for the rest of the session and `React.lazy` would inherit the
+rejection.
+
+While a chunk is genuinely in flight, `RouteFallback` shows a skeleton that
+fades in over the first second rather than appearing at once. A chunk off a
+warm cache arrives in single-digit milliseconds, and a spinner that flashes for
+one frame on every navigation reads as a fault rather than as progress.
+
+### Checking the routing, rather than believing it
+
+`npm run check:routes` builds the app and drives the real bundle in a headless
+Chromium with Supabase replaced by canned answers and a fabricated session
+written into the storage key supabase-js reads. No credentials, and no request
+reaches the live project. It asserts that a signed-out visitor does not
+download the board, that every destination renders after its chunk arrives,
+that a deep link is still where it was typed, that one tap fetches one page,
+that hovering a link prefetches it, that an instructor can reach no
+coordinator page by nav or by URL, and that the console stays clean.
+
+It found a real bug on its first run, and not the one it was written for.
+`AuthProvider` kept `loading` as its own flag, and between the render that
+received the session and the effect that set the flag back to true there was
+one commit with a session, no profile, and `loading` false — long enough for
+the router to conclude the reader was not a coordinator and send them home. A
+coordinator opening a bookmarked `/board/:scenarioId` landed on the dashboard.
+It had been there since the board shipped and no check could see it, because
+until the pages were separate chunks there was no observable difference
+between rendering the board and redirecting away from it. `loading` is now
+derived from which user the profile in hand belongs to, so the window does not
+exist rather than being narrow.
+
 ## Feedback and focus
 
 Every transient message in the app goes through one provider
