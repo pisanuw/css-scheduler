@@ -177,7 +177,8 @@ designed at, not one it degrades to. Three rules hold everywhere:
 - **No horizontal page scroll, at any width.** The quarter tab strip is the one
   element allowed to scroll sideways, and only within itself.
 - **Every control at least 44px tall.** Including the small ones — the chip
-  that unassigns somebody, the severity filters on the conflict panel.
+  that unassigns somebody, the severity filters on the conflict panel, the Undo
+  beside a line of the history.
 
 Tables become cards rather than scrolling boxes: the load panel renders one
 card per instructor below `sm` and a table above it, with the same numbers in
@@ -206,9 +207,22 @@ creates two throwaway users, exercises the matrix as each, and deletes what it
 made:
 
 ```bash
-npm run db:test:rls   # 40 policy checks, in-database
-npm run test:e2e      # 20 checks through the real auth + REST API
+npm run db:test:rls        # 70 policy checks, in-database, against the project
+npm run db:test:rls:local  # the same 70, against a throwaway local cluster
+npm run test:e2e           # 20 checks through the real auth + REST API
 ```
+
+The first and third read the CLI's access token from the maintainer's macOS
+keychain, which is why neither runs on CI or in a cloud sandbox. That left
+firing SQL at the live project as the only way to check a policy change, which
+is a poor place to find out a migration is wrong.
+
+`scripts/local_db.sh` closes that gap. The migrations depend on exactly three
+things the platform provides — `auth.users`, `auth.uid()` and the four platform
+roles — so `supabase/tests/local_shim.sql` can stand them up on a plain
+PostgreSQL 16 in a few lines, and the whole suite then runs with no Docker, no
+project and no credentials. It is not a replacement for `test:e2e`, which
+remains the only check on the real auth and REST layers.
 
 `test:e2e` creates a throwaway uw.edu account through the real auth API, signs
 in, exercises every read and write the app performs, confirms an instructor
@@ -238,6 +252,55 @@ scenario before the sections beneath it, so the section trigger tried to log
 against a scenario that no longer existed and the foreign key took the whole
 delete down with it. Deleting a scenario failed outright. Both triggers now
 check that the row they would point at still exists.
+
+### Undo
+
+The log knew *that* something happened but not how to put it back: `summary` is
+prose written for a person, and 'Clark Olson — CSS 343 A' does not identify two
+rows. `20260926000400_undo.sql` adds the structured half — `detail`, `undone_at`
+and `undoes_id` — and two functions.
+
+Four decisions hold it together.
+
+**Reversing happens in the database, not in the client.** `undo_change(id)` is
+`SECURITY DEFINER`, because the log is append-only to everyone and nothing
+outside it may mark an entry undone. That means the check RLS would have made
+has to be made inside the function instead, which it does: coordinator only,
+scenario not locked.
+
+**A reversal is an ordinary write, so it is logged like one.** `undo_change`
+does not patch tables behind the triggers' backs; it inserts, updates or deletes
+through them, and the entry that results points at what it reversed through
+`undoes_id`. Two things fall out of that. The log stays a complete account of
+how the schedule got to where it is, and **redo costs nothing** — the entry a
+reversal writes is itself undoable, so undoing an undo is a redo with no extra
+machinery.
+
+**`detail.section` is the row as it stood *before* the change** — except for a
+creation, where there was no before and the new row is what identifies what to
+remove. That one convention makes all three section actions reversible from the
+same field.
+
+**A section deletion is logged before the row goes, not after.** Its
+assignments are cascaded away with it, and an `AFTER DELETE` trigger is too late
+to read them, so undoing a deletion would silently bring the section back empty.
+`sections` therefore has two log triggers now: `AFTER INSERT OR UPDATE`, and
+`BEFORE DELETE`.
+
+Two refusals are deliberate. An entry recorded before this migration has an
+empty `detail` and says so rather than half-reversing something; the board does
+not offer an Undo it cannot honour. And undoing the *creation* of a section that
+has since been staffed would cascade that work away, so it refuses and says to
+unassign first.
+
+What the board offers, in `src/lib/undo.ts` and tested there: a single change is
+always offered; a burst is offered as one tap only when it is all assignments.
+Undoing two hundred section creations at once is a different and much larger
+thing, and it already has a name — deleting the scenario. Those entries keep
+their own Undo buttons in the expanded list. ⌘Z reverses the most recent change
+*I* made that still can be, not the most recent change: someone else's later
+edit is theirs to take back, and reversing it should be a deliberate tap rather
+than a reflex.
 
 ### Access log
 
@@ -277,12 +340,23 @@ above is what caught this.
 
 ### Linter findings accepted
 
-Two Supabase linter warnings are left standing deliberately:
+Three Supabase linter warnings are left standing deliberately:
 
-- **`authenticated` can execute four SECURITY DEFINER functions.** Required, as
-  above. They disclose nothing the caller cannot already see: three report on
-  the caller's own profile, and `cycle_is_open` reports a cycle status every
-  signed-in user may read anyway.
+- **`authenticated` can execute six SECURITY DEFINER functions.** Four are the
+  policy helpers, where the grant is required, as above; they disclose nothing
+  the caller cannot already see, since three report on the caller's own profile
+  and `cycle_is_open` reports a cycle status every signed-in user may read
+  anyway.
+
+  The other two are `undo_change` and `undo_changes`, which the board calls
+  over `/rest/v1/rpc`, so the grant is what makes undo work at all. Both are
+  `SECURITY DEFINER` because they write a table nothing outside the database
+  may write — `scenario_changes` has no insert, update or delete policy — and
+  both make `is_coordinator()` their very first statement, before they so much
+  as read the row they were given. An instructor who calls one learns only that
+  they are not a coordinator: not whether that change id exists, nor what it
+  was. The RLS suite asserts the refusal, and that `anon` cannot reach either
+  function at all.
 - **`citext` is installed in the `public` schema.** Namespace hygiene only.
   Moving an extension that is in active use as a column type risks breaking
   type resolution for no security gain.
@@ -317,8 +391,9 @@ Reminder emails are not built.
 **3 — The assignment board (done).** Scenarios (create, rename, archive, mark
 one official per year, delete), seeding a scenario from a past year's schedule,
 section CRUD against all three timing shapes, ranked tap-to-assign, the live
-conflict panel and per-instructor load tallies. Not yet: drag and drop as an
-alternative to tapping, and undo.
+conflict panel and per-instructor load tallies. Undo — of an assignment, a
+burst of them, or a section added, edited or removed — arrived with the change
+log; see above. Not yet: drag and drop as an alternative to tapping.
 
 **4 — Reporting (done).** How well preferences were met, CSV export of both
 the schedule and the report, a print stylesheet, side-by-side scenario

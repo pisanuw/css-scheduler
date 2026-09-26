@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { countBySeverity, detectConflicts, type Severity } from '../lib/conflicts'
 import { loadTallies, type SectionRow } from '../lib/snapshot'
@@ -11,7 +11,10 @@ import {
   useScenarioChanges,
   useScenarios,
   useUnassign,
+  useUndoChanges,
 } from '../hooks/scheduling'
+import { myLastUndoable, undoneMessage } from '../lib/undo'
+import { useAuth } from '../lib/auth'
 import { suggestAssignments } from '../lib/suggest'
 import SectionCard from '../components/board/SectionCard'
 import AssignSheet from '../components/board/AssignSheet'
@@ -80,6 +83,8 @@ export default function Board() {
   const assign = useAssign(resolvedId ?? '')
   const unassign = useUnassign(resolvedId ?? '')
   const bulkAssign = useBulkAssign(resolvedId ?? '')
+  const undo = useUndoChanges(resolvedId ?? '')
+  const { profile } = useAuth()
 
   const [termId, setTermId] = useState<string | null>(null)
   const [assigning, setAssigning] = useState<string | null>(null)
@@ -93,6 +98,57 @@ export default function Board() {
   useEffect(() => {
     if (!termId && terms.data && terms.data.length > 0) setTermId(terms.data[0]!.id)
   }, [terms.data, termId])
+
+  const locked = scenario.data?.is_locked ?? false
+
+  /**
+   * Naming what was reversed matters more here than anywhere else on the board:
+   * the change being taken back may be several taps old, and with ⌘Z it is not
+   * even the thing the coordinator is looking at.
+   */
+  const runUndo = useCallback(
+    (ids: number[]) => {
+      undo.mutate(ids, {
+        onSuccess: ({ count, summary }) => setMessage(undoneMessage(count, summary)),
+        onError: (e) => setMessage((e as Error).message),
+      })
+    },
+    [undo.mutate],
+  )
+
+  /**
+   * ⌘Z / Ctrl+Z takes back my own most recent change. Someone else's later edit
+   * is theirs to take back — it keeps its own Undo button in the history panel,
+   * where reversing it is deliberate rather than a reflex.
+   */
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'z' || !(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return
+      // Never steal undo from a field being typed into, or from an open sheet.
+      const el = e.target as HTMLElement | null
+      if (el?.closest('input, textarea, select, [contenteditable="true"]')) return
+      if (!resolvedId || editing || assigning || suggesting || locked || undo.isPending) return
+      e.preventDefault()
+      const target = myLastUndoable(changes.data ?? [], profile?.email)
+      if (!target) {
+        setMessage('Nothing of yours left to undo.')
+        return
+      }
+      runUndo([target.id])
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [
+    resolvedId,
+    changes.data,
+    profile?.email,
+    editing,
+    assigning,
+    suggesting,
+    locked,
+    undo.isPending,
+    runUndo,
+  ])
 
   const courseOrder = useMemo(() => {
     const m = new Map<string, number>()
@@ -238,8 +294,6 @@ export default function Board() {
     })
   }
 
-  const locked = scenario.data.is_locked
-
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -374,7 +428,13 @@ export default function Board() {
         <div className="space-y-4">
           <ConflictPanel conflicts={conflicts} counts={counts} onPick={reveal} />
           <LoadPanel tallies={tallies} terms={snapshot.terms} />
-          <HistoryPanel changes={changes.data ?? []} loading={changes.isLoading} />
+          <HistoryPanel
+            changes={changes.data ?? []}
+            loading={changes.isLoading}
+            canUndo={!locked}
+            undoing={undo.isPending}
+            onUndo={runUndo}
+          />
           {!cycleId && (
             <p className="rounded-lg bg-white p-3 text-xs text-slate-500 ring-1 ring-slate-200">
               No preference cycle exists for this year, so nothing is checked against what

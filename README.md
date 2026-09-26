@@ -47,7 +47,7 @@ The hosted project is `css-scheduler` (ref `abvnaelzfriusckqqrfc`, us-west-1).
 Migrations live in `supabase/migrations/`, seed data in `supabase/seed.sql`.
 
 ```bash
-npm run db:test:rls        # row level security regression test (49 checks)
+npm run db:test:rls        # row level security regression test (70 checks)
 npm run test:e2e           # full stack through the real auth + REST API (20 checks)
 python3 scripts/run_sql.py <file.sql> [project_ref]   # run any SQL file
 ```
@@ -55,7 +55,24 @@ python3 scripts/run_sql.py <file.sql> [project_ref]   # run any SQL file
 Both talk to the hosted project and clean up after themselves.
 
 `scripts/run_sql.py` talks to the Supabase Management API and reads the CLI's
-access token from the macOS keychain, so no secret is written to disk.
+access token from the macOS keychain, so no secret is written to disk. That is
+also its limit: on any machine without that keychain entry — a CI runner, a
+cloud sandbox — neither command can run at all.
+
+```bash
+npm run db:test:rls:local  # the same 70 checks, against a throwaway local cluster
+```
+
+`scripts/local_db.sh` boots a PostgreSQL cluster of its own, applies
+`supabase/tests/local_shim.sql` (the three Supabase objects the migrations
+depend on: `auth.users`, `auth.uid()` and the platform roles), then every
+migration, the seed and the suite. It needs the postgres server binaries on the
+machine and nothing else — no Docker, no project, no credentials. It is the
+right thing to run before applying a migration anywhere real.
+
+It does not replace `npm run test:e2e`, which is the only check that exercises
+the real auth and REST layers; `local_shim.sql` says in its header exactly what
+it leaves out.
 
 For a local stack instead (needs Docker running):
 

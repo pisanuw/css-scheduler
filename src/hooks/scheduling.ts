@@ -436,6 +436,17 @@ export interface ScenarioChange {
   summary: string
   actor_email: string | null
   occurred_at: string
+  /**
+   * What it takes to reverse this entry — the instructor and section of an
+   * assignment, the section row as it stood before an edit. Written by the same
+   * trigger that writes the summary. Empty for entries recorded before undo
+   * existed, which is how the board knows not to offer one.
+   */
+  detail: Record<string, unknown>
+  undone_at: string | null
+  undone_by: string | null
+  /** Set on the entry a reversal writes, naming what it reversed. */
+  undoes_id: number | null
 }
 
 /**
@@ -458,3 +469,30 @@ export const useScenarioChanges = (scenarioId?: string, limit = 200) =>
           .limit(limit),
       ),
   })
+
+/**
+ * Takes a change back. The reversal happens in the database, not here: the log
+ * is append-only, so nothing outside it may mark an entry undone, and the
+ * inverse write has to land in the log itself to keep the account complete.
+ *
+ * One id goes through `undo_change`, which returns what it reversed so the
+ * board can name it. Several go through `undo_changes`, which reverses them in
+ * one transaction and returns how many it managed.
+ */
+export function useUndoChanges(scenarioId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: number[]): Promise<{ count: number; summary: string | null }> => {
+      if (ids.length === 0) return { count: 0, summary: null }
+      if (ids.length === 1) {
+        const { data, error } = await supabase.rpc('undo_change', { p_change_id: ids[0] })
+        if (error) throw new Error(error.message)
+        return { count: 1, summary: (data as string | null) ?? null }
+      }
+      const { data, error } = await supabase.rpc('undo_changes', { p_ids: ids })
+      if (error) throw new Error(error.message)
+      return { count: (data as number | null) ?? 0, summary: null }
+    },
+    onSuccess: () => invalidateBoard(qc, scenarioId),
+  })
+}

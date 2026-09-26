@@ -15,6 +15,7 @@
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local > src/lib/database.types.ts",
     "db:test:rls": "python3 scripts/run_sql.py supabase/tests/rls_test.sql",
+    "db:test:rls:local": "scripts/local_db.sh test",
     "test:e2e": "python3 scripts/e2e_test.py"
   },
   "dependencies": {

@@ -18,6 +18,9 @@ declare
   v_cycle uuid; v_closed uuid; v_ay uuid; v_term uuid; v_course uuid; v_slot uuid;
   v_draft uuid; v_sub_olson uuid; v_ay2 uuid; n int;
   v_official uuid; v_oterm uuid; v_osection uuid; v_ayt uuid;
+  v_usec uuid; v_legacy bigint; v_ids bigint[];
+  c_created bigint; c_assigned bigint; c_unassigned bigint;
+  c_updated bigint; c_deleted bigint;
 begin
   insert into auth.users (id, email) values (gen_random_uuid(), 'rls-test-a@uw.edu') returning id into v_coord;
   insert into auth.users (id, email) values (gen_random_uuid(), 'rls-test-b@uw.edu') returning id into v_inst;
@@ -344,6 +347,166 @@ begin
   insert into _res(check_name,result,expected)
     values ('instructor reads the official log', (n > 0)::text, 'true');
   reset role;
+
+  -- ------------------------------------------------------------------ undo --
+  -- Every reversal goes through the ordinary tables, so each one is itself
+  -- logged and the log stays the single account of what happened. See
+  -- 20260926000400_undo.sql.
+
+  -- An entry from before the feature existed, for the refusal check below. It
+  -- takes a superuser to write one, because nothing else may write this table.
+  insert into scenario_changes (scenario_id, action, summary, actor_email)
+    values (v_draft, 'assigned', 'rls-test legacy entry', 'rls-test-a@uw.edu')
+    returning id into v_legacy;
+
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub', v_coord::text, true);
+
+  insert into sections (scenario_id,term_id,course_id,section_letter,time_slot_id,enrollment_cap,notes)
+    values (v_draft,v_term,v_course,'U',v_slot,40,'rls-test first note') returning id into v_usec;
+  select id into c_created from scenario_changes
+   where scenario_id=v_draft and action='created' order by id desc limit 1;
+  insert into _res(check_name,result,expected)
+    select 'a creation records the row it made',
+           (select detail->'section'->>'id' from scenario_changes where id=c_created), v_usec::text;
+
+  insert into section_instructors (section_id,instructor_id) values (v_usec,v_laurie);
+  select id into c_assigned from scenario_changes
+   where scenario_id=v_draft and action='assigned' and detail <> '{}'::jsonb order by id desc limit 1;
+  insert into _res(check_name,result,expected)
+    select 'an assignment records both ends',
+           (select (detail->>'section_id') || '/' || (detail->>'instructor_id')
+              from scenario_changes where id=c_assigned),
+           v_usec::text || '/' || v_laurie::text;
+
+  perform undo_change(c_assigned);
+  select count(*) into n from section_instructors where section_id=v_usec and instructor_id=v_laurie;
+  insert into _res(check_name,result,expected) values ('undoing an assignment removes it', n::text, '0');
+  insert into _res(check_name,result,expected)
+    select 'the undone entry is marked as such',
+           (select (undone_at is not null)::text from scenario_changes where id=c_assigned), 'true';
+  select id into c_unassigned from scenario_changes
+   where scenario_id=v_draft and action='unassigned' order by id desc limit 1;
+  insert into _res(check_name,result,expected)
+    select 'the reversal points back at what it reversed',
+           (select undoes_id::text from scenario_changes where id=c_unassigned), c_assigned::text;
+
+  -- Undoing an undo is redo, and costs no extra machinery.
+  perform undo_change(c_unassigned);
+  select count(*) into n from section_instructors where section_id=v_usec and instructor_id=v_laurie;
+  insert into _res(check_name,result,expected) values ('undoing an unassignment is redo', n::text, '1');
+
+  begin
+    perform undo_change(c_assigned);
+    insert into _res(check_name,result,expected) values ('an undo cannot be applied twice','APPLIED','blocked');
+  exception when others then
+    insert into _res(check_name,result,expected)
+      values ('an undo cannot be applied twice',
+              case when sqlerrm like '%already been undone%' then 'blocked' else 'OTHER: '||sqlerrm end, 'blocked');
+  end;
+
+  update sections set enrollment_cap=75, notes='rls-test second note' where id=v_usec;
+  select id into c_updated from scenario_changes
+   where scenario_id=v_draft and action='updated' order by id desc limit 1;
+  perform undo_change(c_updated);
+  insert into _res(check_name,result,expected)
+    select 'undoing an edit restores the previous values',
+           (select enrollment_cap::text || '/' || notes from sections where id=v_usec),
+           '40/rls-test first note';
+
+  -- A deletion is logged before the row goes, so the instructors cascaded away
+  -- with it are recorded and come back with it.
+  delete from sections where id=v_usec;
+  select id into c_deleted from scenario_changes
+   where scenario_id=v_draft and action='deleted' order by id desc limit 1;
+  insert into _res(check_name,result,expected)
+    select 'a deletion records who was teaching it',
+           (select detail->'assignments'->0->>'instructor_id' from scenario_changes where id=c_deleted),
+           v_laurie::text;
+  perform undo_change(c_deleted);
+  insert into _res(check_name,result,expected)
+    select 'undoing a deletion brings the section back',
+           (select count(*)::text from sections where id=v_usec), '1';
+  insert into _res(check_name,result,expected)
+    select 'and its instructors with it',
+           (select count(*)::text from section_instructors
+             where section_id=v_usec and instructor_id=v_laurie), '1';
+
+  -- Undoing a creation would cascade away work done since. It refuses instead.
+  begin
+    perform undo_change(c_created);
+    insert into _res(check_name,result,expected)
+      values ('undoing a creation refuses to discard assignments','REMOVED','blocked');
+  exception when others then
+    insert into _res(check_name,result,expected)
+      values ('undoing a creation refuses to discard assignments',
+              case when sqlerrm like '%unassign them first%' then 'blocked' else 'OTHER: '||sqlerrm end, 'blocked');
+  end;
+  delete from section_instructors where section_id=v_usec;
+  perform undo_change(c_created);
+  insert into _res(check_name,result,expected)
+    select 'an empty section it created can be undone',
+           (select count(*)::text from sections where id=v_usec), '0';
+
+  -- A burst of assignments taken back in one go.
+  insert into sections (scenario_id,term_id,course_id,section_letter,time_slot_id)
+    values (v_draft,v_term,v_course,'V',v_slot) returning id into v_usec;
+  insert into section_instructors (section_id,instructor_id) values (v_usec,v_laurie);
+  insert into section_instructors (section_id,instructor_id) values (v_usec,v_olson);
+  select array_agg(id) into v_ids from scenario_changes
+   where scenario_id=v_draft and action='assigned' and undone_at is null and detail <> '{}'::jsonb;
+  select undo_changes(v_ids) into n;
+  insert into _res(check_name,result,expected) values ('a burst of assignments undoes as one', n::text, '2');
+  insert into _res(check_name,result,expected)
+    select 'nobody is left on the section',
+           (select count(*)::text from section_instructors where section_id=v_usec), '0';
+
+  begin
+    perform undo_change(v_legacy);
+    insert into _res(check_name,result,expected)
+      values ('an entry from before undo existed refuses','UNDONE','blocked');
+  exception when others then
+    insert into _res(check_name,result,expected)
+      values ('an entry from before undo existed refuses',
+              case when sqlerrm like '%before undo existed%' then 'blocked' else 'OTHER: '||sqlerrm end, 'blocked');
+  end;
+
+  update scenarios set is_locked=true where id=v_draft;
+  select id into c_unassigned from scenario_changes
+   where scenario_id=v_draft and action='unassigned' and undone_at is null order by id desc limit 1;
+  begin
+    perform undo_change(c_unassigned);
+    insert into _res(check_name,result,expected) values ('a locked scenario refuses undo','UNDONE','blocked');
+  exception when others then
+    insert into _res(check_name,result,expected)
+      values ('a locked scenario refuses undo',
+              case when sqlerrm like '%locked%' then 'blocked' else 'OTHER: '||sqlerrm end, 'blocked');
+  end;
+  update scenarios set is_locked=false where id=v_draft;
+
+  -- Undo is a coordinator's tool. The function is SECURITY DEFINER, so the
+  -- check RLS would have made is made inside it instead.
+  perform set_config('request.jwt.claim.sub', v_inst::text, true);
+  begin
+    perform undo_change(c_deleted);
+    insert into _res(check_name,result,expected) values ('an instructor cannot undo','UNDONE','blocked');
+  exception when others then
+    insert into _res(check_name,result,expected)
+      values ('an instructor cannot undo',
+              case when sqlerrm like '%only a coordinator%' or sqlerrm like '%permission denied%'
+                   then 'blocked' else 'OTHER: '||sqlerrm end, 'blocked');
+  end;
+  reset role;
+
+  insert into _res(check_name,result,expected)
+    select 'anon cannot reach undo_change',
+           has_function_privilege('anon','undo_change(bigint)','execute')::text, 'false';
+  insert into _res(check_name,result,expected)
+    select 'anon cannot reach undo_changes',
+           has_function_privilege('anon','undo_changes(bigint[])','execute')::text, 'false';
+  insert into _res(check_name,result,expected)
+    select 'a signed-in coordinator reaches it over rpc',
+           has_function_privilege('authenticated','undo_change(bigint)','execute')::text, 'true';
 
   -- Deleting a scenario that still holds sections and assignments has to
   -- work. The cascade removes the scenario before the rows beneath it, and

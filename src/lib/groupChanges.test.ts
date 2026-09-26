@@ -11,6 +11,10 @@ const change = (over: Partial<ScenarioChange> & { id: number }): ScenarioChange 
   summary: 'CSS 143 A',
   actor_email: 'pisan@uw.edu',
   occurred_at: at(0),
+  detail: { section_id: 's', instructor_id: 'i' },
+  undone_at: null,
+  undone_by: null,
+  undoes_id: null,
   ...over,
 })
 
@@ -60,5 +64,26 @@ describe('groupChanges', () => {
 
   it('handles an empty log', () => {
     expect(groupChanges([])).toEqual([])
+  })
+
+  // A line offering to undo four things when only three still stand would be
+  // lying about what it is about to do.
+  it('never merges an undone entry with a live one', () => {
+    const groups = groupChanges([
+      change({ id: 3, occurred_at: at(2) }),
+      change({ id: 2, occurred_at: at(1), undone_at: at(3) }),
+      change({ id: 1, occurred_at: at(0) }),
+    ])
+    expect(groups).toHaveLength(3)
+    expect(groups.map((g) => g.undone)).toEqual([false, true, false])
+  })
+
+  it('keeps a reversal apart from the changes around it', () => {
+    const groups = groupChanges([
+      change({ id: 3, action: 'unassigned', occurred_at: at(2), undoes_id: 1 }),
+      change({ id: 2, action: 'unassigned', occurred_at: at(1) }),
+    ])
+    expect(groups).toHaveLength(2)
+    expect(groups.map((g) => g.reversal)).toEqual([true, false])
   })
 })
