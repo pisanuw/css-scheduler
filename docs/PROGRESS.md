@@ -111,6 +111,36 @@ write that dies. Closing the gap properly would mean a heartbeat against
 Supabase, which is a request every N seconds on a phone, for a case the
 translated message already explains.
 
+**Deployed and verified.** Commit `7566069`, deploy `6ab8476b193d2c0008654e51`,
+published in 21s. The served entry chunk (`index-BXDTX_Ua.js`), the stylesheet,
+and the `react` and `supabase` chunks all compare byte for byte — `cmp`, not a
+matching hash — against a local build. The entry is the chunk that matters this
+time: `App`, `Layout`, `OfflineBanner`, `useConnection` and `online.ts` are all
+eager, so the whole feature is in there, and it is visible in the served bytes
+("waiting to save", "Nothing is lost", "You can keep reading", "Back online",
+"no connection to the server", `isPaused`). Then `scripts/route_check.mjs` was
+run against that same `dist/` — the bytes proven identical to what is served —
+so the live banner is checked in a real browser rather than inferred.
+`npm run check:deployed` is clean: 15 precached files, every icon, the worker
+replaceable.
+
+**Two things worth knowing for the next deploy verification.**
+
+- *Netlify builds with the modern publishable key, not the legacy anon JWT.*
+  `VITE_SUPABASE_ANON_KEY` on the site is
+  `sb_publishable_71_-uGHRKjaXisg8DLjmjw_dVMFbYsa`. Both are publishable and
+  either works, but only one reproduces the entry chunk's hash — a local build
+  with the legacy key produced `index-ByeMcle6.js` against the served
+  `index-BXDTX_Ua.js`, which looks exactly like a deploy that did not ship.
+  `mcp__Supabase__get_publishable_keys` lists both; the `type: "publishable"` one
+  is the right one.
+- *Do not build into a directory `.gitignore` does not name.* Tailwind 4 scans
+  the project for class names and skips ignored paths, so a build into
+  `dist-verify/` gets scanned by the *next* build and inflates its stylesheet —
+  37.51 kB instead of 36.74 kB, a different hash, and a comparison that fails
+  for a reason that has nothing to do with the deploy. Build into `dist/`, which
+  is ignored, or add the directory to `.gitignore` first.
+
 **Next run should pick up — in this order.**
 
 1. **`npm audit` reports 7 vulnerabilities** (1 critical, 1 high), all in dev
