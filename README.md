@@ -35,7 +35,8 @@ that is configured the sign-in button will fail.
 Tests and typecheck:
 
 ```bash
-npm test          # conflict engine, snapshot builder, assignment ranking (69 tests)
+npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
+                  # reporting and suggestions (148 tests)
 npm run typecheck
 npm run build
 ```
@@ -46,7 +47,7 @@ The hosted project is `css-scheduler` (ref `abvnaelzfriusckqqrfc`, us-west-1).
 Migrations live in `supabase/migrations/`, seed data in `supabase/seed.sql`.
 
 ```bash
-npm run db:test:rls        # row level security regression test (40 checks)
+npm run db:test:rls        # row level security regression test (49 checks)
 npm run test:e2e           # full stack through the real auth + REST API (20 checks)
 python3 scripts/run_sql.py <file.sql> [project_ref]   # run any SQL file
 ```
@@ -71,8 +72,10 @@ npm run seed:generate
 ```
 
 Seeded contents: 80 undergraduate courses, 48 graduate courses (inactive, so
-historical imports resolve), 42 time slots, 76 instructors, and 199 historical
-section assignments parsed from `past-course-schedules/`.
+historical imports resolve), 42 time slots, 76 instructors, 199 historical
+section assignments parsed from `past-course-schedules/`, and the 37 rooms
+those schedules use — derived from the import rather than typed out, so the
+room inventory is whatever CSS actually teaches in.
 
 ## Access
 

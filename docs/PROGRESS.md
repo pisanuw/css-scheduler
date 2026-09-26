@@ -10,9 +10,93 @@ this file is the state of play.
 | --- | --- |
 | 1 — Foundation | done |
 | 2 — Preference collection | done |
-| 3 — Assignment board | core done; drag-and-drop, undo and scenario seeding outstanding |
-| 4 — Reporting | not started |
-| 5 — Solver, import, student checks | not started |
+| 3 — Assignment board | done |
+| 4 — Reporting | done |
+| 5 — Solver, import, student checks | suggestions and student checks done; time-schedule import not started |
+
+## Next up
+
+See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-26 (later) — iterations 4 and 5
+
+**Built.**
+
+- **Seeding a scenario from a past year.** `src/lib/seedPlan.ts`. Creating a
+  scenario can copy an imported year: 199 sections and 198 assignments, mapped
+  onto the new year's quarters. Reports what it cannot carry across instead of
+  dropping it. Rooms were seeded too — the table was empty, so
+  `room_double_booked` could never fire however the board was filled in. The
+  rule was dead code; it is not now.
+- **Reporting.** `src/lib/report.ts` and `/report`: how well preferences were
+  met, per instructor and overall, worst-served first. CSV export of the
+  schedule and of the report, and a print stylesheet.
+- **Comparison.** `/compare`, two drafts side by side, marking the better of
+  each pair of numbers and naming who teaches in one but not the other.
+- **Change log.** `scenario_changes`, written by database triggers, append-only
+  to everyone. Shown on the board, grouped so a 199-row seed reads as one line.
+- **Suggestions.** `src/lib/suggest.ts` and the board's "Fill N gaps": proposes
+  instructors for unstaffed sections, hardest section first, accounting for its
+  own proposals as it goes. Refuses rather than warns on anything that would be
+  an error.
+- **Student checks.** `/student-check`, open to everyone signed in, since RLS
+  already limits non-coordinators to the official scenario.
+
+**Verified.** 148 unit tests, typecheck and build green. All five new or
+changed pages rendered at 375px in headless Chromium — board with the
+suggestion sheet open, report, compare, student check, scenarios with the
+create dialog open: no horizontal page scroll, nothing under 44px, no console
+errors. 49 of 49 RLS checks pass against the hosted project, no residue, the
+three real accounts untouched.
+
+**Learned.**
+
+- *The narrower test was the one that lied.* A standalone check of the change
+  log deleted sections before the scenario and passed. The committed suite
+  deletes an academic year and cascades three levels at once — and found that
+  **deleting a scenario failed outright**, because the cascade removes the
+  scenario before the sections and the log trigger then referenced a row that
+  was already gone. The Scenarios page has a Delete button; this would have
+  been hit the first time anyone pressed it. Fixed in
+  `20260926000200_log_survives_cascade.sql`.
+- *A greedy fill has to re-rank as it goes.* Ranking every unstaffed section
+  against the original snapshot proposes the same person twice at the same
+  hour. Placing the most constrained section first matters just as much: the
+  other order lets a common section take the only person a rare one had. Both
+  are asserted in the tests, along with the property that an accepted set of
+  suggestions never introduces an engine error.
+- *Refuse, do not warn, on hard constraints.* A suggestion that breaks a rule
+  is not a suggestion. Soft objections — a new preparation, a day they would
+  rather keep free — are shown next to the name and left to the coordinator.
+- *"No data" and "nobody got what they wanted" must not look alike.* The
+  preferences-met figure is null, not zero, when nothing was rated, and unrated
+  assignments are counted neither way.
+
+**Deliberately not done.** Importing a quarter from a pasted UW time schedule.
+Seeding from an already-imported year covers most of what it was for, and a
+parser for pasted text is a large surface for a case that may not come up.
+Drag and drop, and undo, are still open.
+
+**Next run should pick up — in this order.**
+
+1. **Undo on the board.** The highest-value remaining polish by some way. The
+   change log already records every mutation with enough detail to reverse an
+   assignment or an unassignment; a section edit would need the previous values
+   kept as well, which is a small migration.
+2. **Toast notifications and optimistic feedback on the report page**, to match
+   the board's.
+3. **Accessibility pass**: focus management when the sheets open and close,
+   focus trapping inside them, `aria-live` on the conflict count, and a
+   contrast audit of the tier colours.
+4. **Drag and drop** as an addition to tapping, never a replacement. `@dnd-kit`
+   is already a dependency.
+5. Then dark mode and the installable PWA.
+
+**Watch out for.** The bundle is 572 kB (158 kB gzipped) and Vite warns about
+it. Code-splitting the report, compare and student-check routes off the main
+chunk is the obvious fix and is now worth doing.
 
 ---
 

@@ -137,12 +137,9 @@ export default function Scenarios() {
         {(scenarios.data ?? []).map((s) => (
           <div key={s.id} className="rounded-lg bg-white p-4 ring-1 ring-slate-200">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <Link
-                to={`/board/${s.id}`}
-                className="font-medium text-slate-900 underline decoration-slate-300 hover:decoration-slate-600"
-              >
-                {s.name}
-              </Link>
+              {/* Not a link: "Open board" below is the real action, and a 24px
+                  duplicate of it is a poor target on a phone. */}
+              <span className="font-medium text-slate-900">{s.name}</span>
               <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[s.status]}`}>
                 {s.status}
               </span>

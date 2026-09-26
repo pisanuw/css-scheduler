@@ -14,6 +14,7 @@ import Scenarios from './pages/Scenarios'
 import Board from './pages/Board'
 import Report from './pages/Report'
 import Compare from './pages/Compare'
+import StudentCheck from './pages/StudentCheck'
 
 export default function App() {
   const { session, loading, isCoordinator } = useAuth()
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/courses" element={<Courses />} />
         <Route path="/instructors" element={<Instructors />} />
         <Route path="/history" element={<History />} />
+        <Route path="/student-check" element={<StudentCheck />} />
         {isCoordinator && <Route path="/scenarios" element={<Scenarios />} />}
         {isCoordinator && <Route path="/board" element={<Board />} />}
         {isCoordinator && <Route path="/board/:scenarioId" element={<Board />} />}

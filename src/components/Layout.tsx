@@ -34,6 +34,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/courses', label: 'Courses', show: true },
     { to: '/instructors', label: 'Instructors', show: true },
     { to: '/history', label: 'History', show: true },
+    { to: '/student-check', label: 'Student check', show: true },
     { to: '/access', label: 'Access', show: isCoordinator },
   ].filter((l) => l.show)
 

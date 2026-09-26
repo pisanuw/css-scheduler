@@ -5,18 +5,21 @@ import { loadTallies, type SectionRow } from '../lib/snapshot'
 import { useScenarioSnapshot } from '../hooks/useScenarioSnapshot'
 import {
   useAssign,
+  useBulkAssign,
   useDeleteSection,
   useSaveSection,
   useScenarioChanges,
   useScenarios,
   useUnassign,
 } from '../hooks/scheduling'
+import { suggestAssignments } from '../lib/suggest'
 import SectionCard from '../components/board/SectionCard'
 import AssignSheet from '../components/board/AssignSheet'
 import ConflictPanel from '../components/board/ConflictPanel'
 import LoadPanel from '../components/board/LoadPanel'
 import QuarterTabs from '../components/board/QuarterTabs'
 import HistoryPanel from '../components/board/HistoryPanel'
+import SuggestSheet from '../components/board/SuggestSheet'
 import SectionEditor, {
   toFormValue,
   toRow,
@@ -76,6 +79,7 @@ export default function Board() {
   const deleteSection = useDeleteSection(resolvedId ?? '')
   const assign = useAssign(resolvedId ?? '')
   const unassign = useUnassign(resolvedId ?? '')
+  const bulkAssign = useBulkAssign(resolvedId ?? '')
 
   const [termId, setTermId] = useState<string | null>(null)
   const [assigning, setAssigning] = useState<string | null>(null)
@@ -83,6 +87,7 @@ export default function Board() {
   const [editorError, setEditorError] = useState<string | null>(null)
   const [highlighted, setHighlighted] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [suggesting, setSuggesting] = useState(false)
 
   // Default to the first quarter once the terms arrive.
   useEffect(() => {
@@ -98,6 +103,14 @@ export default function Board() {
   const conflicts = useMemo(() => detectConflicts(snapshot), [snapshot])
   const counts = useMemo(() => countBySeverity(conflicts), [conflicts])
   const tallies = useMemo(() => loadTallies(snapshot), [snapshot])
+
+  // Only computed while the sheet is open; it walks every unstaffed section
+  // against every instructor, and the board does not need it otherwise.
+  const suggestions = useMemo(
+    () => (suggesting ? suggestAssignments(snapshot) : null),
+    [suggesting, snapshot],
+  )
+  const unstaffedCount = snapshot.sections.filter((s) => s.instructorIds.length === 0).length
 
   /** sectionId -> its findings, so each card can show its own badge. */
   const bySection = useMemo(() => {
@@ -296,15 +309,27 @@ export default function Board() {
             <h2 className="font-semibold text-slate-900">
               {termLabel(termId)} — {visible.length} section{visible.length === 1 ? '' : 's'}
             </h2>
-            <button
-              type="button"
-              onClick={openNew}
-              disabled={locked}
-              style={{ background: 'var(--uw-purple)' }}
-              className="ml-auto flex min-h-11 items-center rounded-md px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-            >
-              Add section
-            </button>
+            <div className="ml-auto flex flex-wrap gap-2">
+              {unstaffedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSuggesting(true)}
+                  disabled={locked}
+                  className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Fill {unstaffedCount} gap{unstaffedCount === 1 ? '' : 's'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={openNew}
+                disabled={locked}
+                style={{ background: 'var(--uw-purple)' }}
+                className="flex min-h-11 items-center rounded-md px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              >
+                Add section
+              </button>
+            </div>
           </div>
 
           {board.isLoading ? (
@@ -374,6 +399,24 @@ export default function Board() {
             )
             setAssigning(null)
           }}
+        />
+      )}
+
+      {suggesting && suggestions && (
+        <SuggestSheet
+          result={suggestions}
+          termLabel={termLabel}
+          applying={bulkAssign.isPending}
+          onClose={() => setSuggesting(false)}
+          onApply={(picks) =>
+            bulkAssign.mutate(picks, {
+              onSuccess: (n) => {
+                setSuggesting(false)
+                setMessage(`Assigned ${n} section${n === 1 ? '' : 's'}.`)
+              },
+              onError: (e) => setMessage((e as Error).message),
+            })
+          }
         />
       )}
 

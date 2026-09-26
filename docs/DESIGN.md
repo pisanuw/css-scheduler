@@ -215,6 +215,30 @@ in, exercises every read and write the app performs, confirms an instructor
 cannot reach coordinator data or escalate their own role, and deletes what it
 made.
 
+### Change log
+
+`scenario_changes` records every section and assignment change, written by
+triggers on `sections` and `section_instructors` rather than by the client, for
+the same reason `access_log` is: a log the client writes is a log the client
+can forget to write.
+
+It is append-only to everyone, coordinators included. There is no insert,
+update or delete policy, and the table grant is revoked, so the only way to add
+an entry is to actually change something. An audit trail its subject can edit
+is not one.
+
+Entries outlive what they describe: `section_id` is set null rather than
+cascaded, and the summary is stored as text at write time, because "who removed
+CSS 342 B" is exactly the question the log exists to answer and it has to stay
+answerable once the row is gone.
+
+One trap, found by the test suite and fixed in
+`20260926000200_log_survives_cascade.sql`: a cascading delete removes the
+scenario before the sections beneath it, so the section trigger tried to log
+against a scenario that no longer existed and the foreign key took the whole
+delete down with it. Deleting a scenario failed outright. Both triggers now
+check that the row they would point at still exists.
+
 ### Access log
 
 Supabase's own `auth.audit_log_entries` is empty on this project, so sign-in
@@ -275,15 +299,56 @@ note), draft-then-submit with revision until the cycle closes, and a
 coordinator dashboard showing who has responded with a copyable chase list.
 Reminder emails are not built.
 
-**3 — The assignment board (mostly done).** Scenarios (create, rename,
-archive, mark one official per year, delete), section CRUD against all three
-timing shapes, ranked tap-to-assign, the live conflict panel and per-instructor
-load tallies. Not yet: drag and drop as an alternative to tapping, undo, and
-seeding a scenario from a past year rather than typing each section in.
+**3 — The assignment board (done).** Scenarios (create, rename, archive, mark
+one official per year, delete), seeding a scenario from a past year's schedule,
+section CRUD against all three timing shapes, ranked tap-to-assign, the live
+conflict panel and per-instructor load tallies. Not yet: drag and drop as an
+alternative to tapping, and undo.
 
-**4 — Reporting.** How well preferences were met, CSV and print export,
-side-by-side scenario comparison, change log.
+**4 — Reporting (done).** How well preferences were met, CSV export of both
+the schedule and the report, a print stylesheet, side-by-side scenario
+comparison, and a change log written by database triggers.
 
-**5 — Optional.** Solver-assisted suggestions for unfilled sections, importing
-a quarter directly from the UW time schedule, student-facing conflict checks
-between required courses.
+**5 — Partly done.** Solver-assisted suggestions for unfilled sections and
+student-facing conflict checks are built. Importing a quarter directly from a
+pasted UW time schedule is not; seeding from an already-imported year covers
+most of what it was for.
+
+## Suggestions
+
+`src/lib/suggest.ts` proposes instructors for unstaffed sections. It is not a
+solver in the optimising sense, deliberately: the point of the application is
+that a human decides with the constraints visible. It fills the obvious gaps so
+attention goes to the hard ones, and every proposal is shown with its reasons
+before anything is written.
+
+Two things make it better than ranking each section on its own:
+
+**Hardest first.** A section three people could teach is placed before one that
+twenty could. The other order lets a common section take the only person a rare
+one had.
+
+**It accounts for its own proposals.** Each placement goes into the working
+snapshot, so the next section is ranked against the schedule as it would then
+stand. Ranking everything against the original state would cheerfully propose
+one person for two sections at the same hour.
+
+A candidate is refused outright, never merely warned about, when taking the
+section would break a rule rather than disappoint someone: they said they
+cannot teach it, they are busy at that hour, they are away that quarter, or
+they are at their cap. Those are exactly the conflicts the engine reports as
+errors, so an accepted suggestion cannot introduce one — which is asserted as a
+property in the tests rather than assumed.
+
+## Student checks
+
+Two questions, and the difference between them is the point. A pair of
+*sections* clashing is common and usually fine, because another section of one
+of them fits. A pair of *courses* with no workable combination at all is a
+problem with the schedule. `unavoidableStudentClashes` answers the second, and
+is the only one worth acting on; the first is shown as detail beneath it.
+
+The page is open to everyone signed in, not just coordinators. Row level
+security already limits non-coordinators to the official scenario, so an
+adviser sees the published schedule and nothing else, with no extra rule
+needed.

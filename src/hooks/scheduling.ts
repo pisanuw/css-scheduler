@@ -373,6 +373,22 @@ export function useAssign(scenarioId: string) {
   })
 }
 
+/** Accepts several suggestions at once, in one round trip. */
+export function useBulkAssign(scenarioId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (pairs: { sectionId: string; instructorId: string }[]) => {
+      if (pairs.length === 0) return 0
+      const { error } = await supabase
+        .from('section_instructors')
+        .insert(pairs.map((p) => ({ section_id: p.sectionId, instructor_id: p.instructorId })))
+      if (error) throw new Error(error.message)
+      return pairs.length
+    },
+    onSuccess: () => invalidateBoard(qc, scenarioId),
+  })
+}
+
 export function useUnassign(scenarioId: string) {
   const qc = useQueryClient()
   const key = ['board', scenarioId]
