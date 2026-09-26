@@ -59,6 +59,7 @@ SHOTS=1 npm run check:mobile    # and write PNGs to dist-harness/shots
 npm run check:routes            # the built bundle in a browser: chunks, deep links, roles
 npm run check:drag              # a real mouse and a real finger on the board
 npm run check:pwa               # installable, offline, and able to update itself
+npm run check:deployed          # the live site: what the server says about the bytes
 npm run icons                   # redraw the icons (committed; not part of the build)
 ```
 
@@ -111,6 +112,18 @@ rather than with Playwright's `context.setOffline`, which does not apply to a
 service worker's own fetches: with the shell deliberately removed from the
 precache list, the offline assertions still passed, because the "offline"
 worker was quietly fetching the page the whole time.
+
+`check:deployed` is the one that looks outward, at the running site (or at a
+deploy preview, passed as an argument). Everything else checks bytes a build
+produced; this checks what a server decided to say about them, which no local
+check can see. It asserts that the page still carries the manifest, the
+apple-touch icon and the pre-paint theme script; that a deep link still gets
+the app; that `/sw.js` is served as JavaScript and is *not* cacheable; that
+every file the served worker promises to precache is actually there; and that
+the manifest is served as `application/manifest+json` with every icon present
+and really the size it claims. Its first run found that Netlify was serving a
+perfectly good manifest as `application/octet-stream` — a build that passed
+every other check, and an app a phone would not install.
 
 `check:drag` drives an actual pointer at an actual board — a mouse, and a
 finger through the browser's real touch pipeline — because what makes dragging

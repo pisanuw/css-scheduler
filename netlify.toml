@@ -27,3 +27,11 @@
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+# Netlify served this as application/octet-stream, which is not a type a
+# browser will read a manifest from — caught by `npm run check:deployed` on the
+# first deploy that had one. The file is right; only the label was wrong.
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"

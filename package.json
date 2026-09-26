@@ -22,6 +22,7 @@
     "check:drag": "npm run build:harness && node scripts/drag_check.mjs",
     "check:pwa": "VITE_SUPABASE_URL=https://abvnaelzfriusckqqrfc.supabase.co VITE_SUPABASE_ANON_KEY=pwa-check-placeholder vite build --outDir dist-pwacheck && PWA_CHECK_DIST=dist-pwacheck node scripts/pwa_check.mjs",
     "icons": "node scripts/generate_icons.mjs",
+    "check:deployed": "node scripts/deployed_check.mjs",
     "check:routes": "VITE_SUPABASE_URL=https://abvnaelzfriusckqqrfc.supabase.co VITE_SUPABASE_ANON_KEY=route-check-placeholder vite build --outDir dist-routecheck && ROUTE_CHECK_DIST=dist-routecheck node scripts/route_check.mjs"
   },
   "dependencies": {
