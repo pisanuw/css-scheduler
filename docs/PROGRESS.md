@@ -81,6 +81,27 @@ each scenario's own report page has one, and three buttons on a page whose job
 is to choose between two drafts is a page that has stopped being about the
 choice.
 
+**Deployed and verified.** Commit `2baf7f5` pushed to `main`; Netlify built it
+as deploy `6ab7d633510c050008758b57` in 18 seconds and published at 14:27 UTC.
+**All 28 assets are byte-for-byte identical** to a local build made with the
+`sb_publishable_…` key recovered from the served entry chunk, by the procedure
+the sixth run wrote down. The served `Compare-*.js` contains "Download this
+comparison (CSV)" and the served `PrintStamp-*.js` contains `data-print-only`,
+so the new code is the code being served and not a matching hash on old bytes.
+
+*One trap worth knowing:* the first fetch after the push returned the previous
+deploy's HTML, which looked like a failed deploy — the CSS hash had not moved,
+and this run's changes do add Tailwind classes, so it should have. It was
+simply too early. Check the deploy's `state` and `published_at` through the
+Netlify MCP tools before reading a stale asset hash as a broken build.
+
+**Git note.** The sandbox started on a detached HEAD with the local `main` ref
+ten commits behind `origin/main`, so `git push -u origin main` pushed that
+stale ref and was rejected as non-fast-forward — nothing to do with the remote
+having moved. `git branch -f main HEAD && git checkout main` fixed it. Worth
+checking `git branch -vv` first if a push is rejected while `git rev-list
+--count HEAD..origin/main` says 0.
+
 **Next run should pick up — in this order.**
 
 1. **Dark mode.** The contrast check already runs every scene; teaching it to
