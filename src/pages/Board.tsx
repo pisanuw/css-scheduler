@@ -1,22 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { countBySeverity, detectConflicts, type Severity } from '../lib/conflicts'
-import { buildSnapshot, loadTallies, type SectionRow } from '../lib/snapshot'
-import { useCourses, useInstructors, useLoadTargets } from '../hooks/queries'
-import { useCycles, useTerms } from '../hooks/preferences'
-import {
-  useAllSubmissions,
-  useAssign,
-  useBoardData,
-  useDeleteSection,
-  useRooms,
-  useSaveSection,
-  useScenario,
-  useScenarios,
-  useTeachingHistoryPairs,
-  useTimeSlots,
-  useUnassign,
-} from '../hooks/scheduling'
+import { loadTallies, type SectionRow } from '../lib/snapshot'
+import { useScenarioSnapshot } from '../hooks/useScenarioSnapshot'
+import { useAssign, useDeleteSection, useSaveSection, useScenarios, useUnassign } from '../hooks/scheduling'
 import SectionCard from '../components/board/SectionCard'
 import AssignSheet from '../components/board/AssignSheet'
 import ConflictPanel from '../components/board/ConflictPanel'
@@ -73,25 +60,8 @@ export default function Board() {
     return (list.find((s) => s.status === 'official') ?? list.find((s) => s.status !== 'archived'))?.id
   }, [routeId, scenarios.data])
 
-  const scenario = useScenario(resolvedId)
-  const yearId = scenario.data?.academic_year_id
-
-  const terms = useTerms(yearId)
-  const courses = useCourses('undergraduate')
-  const instructors = useInstructors()
-  const loadTargets = useLoadTargets(yearId)
-  const timeSlots = useTimeSlots()
-  const rooms = useRooms()
-  const board = useBoardData(resolvedId)
-  const history = useTeachingHistoryPairs()
-  const cycles = useCycles()
-
-  // Preferences come from the cycle that collected them for this same year.
-  const cycleId = useMemo(
-    () => (cycles.data ?? []).find((c) => c.academic_year_id === yearId)?.id,
-    [cycles.data, yearId],
-  )
-  const submissions = useAllSubmissions(cycleId)
+  const { scenario, snapshot, board, terms, courses, timeSlots, rooms, cycleId } =
+    useScenarioSnapshot(resolvedId)
 
   const saveSection = useSaveSection(resolvedId ?? '')
   const deleteSection = useDeleteSection(resolvedId ?? '')
@@ -115,39 +85,6 @@ export default function Board() {
     for (const c of courses.data ?? []) m.set(c.id, c.number)
     return m
   }, [courses.data])
-
-  /**
-   * The snapshot spans the whole year even though the board shows one quarter:
-   * annual targets and new-prep counts are year-wide, so narrowing it would
-   * make the conflict panel quietly wrong.
-   */
-  const snapshot = useMemo(() => {
-    const assignedIds = new Set((board.data?.assignments ?? []).map((a) => a.instructor_id))
-    return buildSnapshot({
-      terms: terms.data ?? [],
-      sections: board.data?.sections ?? [],
-      assignments: board.data?.assignments ?? [],
-      courses: courses.data ?? [],
-      timeSlots: timeSlots.data ?? [],
-      rooms: rooms.data ?? [],
-      // Inactive people stay listed while they still hold an assignment, so a
-      // stale row shows up as something to fix rather than vanishing.
-      instructors: (instructors.data ?? []).filter((i) => i.is_active || assignedIds.has(i.id)),
-      loadTargets: loadTargets.data ?? [],
-      submissions: submissions.data ?? [],
-      history: history.data ?? [],
-    })
-  }, [
-    terms.data,
-    board.data,
-    courses.data,
-    timeSlots.data,
-    rooms.data,
-    instructors.data,
-    loadTargets.data,
-    submissions.data,
-    history.data,
-  ])
 
   const conflicts = useMemo(() => detectConflicts(snapshot), [snapshot])
   const counts = useMemo(() => countBySeverity(conflicts), [conflicts])
@@ -294,7 +231,10 @@ export default function Board() {
         >
           {scenario.data.status}
         </span>
-        <Link to="/scenarios" className="text-sm text-slate-500 underline hover:text-slate-700">
+        <Link
+          to="/scenarios"
+          className="flex min-h-11 items-center text-sm text-slate-500 underline hover:text-slate-700"
+        >
           All scenarios
         </Link>
       </div>

@@ -12,6 +12,8 @@ import Responses from './pages/Responses'
 import AccessLog from './pages/AccessLog'
 import Scenarios from './pages/Scenarios'
 import Board from './pages/Board'
+import Report from './pages/Report'
+import Compare from './pages/Compare'
 
 export default function App() {
   const { session, loading, isCoordinator } = useAuth()
@@ -30,6 +32,9 @@ export default function App() {
         {isCoordinator && <Route path="/scenarios" element={<Scenarios />} />}
         {isCoordinator && <Route path="/board" element={<Board />} />}
         {isCoordinator && <Route path="/board/:scenarioId" element={<Board />} />}
+        {isCoordinator && <Route path="/report" element={<Report />} />}
+        {isCoordinator && <Route path="/report/:scenarioId" element={<Report />} />}
+        {isCoordinator && <Route path="/compare" element={<Compare />} />}
         {isCoordinator && <Route path="/cycles" element={<Cycles />} />}
         {isCoordinator && <Route path="/responses" element={<Responses />} />}
         {isCoordinator && <Route path="/access" element={<AccessLog />} />}

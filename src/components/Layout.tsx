@@ -26,6 +26,8 @@ export default function Layout({ children }: { children: ReactNode }) {
     { to: '/', label: 'Dashboard', end: true, show: true },
     { to: '/board', label: 'Board', show: isCoordinator },
     { to: '/scenarios', label: 'Scenarios', show: isCoordinator },
+    { to: '/report', label: 'Report', show: isCoordinator },
+    { to: '/compare', label: 'Compare', show: isCoordinator },
     { to: '/preferences', label: 'My preferences', show: true },
     { to: '/cycles', label: 'Cycles', show: isCoordinator },
     { to: '/responses', label: 'Responses', show: isCoordinator },

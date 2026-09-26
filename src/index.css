@@ -11,3 +11,55 @@ body {
   background: #f8f8fa;
   color: #1a1a1a;
 }
+
+/*
+ * Print: the coordinator hands the final schedule round a table, so it has to
+ * come out of a printer legibly. Tailwind's `print:hidden` takes care of the
+ * controls; these are the rules that apply to everything.
+ */
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  /* Screen chrome that carries no information on paper. */
+  .shadow,
+  .shadow-md,
+  .shadow-xl {
+    box-shadow: none !important;
+  }
+
+  /* Rings are invisible in most print pipelines; a hairline border is not. */
+  [class*="ring-1"],
+  [class*="ring-2"] {
+    box-shadow: none !important;
+    border: 1px solid #ccc;
+  }
+
+  /* Keep a section, an instructor row or a card off a page boundary. */
+  li,
+  tr,
+  section > div {
+    break-inside: avoid;
+  }
+
+  h1,
+  h2 {
+    break-after: avoid;
+  }
+
+  /* Coloured bars and badges need forcing, or they print as empty outlines. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  a[href]::after {
+    content: "";
+  }
+
+  @page {
+    margin: 1.5cm;
+  }
+}
