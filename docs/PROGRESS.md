@@ -14,10 +14,135 @@ this file is the state of play.
 | 4 — Reporting | done (export and print on both the report and the comparison) |
 | 5 — Solver, import, student checks | done |
 | Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA, the Supabase trim and offline awareness done |
+| Dependencies | `npm audit` clean; Node pinned to 22 |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-26 (fifteenth run) — seven findings, and what they were really about
+
+**Built.** `npm audit` reports nothing. Two commits, because the two halves are
+independent and one of them ships to the coordinator.
+
+- **`react-router-dom` 6.30 → 7.18** (`32059ba`). The correction first: three
+  runs recorded these seven findings as "all in dev tooling". That was wrong.
+  `react-router-dom` is a runtime dependency and two of the seven were against
+  it.
+- **`vite` 5.4 → 8.3, `vitest` 2.1 → 5.0, `esbuild` 0.21 → 0.28,
+  `@vitejs/plugin-react` 4 → 6** (`8f0d206`), plus two problems the upgrade
+  uncovered — see below.
+- **Node pinned to 22** in `.nvmrc` (`7b8fd83`).
+- Also, unrelated but cheap and in the same files: `dist-buildcheck/` is
+  gitignored, and `npm run build:check` exists.
+
+**Learned.**
+
+- *Severity is not reachability, and the entry that said "dev tooling" is why
+  nobody looked again.* Worth being precise, because the precision is what
+  decides whether to act: the router's SSR finding needs `deserializeErrors()`
+  and there is no server renderer; its open redirect needs a target beginning
+  with a backslash, and every target here is a template literal with a fixed
+  `/board/` or `/report/` prefix and a UUID after it. The critical vitest one
+  needs the Vitest UI server, which is not installed. So nothing was exploitable
+  — and it was all still worth upgrading, because "not reachable" is a property
+  of the call sites. The first `?next=` parameter anybody adds to the sign-in
+  flow makes a navigation target user-controlled, and nothing would connect that
+  change to this advisory.
+- *`npm run build` can succeed with no application in it.* The biggest thing
+  this run found, and it was found by accident. Rolldown — Vite 8's bundler —
+  eliminates dead code across modules. `src/lib/supabase.ts` throws at module
+  scope when the two Supabase values are missing; Vite inlines them at build
+  time; so an env-less build lets the bundler prove the entire app shell is
+  unreachable and drop it. What comes out is a 2.5 kB entry, every page chunk
+  still present because those are dynamic imports, and a build that prints its
+  usual table of chunks and reports success. `npm run build` is one of this
+  project's three verification gates. Under Vite 5 it produced something that
+  failed loudly in a browser; under Vite 8 it passes silently.
+  `vite-plugins/envGuard.ts` now refuses it.
+- *Guard the cause, not the symptom.* The obvious check — assert `src/App.tsx`
+  is in the output — was written first, wired up, and passed: `chunk.moduleIds`
+  still lists a module after its code has been eliminated, because the module was
+  reached and then emptied. A size threshold would need revising whenever the
+  shell grew and would not say what was wrong. Two absent environment variables
+  are unambiguous.
+- *Tailwind generates utilities from prose.* `scripts/` is Playwright selectors,
+  so `[data-drag-id="instructor:i4"]:visible` became
+  `.instructor\:i4\"\]\:visible:is()` in the *shipped* stylesheet. Vite 5's CSS
+  minifier warned about it on every build and nobody had scrolled up far enough
+  to see it; Vite 8 stopped warning without fixing it, which is the worse state —
+  the noise went and the rule stayed. `@source not "../scripts/**"` was the wrong
+  tool: adding any directive changes what automatic detection considers, so it
+  removed one junk rule and introduced three from `docs/`. Declaring sources
+  (`source(none)` plus `@source "../src"` and the app's `index.html`) dropped
+  thirteen rules and 1,159 bytes, all junk — the bare `.bg-white`,
+  `.transition`, `.grow` and `.text-slate-400` that went are not used anywhere
+  in `src/`; what is used is `hover:bg-white/10`, `transition-colors` and
+  `placeholder:text-slate-400`, which are different rules and are still there.
+- *npm cannot raise a peer-dependency floor in place.* `npm install -D
+  vite@^8 @vitejs/plugin-react@^6` fails with ERESOLVE naming the installed
+  plugin-react 4.7.0 as the blocker, and keeps failing after `rm -rf
+  node_modules`, because the lockfile is what it is reading. The lockfile has to
+  go too. Which means re-resolving every `^` range — the exact hazard the twelfth
+  run committed the lockfile to prevent — so the eight runtime packages were
+  compared by version before and after. All eight identical,
+  `@supabase/supabase-js` included. Do that comparison; do not skip it.
+
+**Measured, not assumed.**
+
+| | raw | gzipped | requests |
+| --- | --- | --- | --- |
+| vite 5 + router 6 (was deployed) | 403,136 | 116,704 | 5 |
+| vite 5 + router 7 | 419,110 | 122,284 | 5 |
+| vite 8 + router 7 (now deployed) | 401,468 | 116,539 | 6 |
+
+React Router 7 costs +15,974 raw and +5,580 gzipped over 6.30 — 4.6% of a
+signed-out visitor's first load. Rolldown more than paid for it. The extra
+request is a 368-byte rolldown runtime chunk. The build is also about 3× faster
+(600ms against ~2s), which matters here only because every check in this
+repository builds at least once.
+
+**Verified.** 446 tests, typecheck and build green on the new toolchain, all 30
+mobile scenes clean at 375px, drag, PWA (16 precached files now, the runtime
+chunk being the new one) and routing — including the vite-8 chunk split, which
+was the real risk: rolldown could have grouped the vendor chunks differently and
+quietly undone the split. Every per-page chunk assertion still holds.
+
+**Deployed and verified.** Commit `7b8fd83`, published from `main`. This is the
+first deploy where **every single file matches byte for byte** — all 29 assets
+plus `sw.js`, `manifest.webmanifest` and `index.html`, by `cmp`, against a local
+build. That is what pinning Node bought: previous runs could only compare a
+subset and had to reason about the rest. Then `scripts/route_check.mjs` was run
+against that same `dist/`, which is now literally the deployed bytes.
+`npm run check:deployed` clean.
+
+**Watch out for.**
+
+- **`npm run build` now needs the two Supabase values**, or it fails with an
+  explanation. Use `npm run build:check` for the gate; use the real values when
+  building something to compare against Netlify. Netlify has them, so the deploy
+  is unaffected.
+- **Vitest suggests `isolate: false`** for about 860ms. Deliberately not taken:
+  `src/lib/routes.test.ts` exercises `prefetchRoute`, whose `inFlight` map is
+  module-level state, and sharing workers across files is how that becomes
+  flaky on some future Tuesday. 1.8s is not a problem worth a flaky suite.
+- **TypeScript went 5.5.4 → 5.9.3** with the lockfile regeneration, since it was
+  already `^5.5.4`. Typecheck is clean, and it is worth knowing it moved.
+
+**Next run should pick up — in this order.**
+
+1. **Keyboard shortcuts on the board.** Now the most valuable thing left: undo
+   exists but only as a button, and nothing tells anyone what is available. A `?`
+   overlay listing them is the other half of the job.
+2. **An `aria-busy` or equivalent on a paused write.** The banner says how many
+   changes are waiting in total; an individual pill on the board still looks
+   exactly like a saved one. Worth doing only if the banner turns out not to be
+   enough in practice.
+3. `.env.asc` arrived in `dd09666` with nothing saying which key opens it or what
+   to do with it — worth a line in the README, from whoever added it. This one
+   needs the maintainer; nothing in this sandbox can decrypt it.
 
 ---
 
