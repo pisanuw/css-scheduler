@@ -49,6 +49,13 @@ deferred is that it is policy rather than code; the reason to stop deferring is
 that the cost of the default was invisible and the cost of the fix is a file.
 It is reversible in one commit if the maintainer disagrees.
 
+**Deployed and verified.** Commit `d90bc08`, deploy `6ab81bd365da910008968a67`,
+published in 20s — so Netlify's `npm ci` path works, which was the one real
+risk in this change. Netlify reported "all files already uploaded by a previous
+deploy with the same commits": the bundle is byte-identical to the deploy
+before it, which is what committing a lockfile *should* produce and is the
+cleanest possible evidence that it changed nothing but reproducibility.
+
 **Next run should pick up — in this order.**
 
 1. **Importing a quarter from a pasted UW time schedule** — the one part of
