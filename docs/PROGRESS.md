@@ -94,6 +94,14 @@ correctly says "Import 1 section". It is shared with the Scenarios seed dialog,
 where it has always read that way. A small fix with a test, worth doing next
 time something else touches that file.
 
+**Deployed and verified.** Commit `20332dc`, built by Netlify from `main`. Both
+the served entry chunk (`index-DsIn9mWU.js`) and the served board chunk
+(`Board-D1iDzB5Y.js`, which is where the import sheet and the parser live)
+compare byte for byte against a local build made with the same environment
+values — `cmp`, not a matching hash. The board chunk is checked as well as the
+entry this time because the entry would match whether or not the new code
+shipped: it is lazily imported, and the whole feature is in the other file.
+
 **Next run should pick up — in this order.**
 
 1. **An offline banner.** Unchanged from last run and now the most valuable
