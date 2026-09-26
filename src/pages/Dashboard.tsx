@@ -91,14 +91,30 @@ export default function Dashboard() {
         <Stat label="Sections on record" value={history.data?.length ?? '…'} to="/history" />
       </div>
 
-      <div className="mt-8 rounded-lg bg-white p-5 ring-1 ring-slate-200">
-        <h2 className="font-semibold text-slate-900">Next up</h2>
-        <p className="mt-2 text-sm text-slate-600">
-          The assignment board is not built yet. See{' '}
-          <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">docs/DESIGN.md</code> for the
-          planned iterations.
-        </p>
-      </div>
+      {isCoordinator && (
+        <div className="mt-8 rounded-lg bg-white p-5 ring-1 ring-slate-200">
+          <h2 className="font-semibold text-slate-900">Assignment board</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Lay out a year&rsquo;s sections in a scenario and assign instructors to them, with
+            conflicts flagged as you work.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              to="/board"
+              style={{ background: 'var(--uw-purple)' }}
+              className="flex min-h-11 items-center rounded-md px-4 text-sm font-medium text-white hover:opacity-90"
+            >
+              Open the board
+            </Link>
+            <Link
+              to="/scenarios"
+              className="flex min-h-11 items-center rounded-md border border-slate-300 px-4 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              Scenarios
+            </Link>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

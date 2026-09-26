@@ -4,6 +4,11 @@ Assigns UW Bothell CSS instructors to course sections across Autumn, Winter and
 Spring. Instructors submit their own preferences; the coordinator places them on
 a board that flags conflicts as they work.
 
+The board is built for a phone: tap a section, tap an instructor, and the
+candidate list is ordered by who actually fits — what they said about the
+course, whether it clashes with something they already teach, how far it would
+push them past their teaching target.
+
 **Live:** https://uwb-css-scheduler.netlify.app — sign-in needs the Google
 OAuth client set up first (see **Setting up Google sign-in** below).
 
@@ -30,7 +35,7 @@ that is configured the sign-in button will fail.
 Tests and typecheck:
 
 ```bash
-npm test          # conflict engine
+npm test          # conflict engine, snapshot builder, assignment ranking (69 tests)
 npm run typecheck
 npm run build
 ```
@@ -41,7 +46,7 @@ The hosted project is `css-scheduler` (ref `abvnaelzfriusckqqrfc`, us-west-1).
 Migrations live in `supabase/migrations/`, seed data in `supabase/seed.sql`.
 
 ```bash
-npm run db:test:rls        # row level security regression test (14 checks)
+npm run db:test:rls        # row level security regression test (40 checks)
 npm run test:e2e           # full stack through the real auth + REST API (20 checks)
 python3 scripts/run_sql.py <file.sql> [project_ref]   # run any SQL file
 ```

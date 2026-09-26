@@ -17,6 +17,7 @@ declare
   v_coord uuid; v_inst uuid; v_laurie uuid; v_olson uuid;
   v_cycle uuid; v_closed uuid; v_ay uuid; v_term uuid; v_course uuid; v_slot uuid;
   v_draft uuid; v_sub_olson uuid; v_ay2 uuid; n int;
+  v_official uuid; v_oterm uuid; v_osection uuid; v_ayt uuid;
 begin
   insert into auth.users (id, email) values (gen_random_uuid(), 'rls-test-a@uw.edu') returning id into v_coord;
   insert into auth.users (id, email) values (gen_random_uuid(), 'rls-test-b@uw.edu') returning id into v_inst;
@@ -35,6 +36,16 @@ begin
   insert into preference_submissions (cycle_id,instructor_id,status) values (v_cycle,v_olson,'draft') returning id into v_sub_olson;
   insert into scenarios (academic_year_id,name,status) values (v_ay,'rls-test draft','draft') returning id into v_draft;
   insert into sections (scenario_id,term_id,course_id,section_letter,time_slot_id) values (v_draft,v_term,v_course,'A',v_slot);
+
+  -- The official scenario gets an academic year of its own. Only one scenario
+  -- per year may be official, so hanging this off a real year would make the
+  -- suite fail the day the coordinator publishes one.
+  insert into academic_years (name,start_year) values ('rls-test year',1999) returning id into v_ayt;
+  insert into terms (academic_year_id,quarter,sort_order) values (v_ayt,'autumn',1) returning id into v_oterm;
+  insert into scenarios (academic_year_id,name,status) values (v_ayt,'rls-test official','official') returning id into v_official;
+  insert into sections (scenario_id,term_id,course_id,section_letter,time_slot_id)
+    values (v_official,v_oterm,v_course,'A',v_slot) returning id into v_osection;
+  insert into section_instructors (section_id,instructor_id) values (v_osection,v_laurie);
 
   -- ---------------------------------------------------------- instructor --
   set local role authenticated;
@@ -80,21 +91,46 @@ begin
   insert into _res(check_name,result,expected)
     values ('instructor edits catalog', case when n>0 then 'EDITED' else 'blocked' end, 'blocked');
 
-  select count(*) into n from scenarios;
+  -- Scoped to this suite's own rows throughout: whole-table counts break the
+  -- moment the coordinator has real drafts of their own.
+  select count(*) into n from scenarios where id = v_draft;
   insert into _res(check_name,result,expected) values ('instructor sees draft scenarios', n::text, '0');
-  select count(*) into n from sections;
+  select count(*) into n from sections where scenario_id = v_draft;
   insert into _res(check_name,result,expected) values ('instructor sees draft sections', n::text, '0');
-  select count(*) into n from section_meetings;
+  select count(*) into n from section_meetings where scenario_id = v_draft;
   insert into _res(check_name,result,expected) values ('instructor sees section_meetings view', n::text, '0');
+
+  -- The published schedule, on the other hand, is exactly what they should see.
+  select count(*) into n from scenarios where id = v_official;
+  insert into _res(check_name,result,expected) values ('instructor sees official scenario', n::text, '1');
+  select count(*) into n from sections where scenario_id = v_official;
+  insert into _res(check_name,result,expected) values ('instructor sees official sections', n::text, '1');
+  select count(*) into n from section_instructors where section_id = v_osection;
+  insert into _res(check_name,result,expected) values ('instructor sees official assignments', n::text, '1');
+
+  -- Reading the board is not editing it. Both writes are coordinator-only.
+  begin
+    insert into section_instructors (section_id,instructor_id) values (v_osection,v_olson);
+    insert into _res(check_name,result,expected) values ('instructor assigns an instructor','INSERTED','blocked');
+  exception when insufficient_privilege or check_violation then
+    insert into _res(check_name,result,expected) values ('instructor assigns an instructor','blocked','blocked');
+  end;
+
+  delete from section_instructors where section_id = v_osection;
+  get diagnostics n = row_count;
+  insert into _res(check_name,result,expected)
+    values ('instructor unassigns an instructor', case when n>0 then 'DELETED' else 'blocked' end, 'blocked');
 
   -- --------------------------------------------------------- coordinator --
   perform set_config('request.jwt.claim.sub', v_coord::text, true);
   select count(*) into n from preference_submissions;
   insert into _res(check_name,result,expected) values ('coordinator sees all submissions', n::text, '2');
-  select count(*) into n from scenarios;
+  select count(*) into n from scenarios where id = v_draft;
   insert into _res(check_name,result,expected) values ('coordinator sees draft scenarios', n::text, '1');
-  select count(*) into n from section_meetings;
+  select count(*) into n from section_meetings where scenario_id = v_draft;
   insert into _res(check_name,result,expected) values ('coordinator sees section_meetings view', n::text, '1');
+  select count(*) into n from section_instructors where section_id = v_osection;
+  insert into _res(check_name,result,expected) values ('coordinator sees assignments', n::text, '1');
 
   -- ------------------------------------------------------ teaching load --
   -- Baseline minus releases, as the instructor_load_targets view computes it.
@@ -118,13 +154,15 @@ begin
            (select effective_target::text from instructor_load_targets
              where instructor_id = v_olson and academic_year_id = v_ay2), '5.0';
 
-  -- A standing release (null year) applies to every year.
+  -- A standing release (null year) applies to every year. Asserted as "every
+  -- row agrees" rather than as a list of values, so adding an academic year
+  -- does not break a check that is not about how many years there are.
   insert into teaching_releases (instructor_id, academic_year_id, courses, reason)
     values (v_laurie, null, 3, 'rls-test standing chair service');
   insert into _res(check_name,result,expected)
     select 'standing release applies to every year',
-           (select string_agg(effective_target::text, ',' order by academic_year)
-              from instructor_load_targets where instructor_id = v_laurie), '5.0,5.0';
+           (select (count(*) > 0 and count(*) = count(*) filter (where effective_target = 5.0))::text
+              from instructor_load_targets where instructor_id = v_laurie), 'true';
 
   -- Releasing more than the baseline floors at zero, never negative.
   insert into teaching_releases (instructor_id, academic_year_id, courses, reason)
@@ -248,6 +286,8 @@ begin
   -- -------------------------------------------------------------- cleanup --
   delete from sections where scenario_id=v_draft;
   delete from scenarios where id=v_draft;
+  -- Cascades through terms, the official scenario, its section and assignment.
+  delete from academic_years where id=v_ayt;
   delete from preference_cycles where id in (v_cycle, v_closed);
   delete from auth.users where email like 'rls-test-%';
   -- Every throwaway account this suite creates also lands in access_log, and
@@ -269,11 +309,12 @@ begin
               join preference_cycles c on c.id = ps.cycle_id
              where c.name like 'rls-test %')::text || ' submissions, ' ||
            (select count(*) from scenarios where name like 'rls-test %')::text || ' scenarios, ' ||
+           (select count(*) from academic_years where start_year = 1999)::text || ' test years, ' ||
            (select count(*) from bootstrap_coordinators where note = 'rls-test probe')::text || ' probes, ' ||
            (select count(*) from teaching_releases where reason like 'rls-test %')::text || ' releases, ' ||
            (select count(*) from access_log
              where email like 'rls-test-%' or email like '%-probe@uw.edu')::text || ' log rows',
-           '0 users, 0 profiles, 0 submissions, 0 scenarios, 0 probes, 0 releases, 0 log rows';
+           '0 users, 0 profiles, 0 submissions, 0 scenarios, 0 test years, 0 probes, 0 releases, 0 log rows';
 end $$;
 
 select check_name, result, expected,

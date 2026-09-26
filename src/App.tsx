@@ -10,6 +10,8 @@ import MyPreferences from './pages/MyPreferences'
 import Cycles from './pages/Cycles'
 import Responses from './pages/Responses'
 import AccessLog from './pages/AccessLog'
+import Scenarios from './pages/Scenarios'
+import Board from './pages/Board'
 
 export default function App() {
   const { session, loading, isCoordinator } = useAuth()
@@ -25,6 +27,9 @@ export default function App() {
         <Route path="/courses" element={<Courses />} />
         <Route path="/instructors" element={<Instructors />} />
         <Route path="/history" element={<History />} />
+        {isCoordinator && <Route path="/scenarios" element={<Scenarios />} />}
+        {isCoordinator && <Route path="/board" element={<Board />} />}
+        {isCoordinator && <Route path="/board/:scenarioId" element={<Board />} />}
         {isCoordinator && <Route path="/cycles" element={<Cycles />} />}
         {isCoordinator && <Route path="/responses" element={<Responses />} />}
         {isCoordinator && <Route path="/access" element={<AccessLog />} />}

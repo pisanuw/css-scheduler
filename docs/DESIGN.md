@@ -135,6 +135,55 @@ findings. It runs in the browser on every drag, so it does no I/O. Rules:
 New preps count *distinct courses* an instructor has not taught before, drawn
 from `teaching_history` — two sections of one new course is one new prep.
 
+## The assignment board
+
+One scenario at a time, one quarter at a time, with the conflict panel and the
+load tallies alongside. Three decisions are worth recording.
+
+**The snapshot always spans the whole year, even though the board shows one
+quarter.** Annual targets and new-preparation counts are year-wide quantities,
+so handing the engine a single quarter would make it quietly wrong in the
+direction that matters least — it would stop reporting the overload it exists
+to catch.
+
+**Only submitted preferences are honoured.** `buildSnapshot` skips drafts. A
+half-filled draft would have the engine judge an assignment against answers the
+instructor has not stood behind, and a draft that says "available: no" simply
+because nobody has ticked the box yet is worse than no answer at all. The
+Responses page is where the coordinator sees who still owes a submission.
+
+**Assignment is ranked, not alphabetical.** `src/lib/suitability.ts` scores
+every instructor for the section being filled and puts the reason next to the
+name: what they said about the course, whether the time clashes with something
+they already teach, whether they marked the quarter off, how far the assignment
+would push them past their target. The penalties are ordered so that a hard
+objection (cannot teach it, clashes, unavailable, over the quarter cap) always
+outranks a soft one (a new preparation, a day they would rather keep free).
+Nobody is hidden — someone who said they cannot teach a course still appears,
+last, with the reason spelled out, because the coordinator sometimes has to ask
+anyway.
+
+Both files are pure functions over a snapshot, tested directly, for the same
+reason the conflict engine is: they re-run on every tap and every keystroke.
+
+## Mobile
+
+The coordinator does this work on a phone, so 375px is the width the layout is
+designed at, not one it degrades to. Three rules hold everywhere:
+
+- **Tap to assign.** Tap a section, tap an instructor. There is no drag and
+  drop yet, and when it arrives it will be an addition to this path rather than
+  a replacement for it.
+- **No horizontal page scroll, at any width.** The quarter tab strip is the one
+  element allowed to scroll sideways, and only within itself.
+- **Every control at least 44px tall.** Including the small ones — the chip
+  that unassigns somebody, the severity filters on the conflict panel.
+
+Tables become cards rather than scrolling boxes: the load panel renders one
+card per instructor below `sm` and a table above it, with the same numbers in
+both. The navigation is a drawer below `md`, because ten destinations do not
+fit across a phone and a sideways-scrolling nav bar was worse than a menu.
+
 ## Security
 
 Google OAuth through Supabase. Sign-in is restricted to `uw.edu` in two places:
@@ -157,7 +206,7 @@ creates two throwaway users, exercises the matrix as each, and deletes what it
 made:
 
 ```bash
-npm run db:test:rls   # 14 policy checks, in-database
+npm run db:test:rls   # 40 policy checks, in-database
 npm run test:e2e      # 20 checks through the real auth + REST API
 ```
 
@@ -226,8 +275,11 @@ note), draft-then-submit with revision until the cycle closes, and a
 coordinator dashboard showing who has responded with a copyable chase list.
 Reminder emails are not built.
 
-**3 — The assignment board.** Scenarios, section CRUD, drag-and-drop
-assignment, live conflict panel, per-instructor load tallies.
+**3 — The assignment board (mostly done).** Scenarios (create, rename,
+archive, mark one official per year, delete), section CRUD against all three
+timing shapes, ranked tap-to-assign, the live conflict panel and per-instructor
+load tallies. Not yet: drag and drop as an alternative to tapping, undo, and
+seeding a scenario from a past year rather than typing each section in.
 
 **4 — Reporting.** How well preferences were met, CSV and print export,
 side-by-side scenario comparison, change log.
