@@ -17,6 +17,9 @@
  *   - moving between pages loads exactly one new chunk and no more,
  *   - hovering a nav link fetches its chunk before the click,
  *   - an instructor is never served a coordinator page, by nav or by URL,
+ *   - the theme is right in the real index.html before React exists, and the
+ *     choice survives a reload,
+ *   - no page paints a daylight surface in the dark,
  *   - the console stays clean throughout.
  *
  * The session is a fabricated JWT written straight into the storage key
@@ -331,6 +334,153 @@ const DESTINATIONS = [
   for (const n of noise) fail(`instructor: console ${n}`)
   console.log(`✓ instructor — ${navLabels.length} destinations, no coordinator page reachable or downloaded`)
   await page.close()
+}
+
+// ── 6. The theme, in the real index.html, before React ───────────────────────
+/*
+ * The dark palette hangs off `data-theme` on <html>. React sets it, but a
+ * chunk and a render too late: the inline script in `index.html` is what
+ * spares someone a white flash on the way to a dark page, and nothing else in
+ * this repository loads that file. The mobile harness sets the attribute
+ * itself, so it would pass happily with the script deleted.
+ *
+ * The app's own JavaScript is blocked for the first half of this, which is the
+ * only honest way to ask what the first paint looked like: module scripts are
+ * deferred, so `DOMContentLoaded` already waits for React, and reading the
+ * attribute there passes whether or not the inline script exists.
+ */
+{
+  const dark = await browser.newContext({ viewport: VIEWPORT, colorScheme: 'dark' })
+  const light = await browser.newContext({ viewport: VIEWPORT, colorScheme: 'light' })
+
+  /** The theme with React prevented from ever running. */
+  const beforeReact = async (context, before) => {
+    const page = await context.newPage()
+    if (before) {
+      await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(before)
+    }
+    await page.route('**/assets/*.js', (route) => route.abort())
+    await page.goto(`${base}/`, { waitUntil: 'domcontentloaded' })
+    const theme = await page.evaluate(() => document.documentElement.dataset.theme)
+    await page.close()
+    return theme
+  }
+
+  /** And with it running, which is what the coordinator actually gets. */
+  const settled = async (context) => {
+    const page = await context.newPage()
+    await page.goto(`${base}/`, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(250)
+    const out = await page.evaluate(() => ({
+      theme: document.documentElement.dataset.theme,
+      background: getComputedStyle(document.body).backgroundColor,
+    }))
+    await page.close()
+    return out
+  }
+
+  const firstPaintDark = await beforeReact(dark)
+  if (firstPaintDark !== 'dark')
+    fail(`a dark device painted data-theme="${firstPaintDark}" with the app's JS blocked`)
+  const firstPaintLight = await beforeReact(light)
+  if (firstPaintLight !== 'light')
+    fail(`a light device painted data-theme="${firstPaintLight}" with the app's JS blocked`)
+
+  const onDarkDevice = await settled(dark)
+  if (onDarkDevice.theme !== 'dark') fail(`a dark device ended up in ${onDarkDevice.theme}`)
+  const onLightDevice = await settled(light)
+  if (onLightDevice.theme !== 'light') fail(`a light device ended up in ${onLightDevice.theme}`)
+
+  // The palette itself, not just the attribute: an attribute nothing keys off
+  // is not dark mode.
+  if (onDarkDevice.background === onLightDevice.background)
+    fail(`both themes painted the page ${onDarkDevice.background}`)
+
+  // A choice outranks the device, and outranks it from the first paint too.
+  const chosenLight = await beforeReact(dark, () =>
+    localStorage.setItem('css-scheduler:theme', 'light'),
+  )
+  if (chosenLight !== 'light') fail(`"light" chosen on a dark device came back as ${chosenLight}`)
+
+  // And the button writes a choice that the next visit reads. A context of its
+  // own: `dark` has a stored choice from the assertion above, and inheriting it
+  // makes the button start in the second state rather than the first.
+  {
+    const fresh = await browser.newContext({ viewport: VIEWPORT, colorScheme: 'dark' })
+    const page = await fresh.newPage()
+    await stubSupabase(page, USERS.coordinator)
+    await signIn(page, base, USERS.coordinator)
+    await page.goto(`${base}/`, { waitUntil: 'networkidle' })
+    const toggle = page.getByRole('button', { name: /^Theme:/ })
+    const label = await toggle.getAttribute('aria-label')
+    if (!/following your device \(dark\)/.test(label ?? ''))
+      fail(`the theme button on a dark device reads "${label}"`)
+    await toggle.click() // system → light
+    await page.waitForTimeout(100)
+    const afterOne = await page.evaluate(() => ({
+      theme: document.documentElement.dataset.theme,
+      stored: localStorage.getItem('css-scheduler:theme'),
+    }))
+    if (afterOne.theme !== 'light' || afterOne.stored !== 'light')
+      fail(`one press gave theme=${afterOne.theme} stored=${afterOne.stored}`)
+    await toggle.click() // light → dark
+    await toggle.click() // dark → back to following the device
+    await page.waitForTimeout(100)
+    const afterThree = await page.evaluate(() => localStorage.getItem('css-scheduler:theme'))
+    if (afterThree !== null) fail(`three presses left ${afterThree} stored instead of nothing`)
+    await page.close()
+    await fresh.close()
+  }
+
+  await dark.close()
+  await light.close()
+  if (!problems.some((p) => /theme|device/.test(p)))
+    console.log('✓ theme — right before React on both devices, a choice outranks them, and it persists')
+}
+
+// ── 7. No daylight left in the dark, on every real page ──────────────────────
+/*
+ * The dark palette works by re-pointing `--color-…`, so anything that names a
+ * colour outright — an inline `#fff`, a `bg-white` written after this landed —
+ * stays daylight-bright in a dark room and nothing else notices. The mobile
+ * harness measures contrast on components; this sweeps the real pages for the
+ * three light surfaces the stock palette uses, which is what such a mistake
+ * paints.
+ */
+{
+  const context = await browser.newContext({ viewport: VIEWPORT, colorScheme: 'dark' })
+  const page = await context.newPage()
+  await stubSupabase(page, USERS.coordinator)
+  await signIn(page, base, USERS.coordinator)
+
+  const DAYLIGHT = ['rgb(255, 255, 255)', 'rgb(248, 250, 252)', 'rgb(248, 248, 250)']
+  for (const [label, path] of DESTINATIONS) {
+    await page.goto(`${base}${path}`, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(250) // `transition-colors` has to land first.
+    const lit = await page.evaluate((daylight) => {
+      const found = []
+      for (const el of document.querySelectorAll('body *')) {
+        const style = getComputedStyle(el)
+        if (style.visibility === 'hidden' || style.display === 'none') continue
+        if (!daylight.includes(style.backgroundColor)) continue
+        const r = el.getBoundingClientRect()
+        if (r.width < 2 || r.height < 2) continue
+        found.push(
+          `${el.tagName.toLowerCase()}.${String(el.className || '').split(' ').slice(0, 3).join('.')}` +
+            ` is ${style.backgroundColor}`,
+        )
+      }
+      return found.slice(0, 3)
+    }, DAYLIGHT)
+    for (const what of lit) fail(`${path} in the dark: ${what}`)
+  }
+  const theme = await page.evaluate(() => document.documentElement.dataset.theme)
+  if (theme !== 'dark') fail(`the dark sweep ran in ${theme}`)
+  await page.close()
+  await context.close()
+  if (!problems.some((p) => /in the dark/.test(p)))
+    console.log(`✓ dark sweep — ${DESTINATIONS.length} pages, no daylight surface left in any of them`)
 }
 
 await browser.close()

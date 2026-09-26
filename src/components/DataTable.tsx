@@ -27,14 +27,14 @@ export default function DataTable<T>({
   const groups = useMemo(() => groupForCard(columns), [columns])
 
   if (rows.length === 0) {
-    return <p className="rounded-lg bg-white p-6 text-sm text-slate-500 ring-1 ring-slate-200">{empty}</p>
+    return <p className="rounded-lg bg-surface p-6 text-sm text-slate-500 ring-1 ring-slate-200">{empty}</p>
   }
 
   if (narrow) {
     return (
       <ul className="space-y-2">
         {rows.map((row) => (
-          <li key={rowKey(row)} className="rounded-lg bg-white p-4 ring-1 ring-slate-200">
+          <li key={rowKey(row)} className="rounded-lg bg-surface p-4 ring-1 ring-slate-200">
             <RowCard row={row} groups={groups} />
           </li>
         ))}
@@ -43,7 +43,7 @@ export default function DataTable<T>({
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg bg-white ring-1 ring-slate-200">
+    <div className="overflow-x-auto rounded-lg bg-surface ring-1 ring-slate-200">
       <table className="min-w-full divide-y divide-slate-200 text-sm">
         <thead className="bg-slate-50">
           <tr>

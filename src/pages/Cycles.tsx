@@ -84,7 +84,7 @@ export default function Cycles() {
 
       <div className="space-y-3">
         {(cycles.data ?? []).map((c) => (
-          <div key={c.id} className="rounded-lg bg-white p-4 ring-1 ring-slate-200">
+          <div key={c.id} className="rounded-lg bg-surface p-4 ring-1 ring-slate-200">
             <div className="flex flex-wrap items-center gap-3">
               <span className="font-medium text-slate-900">{c.name}</span>
               <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[c.status]}`}>
@@ -127,7 +127,7 @@ export default function Cycles() {
           </div>
         ))}
         {cycles.data?.length === 0 && (
-          <p className="rounded-lg bg-white p-6 text-sm text-slate-500 ring-1 ring-slate-200">
+          <p className="rounded-lg bg-surface p-6 text-sm text-slate-500 ring-1 ring-slate-200">
             No cycles yet. Create one to start collecting preferences.
           </p>
         )}

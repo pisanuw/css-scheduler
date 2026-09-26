@@ -31,7 +31,7 @@ export default function QuarterTabs({
             onClick={() => onSelect(t.id)}
             style={active ? { background: 'var(--uw-purple)' } : undefined}
             className={`flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium ${
-              active ? 'border-transparent text-white' : 'border-slate-300 bg-white text-slate-700'
+              active ? 'border-transparent text-white' : 'border-slate-300 bg-surface text-slate-700'
             }`}
           >
             {t.label}

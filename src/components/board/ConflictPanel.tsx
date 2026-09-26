@@ -27,7 +27,7 @@ export default function ConflictPanel({
     setHidden((h) => (h.includes(s) ? h.filter((x) => x !== s) : [...h, s]))
 
   return (
-    <section className="rounded-lg bg-white ring-1 ring-slate-200" aria-labelledby="conflicts-heading">
+    <section className="rounded-lg bg-surface ring-1 ring-slate-200" aria-labelledby="conflicts-heading">
       <div className="border-b border-slate-200 p-3">
         <h2 id="conflicts-heading" className="font-semibold text-slate-900">
           Conflicts
@@ -52,7 +52,7 @@ export default function ConflictPanel({
                 onClick={() => toggle(s)}
                 aria-pressed={!off}
                 className={`flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-xs font-medium ${
-                  off ? 'border-slate-200 bg-white text-slate-500' : 'border-slate-300 bg-slate-50 text-slate-700'
+                  off ? 'border-slate-200 bg-surface text-slate-500' : 'border-slate-300 bg-slate-50 text-slate-700'
                 }`}
               >
                 <span className={`h-2 w-2 rounded-full ${off ? 'bg-slate-300' : SEVERITY[s].dot}`} aria-hidden />
@@ -79,7 +79,7 @@ export default function ConflictPanel({
                 type="button"
                 onClick={() => c.sectionIds[0] && onPick(c.sectionIds[0])}
                 disabled={c.sectionIds.length === 0}
-                className="flex w-full min-h-11 items-start gap-2 p-3 text-left hover:bg-slate-50 disabled:hover:bg-white"
+                className="flex w-full min-h-11 items-start gap-2 p-3 text-left hover:bg-slate-50 disabled:hover:bg-surface"
               >
                 <span
                   className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${SEVERITY[c.severity].dot}`}

@@ -32,13 +32,20 @@ npm run dev
 Google sign-in additionally needs an OAuth client (see **Access** below); until
 that is configured the sign-in button will fail.
 
+**Light and dark.** The button in the header cycles through following your
+device, light and dark; a dot under the icon means it is following the device.
+The choice lives in `localStorage` under `css-scheduler:theme` and is applied
+by an inline script in `index.html` before the first paint, so the page never
+flashes white on the way to being dark. `docs/DESIGN.md` explains how the
+palette moves, and why printing is deliberately unaffected by it.
+
 Tests and typecheck:
 
 ```bash
 npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
                   # reporting, suggestions, undo, drag rules, the toast queue,
-                  # the focus trap, the route table and chunk recovery
-                  # (318 tests)
+                  # the focus trap, the theme rules, the route table and
+                  # chunk recovery (329 tests)
 npm run typecheck
 npm run build
 ```
@@ -59,7 +66,11 @@ that nothing scrolls sideways, that every control is at least 44px, that every
 piece of text clears WCAG AA against what is actually behind it, that the
 console is clean, that dialogs trap Tab and close on Escape, and — with the
 page switched to print media — that everything marked `print:hidden` really
-goes and every print-only element really arrives. Playwright is
+goes and every print-only element really arrives. Every scene is measured
+twice, once in each theme: the dark palette re-points every colour in the app,
+so a pairing that reads perfectly in daylight has to be measured again rather
+than assumed. The printed page is asserted to be identical whichever theme it
+was printed from. Playwright is
 not a dependency; the script finds it locally or globally and tells you what to
 install if it finds neither (`npm i -D playwright && npx playwright install
 chromium`).
@@ -70,7 +81,12 @@ splitting holds up — that a signed-out visitor does not download the
 assignment board, that every destination renders once its chunk arrives, that
 a deep link such as `/board/:scenarioId` is still where it was typed, that one
 tap fetches one page, that hovering a nav link prefetches it, and that an
-instructor can reach no coordinator page by nav or by URL. It needs no
+instructor can reach no coordinator page by nav or by URL. It also checks the
+theme end to end on the real `index.html`: with the app's JavaScript blocked —
+the only honest way to ask what the first paint looked like — the attribute is
+already right for the device, a stored choice outranks it, the button writes
+one that survives a reload, and none of the thirteen pages paints a daylight
+surface in the dark. It needs no
 credentials and never reaches the live project: it builds into
 `dist-routecheck/` with placeholder Supabase values, because every request to
 the project is intercepted anyway and `dist/` should be left alone.

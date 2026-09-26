@@ -64,7 +64,7 @@ function BoardPicker() {
   const scenarios = useScenarios()
   if (scenarios.isLoading) return <p className="text-sm text-slate-500">Loading…</p>
   return (
-    <section className="rounded-lg bg-white p-6 ring-1 ring-slate-200">
+    <section className="rounded-lg bg-surface p-6 ring-1 ring-slate-200">
       <h1 className="text-xl font-semibold text-slate-900">Assignment board</h1>
       <p className="mt-2 text-sm text-slate-600">
         The board works inside a scenario — one named draft of a year&rsquo;s schedule. Create one to
@@ -315,7 +315,7 @@ export default function Board() {
   if (scenario.isLoading) return <p className="text-sm text-slate-500">Loading board…</p>
   if (scenario.error || !scenario.data)
     return (
-      <p className="rounded-lg bg-white p-6 text-sm text-red-700 ring-1 ring-slate-200">
+      <p className="rounded-lg bg-surface p-6 text-sm text-red-700 ring-1 ring-slate-200">
         That scenario could not be loaded. <Link to="/scenarios" className="underline">Back to scenarios</Link>.
       </p>
     )
@@ -472,7 +472,7 @@ export default function Board() {
                   type="button"
                   onClick={() => setSuggesting(true)}
                   disabled={locked}
-                  className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="flex min-h-11 items-center rounded-md border border-slate-300 bg-surface px-3 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                 >
                   Fill {unstaffedCount} gap{unstaffedCount === 1 ? '' : 's'}
                 </button>
@@ -492,7 +492,7 @@ export default function Board() {
           {board.isLoading ? (
             <p className="text-sm text-slate-500">Loading sections…</p>
           ) : visible.length === 0 ? (
-            <div className="rounded-lg bg-white p-6 ring-1 ring-slate-200">
+            <div className="rounded-lg bg-surface p-6 ring-1 ring-slate-200">
               <p className="text-sm text-slate-600">
                 No sections in {termLabel(termId)} yet. Add the first one, then tap it to assign an
                 instructor.
@@ -541,7 +541,7 @@ export default function Board() {
             onUndo={runUndo}
           />
           {!cycleId && (
-            <p className="rounded-lg bg-white p-3 text-xs text-slate-500 ring-1 ring-slate-200">
+            <p className="rounded-lg bg-surface p-3 text-xs text-slate-500 ring-1 ring-slate-200">
               No preference cycle exists for this year, so nothing is checked against what
               instructors asked for. Open one under Cycles.
             </p>

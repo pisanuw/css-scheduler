@@ -59,7 +59,7 @@ export default function History() {
       `${r.course_code_raw} ${r.instructor_name_raw}`.toLowerCase().includes(q.toLowerCase()),
   )
 
-  if (error) return <p className="text-red-600">{(error as Error).message}</p>
+  if (error) return <p className="text-red-700">{(error as Error).message}</p>
 
   return (
     <section>

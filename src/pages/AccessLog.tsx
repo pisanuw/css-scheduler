@@ -118,7 +118,7 @@ export default function AccessLog() {
   const error = summary.error ?? log.error
   if (error) {
     return (
-      <p className="rounded-lg bg-white p-6 text-sm text-red-600 ring-1 ring-slate-200">
+      <p className="rounded-lg bg-surface p-6 text-sm text-red-700 ring-1 ring-slate-200">
         {(error as Error).message}
       </p>
     )
@@ -146,8 +146,8 @@ export default function AccessLog() {
             aria-pressed={tab === t}
             className={`flex min-h-11 items-center rounded-full border px-4 text-sm ${
               tab === t
-                ? 'border-slate-800 bg-slate-800 text-white'
-                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                ? 'border-ink bg-ink text-onink'
+                : 'border-slate-300 bg-surface text-slate-700 hover:bg-slate-50'
             }`}
           >
             {t === 'people' ? 'By person' : 'Every event'}
@@ -165,7 +165,7 @@ export default function AccessLog() {
           />
 
           {neverSignedIn.length > 0 && (
-            <div className="mt-6 rounded-lg bg-white p-5 ring-1 ring-slate-200">
+            <div className="mt-6 rounded-lg bg-surface p-5 ring-1 ring-slate-200">
               <h2 className="font-semibold text-slate-900">
                 Never signed in ({neverSignedIn.length})
               </h2>

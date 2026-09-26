@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useAuth } from '../lib/auth'
+import ThemeToggle from './ThemeToggle'
+import type { ThemeState } from '../hooks/useTheme'
 import { prefetchRouteQuietly, routesFor, type AppRoute } from '../lib/routes'
 
 /**
@@ -15,7 +17,13 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'
   }`
 
-export default function Layout({ children }: { children: ReactNode }) {
+export default function Layout({
+  children,
+  theme,
+}: {
+  children: ReactNode
+  theme: ThemeState
+}) {
   const { profile, signOut, isCoordinator } = useAuth()
   const [open, setOpen] = useState(false)
   const location = useLocation()
@@ -67,7 +75,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       */}
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:flex focus:min-h-11 focus:items-center focus:rounded-md focus:bg-white focus:px-4 focus:text-sm focus:font-medium focus:text-slate-900 focus:shadow-lg"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:flex focus:min-h-11 focus:items-center focus:rounded-md focus:bg-surface focus:px-4 focus:text-sm focus:font-medium focus:text-slate-900 focus:shadow-lg"
       >
         Skip to the page
       </a>
@@ -114,11 +122,12 @@ export default function Layout({ children }: { children: ReactNode }) {
             {isCoordinator && (
               <span
                 style={{ background: 'var(--uw-gold)' }}
-                className="hidden rounded px-1.5 py-0.5 text-xs font-semibold text-slate-900 sm:inline"
+                className="hidden rounded px-1.5 py-0.5 text-xs font-semibold text-slate-950 sm:inline"
               >
                 coordinator
               </span>
             )}
+            <ThemeToggle {...theme} className="-mr-1" />
             <button
               onClick={signOut}
               className="flex min-h-11 items-center rounded border border-white/30 px-3 text-white/90 hover:bg-white/10"

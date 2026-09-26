@@ -44,11 +44,11 @@ export default function Toolbar({
  * width from `sm` up, and never under the 44px touch floor.
  */
 export const FIELD =
-  'min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 sm:w-auto'
+  'min-h-11 w-full rounded-md border border-slate-300 bg-surface px-3 text-sm text-slate-900 sm:w-auto'
 
 /** Same, for a search box, which deserves the room when it has it. */
 export const SEARCH_FIELD =
-  'min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 sm:w-64'
+  'min-h-11 w-full rounded-md border border-slate-300 bg-surface px-3 text-sm text-slate-900 sm:w-64'
 
 /**
  * A two-state filter as a pill, because a bare checkbox is a 13px target
@@ -71,8 +71,8 @@ export function Toggle({
       onClick={() => onChange(!pressed)}
       className={`flex min-h-11 items-center rounded-full border px-4 text-sm ${
         pressed
-          ? 'border-slate-800 bg-slate-800 text-white'
-          : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+          ? 'border-ink bg-ink text-onink'
+          : 'border-slate-300 bg-surface text-slate-700 hover:bg-slate-50'
       }`}
     >
       {children}

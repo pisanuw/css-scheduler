@@ -74,7 +74,7 @@ export function Side({ c, other }: { c: ScenarioComparison; other: ScenarioCompa
   }
 
   return (
-    <section className="rounded-lg bg-white p-4 ring-1 ring-slate-200">
+    <section className="rounded-lg bg-surface p-4 ring-1 ring-slate-200">
       <h2 className="font-semibold text-slate-900">{c.label}</h2>
       <div className="mt-2 divide-y divide-slate-100">
         <Metric
@@ -173,7 +173,7 @@ export default function Compare() {
     return (
       <section>
         <h1 className="text-xl font-semibold text-slate-900">Compare scenarios</h1>
-        <p className="mt-3 rounded-lg bg-white p-6 text-sm text-slate-600 ring-1 ring-slate-200">
+        <p className="mt-3 rounded-lg bg-surface p-6 text-sm text-slate-600 ring-1 ring-slate-200">
           Comparing needs two drafts of the same year.{' '}
           <Link to="/scenarios" className="underline">
             Create another
@@ -225,7 +225,7 @@ export default function Compare() {
       )}
 
       {leftId === rightId ? (
-        <p className="rounded-lg bg-white p-6 text-sm text-slate-600 ring-1 ring-slate-200">
+        <p className="rounded-lg bg-surface p-6 text-sm text-slate-600 ring-1 ring-slate-200">
           Pick two different scenarios.
         </p>
       ) : !sides ? (

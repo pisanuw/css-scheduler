@@ -215,7 +215,7 @@ export default function SectionEditor({
                   className={`flex min-h-11 items-center rounded-full border px-4 text-sm ${
                     value.timing === mode
                       ? 'border-transparent text-white'
-                      : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                      : 'border-slate-300 bg-surface text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   {text}
@@ -258,7 +258,7 @@ export default function SectionEditor({
                         }
                         style={on ? { background: 'var(--uw-purple)' } : undefined}
                         className={`flex h-11 w-11 items-center justify-center rounded-full border text-sm ${
-                          on ? 'border-transparent text-white' : 'border-slate-300 bg-white text-slate-700'
+                          on ? 'border-transparent text-white' : 'border-slate-300 bg-surface text-slate-700'
                         }`}
                       >
                         {d.label.slice(0, 2)}
@@ -371,7 +371,7 @@ export default function SectionEditor({
                   type="button"
                   onClick={onDelete}
                   disabled={deleting}
-                  className="flex min-h-11 items-center rounded-md bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                  className="flex min-h-11 items-center rounded-md bg-danger px-3 text-sm font-medium text-white hover:bg-danger-strong disabled:opacity-50"
                 >
                   {deleting ? 'Deleting…' : 'Delete section'}
                 </button>

@@ -113,7 +113,7 @@ export default function Dialog({
         aria-label={label}
         aria-describedby={describedBy}
         tabIndex={-1}
-        className={`w-full bg-white shadow-xl outline-none ${className}`}
+        className={`w-full bg-surface shadow-xl outline-none ${className}`}
       >
         {children}
       </div>

@@ -100,9 +100,9 @@ export default function Responses() {
       </Toolbar>
 
       {total > 0 && (
-        <div className="mb-4 rounded-lg bg-white p-5 ring-1 ring-slate-200">
+        <div className="mb-4 rounded-lg bg-surface p-5 ring-1 ring-slate-200">
           <div className="flex items-baseline gap-3">
-            <span className="text-3xl font-semibold" style={{ color: 'var(--uw-purple)' }}>
+            <span className="text-3xl font-semibold" style={{ color: 'var(--uw-purple-ink)' }}>
               {tally.submitted}/{total}
             </span>
             <span className="text-sm text-slate-600">submitted ({pct}%)</span>
@@ -121,8 +121,8 @@ export default function Responses() {
                 aria-pressed={filter === f}
                 className={`flex min-h-11 items-center rounded-full border px-4 text-sm ${
                   filter === f
-                    ? 'border-slate-800 bg-slate-800 text-white'
-                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                    ? 'border-ink bg-ink text-onink'
+                    : 'border-slate-300 bg-surface text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 {f === 'all' ? `All (${total})` : `${STATUS_LABEL[f]} (${tally[f]})`}

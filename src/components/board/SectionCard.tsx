@@ -138,7 +138,7 @@ export default function SectionCard({
     <li
       ref={setNodeRef}
       id={`section-${section.id}`}
-      className={`rounded-lg bg-white p-3 transition-shadow ${
+      className={`rounded-lg bg-surface p-3 transition-shadow ${
         dropRing ??
         `ring-1 ${
           highlighted ? 'ring-2 ring-offset-1' : worst ? SEVERITY_RING[worst] : 'ring-slate-200'

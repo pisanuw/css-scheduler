@@ -102,7 +102,7 @@ export default function MyPreferences() {
 
   if (!cycle) {
     return (
-      <div className="rounded-lg bg-white p-6 ring-1 ring-slate-200">
+      <div className="rounded-lg bg-surface p-6 ring-1 ring-slate-200">
         <h1 className="text-lg font-semibold text-slate-900">No open preference cycle</h1>
         <p className="mt-2 text-sm text-slate-600">
           There is nothing to fill in right now. You will be able to submit preferences once the
@@ -114,7 +114,7 @@ export default function MyPreferences() {
 
   if (!profile?.instructor_id) {
     return (
-      <div className="rounded-lg bg-white p-6 ring-1 ring-slate-200">
+      <div className="rounded-lg bg-surface p-6 ring-1 ring-slate-200">
         <h1 className="text-lg font-semibold text-slate-900">Account not linked</h1>
         <p className="mt-2 text-sm text-slate-600">
           Your sign-in ({profile?.email}) is not linked to an instructor record, so there is nowhere
@@ -161,7 +161,7 @@ export default function MyPreferences() {
 
   return (
     <div className="space-y-5 pb-24">
-      <header className="rounded-lg bg-white p-5 ring-1 ring-slate-200">
+      <header className="rounded-lg bg-surface p-5 ring-1 ring-slate-200">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-semibold text-slate-900">Teaching preferences</h1>
           <span className="rounded bg-slate-100 px-2 py-0.5 text-sm text-slate-700">{cycle.name}</span>
@@ -283,7 +283,7 @@ export default function MyPreferences() {
                         setTiers(next)
                       }}
                       className={`rounded border px-2 py-0.5 text-xs transition-colors disabled:opacity-50 ${
-                        active ? TIER_STYLE[tier] : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                        active ? TIER_STYLE[tier] : 'border-slate-300 bg-surface text-slate-600 hover:bg-slate-50'
                       }`}
                     >
                       {TIER_LABEL[tier]}
@@ -367,7 +367,7 @@ export default function MyPreferences() {
         </div>
       </Section>
 
-      <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
           <div className="ml-auto flex gap-2">
             <button

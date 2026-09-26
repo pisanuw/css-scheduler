@@ -35,7 +35,7 @@ export default function Courses() {
     `${c.code} ${c.title}`.toLowerCase().includes(q.toLowerCase()),
   )
 
-  if (error) return <p className="text-red-600">{(error as Error).message}</p>
+  if (error) return <p className="text-red-700">{(error as Error).message}</p>
 
   return (
     <section>

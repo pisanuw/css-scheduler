@@ -144,7 +144,7 @@ export default function Scenarios() {
 
       <div className="space-y-3">
         {(scenarios.data ?? []).map((s) => (
-          <div key={s.id} className="rounded-lg bg-white p-4 ring-1 ring-slate-200">
+          <div key={s.id} className="rounded-lg bg-surface p-4 ring-1 ring-slate-200">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               {/* Not a link: "Open board" below is the real action, and a 24px
                   duplicate of it is a poor target on a phone. */}
@@ -229,7 +229,7 @@ export default function Scenarios() {
                       })
                       setConfirmDelete(null)
                     }}
-                    className="flex min-h-11 items-center rounded-md bg-red-600 px-3 text-sm font-medium text-white hover:bg-red-700"
+                    className="flex min-h-11 items-center rounded-md bg-danger px-3 text-sm font-medium text-white hover:bg-danger-strong"
                   >
                     Delete for good
                   </button>
@@ -259,7 +259,7 @@ export default function Scenarios() {
 
         {scenarios.isLoading && <p className="text-sm text-slate-500">Loading…</p>}
         {scenarios.data?.length === 0 && (
-          <div className="rounded-lg bg-white p-6 ring-1 ring-slate-200">
+          <div className="rounded-lg bg-surface p-6 ring-1 ring-slate-200">
             <p className="text-sm text-slate-600">
               No scenarios yet. Create one to start laying out a year&rsquo;s sections.
             </p>

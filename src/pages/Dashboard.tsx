@@ -5,8 +5,8 @@ import { useMySubmission, useOpenCycle, useResponses } from '../hooks/preference
 
 function Stat({ label, value, to }: { label: string; value: string | number; to: string }) {
   return (
-    <Link to={to} className="rounded-lg bg-white p-5 ring-1 ring-slate-200 transition-shadow hover:shadow-md">
-      <div className="text-3xl font-semibold" style={{ color: 'var(--uw-purple)' }}>
+    <Link to={to} className="rounded-lg bg-surface p-5 ring-1 ring-slate-200 transition-shadow hover:shadow-md">
+      <div className="text-3xl font-semibold" style={{ color: 'var(--uw-purple-ink)' }}>
         {value}
       </div>
       <div className="mt-1 text-sm text-slate-600">{label}</div>
@@ -34,7 +34,7 @@ export default function Dashboard() {
       </h1>
 
       {cycle.data ? (
-        <div className="mt-4 rounded-lg bg-white p-5 ring-1 ring-slate-200">
+        <div className="mt-4 rounded-lg bg-surface p-5 ring-1 ring-slate-200">
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="font-semibold text-slate-900">{cycle.data.name}</h2>
             <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
@@ -92,7 +92,7 @@ export default function Dashboard() {
       </div>
 
       {isCoordinator && (
-        <div className="mt-8 rounded-lg bg-white p-5 ring-1 ring-slate-200">
+        <div className="mt-8 rounded-lg bg-surface p-5 ring-1 ring-slate-200">
           <h2 className="font-semibold text-slate-900">Assignment board</h2>
           <p className="mt-2 text-sm text-slate-600">
             Lay out a year&rsquo;s sections in a scenario and assign instructors to them, with

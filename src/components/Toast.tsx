@@ -63,8 +63,10 @@ export function useToastInset(px: number): void {
 }
 
 const TONE_STYLE: Record<ToastTone, string> = {
-  // Contrast against white, at 14px: slate-800 13.0:1, emerald-900 10.3:1,
-  // red-900 11.0:1. All well past the 4.5:1 the text needs.
+  // Contrast against the card, at 14px: slate-800 13.0:1, emerald-900 10.3:1,
+  // red-900 11.0:1 in daylight. Every one of these is a `var(--color-…)` that
+  // the dark palette re-points, and the mobile check measures all three again
+  // in the dark rather than trusting these numbers to hold.
   info: 'border-slate-300 text-slate-800',
   success: 'border-emerald-600 text-emerald-900',
   error: 'border-red-600 text-red-900',
@@ -79,7 +81,7 @@ const TONE_MARK: Record<ToastTone, string> = {
 function ToastStrip({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
   return (
     <div
-      className={`pointer-events-auto flex items-center gap-2 rounded-lg border-l-4 bg-white py-1 pl-3 pr-1 shadow-lg ring-1 ring-slate-900/10 ${
+      className={`pointer-events-auto flex items-center gap-2 rounded-lg border-l-4 bg-surface py-1 pl-3 pr-1 shadow-lg ring-1 ring-slate-900/10 ${
         TONE_STYLE[toast.tone]
       }`}
     >

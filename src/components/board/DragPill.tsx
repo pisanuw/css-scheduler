@@ -18,7 +18,7 @@ const NOTE_CLASS: Record<DropTone, string> = {
 
 export default function DragPill({ name, hint }: { name: string; hint: DropHint | null }) {
   return (
-    <div className="pointer-events-none max-w-[16rem] rounded-full bg-white px-4 py-2 text-sm shadow-lg ring-1 ring-slate-300">
+    <div className="pointer-events-none max-w-[16rem] rounded-full bg-surface px-4 py-2 text-sm shadow-lg ring-1 ring-slate-300">
       <span className="font-medium text-slate-900">{name}</span>
       {hint?.note && (
         <span className={`ml-2 text-xs ${NOTE_CLASS[hint.tone]}`}>{hint.note}</span>

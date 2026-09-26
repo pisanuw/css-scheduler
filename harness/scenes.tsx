@@ -57,6 +57,8 @@ import { compareScenarios } from "../src/lib/report";
 import RouteFallback from "../src/components/RouteFallback";
 import RouteErrorNotice from "../src/components/RouteErrorNotice";
 import Dialog from "../src/components/Dialog";
+import ThemeToggle from "../src/components/ThemeToggle";
+import { useTheme } from "../src/hooks/useTheme";
 import { ChipGroup, Section as Card, TriState } from "../src/components/Chips";
 import { useToast, useToastInset } from "../src/components/Toast";
 import type { SuggestionResult } from "../src/lib/suggest";
@@ -297,17 +299,18 @@ function ToastScene({ inset }: { inset: boolean }) {
             'Could not assign: new row violates row-level security policy for table "assignments".',
           );
         }}
-        className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-4 text-sm"
+        className="flex min-h-11 items-center rounded-md border border-slate-300 bg-surface px-4 text-sm"
       >
         Show three messages
       </button>
       {inset && (
-        <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-surface/95 backdrop-blur">
           <div className="flex items-center gap-3 px-4 py-3">
             <button className="ml-auto flex min-h-11 items-center rounded-md border border-slate-300 px-4 text-sm">
               Save draft
             </button>
-            <button className="flex min-h-11 items-center rounded-md bg-slate-800 px-4 text-sm text-white">
+            <button style={{ background: "var(--uw-purple)" }}
+              className="flex min-h-11 items-center rounded-md px-4 text-sm text-white">
               Submit
             </button>
           </div>
@@ -324,7 +327,7 @@ function DialogScene() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-4 text-sm"
+        className="flex min-h-11 items-center rounded-md border border-slate-300 bg-surface px-4 text-sm"
       >
         Open
       </button>
@@ -355,7 +358,8 @@ function DialogScene() {
               >
                 Cancel
               </button>
-              <button className="flex min-h-11 items-center rounded-md bg-slate-800 px-4 text-sm text-white">
+              <button style={{ background: "var(--uw-purple)" }}
+              className="flex min-h-11 items-center rounded-md px-4 text-sm text-white">
                 Save
               </button>
             </div>
@@ -735,6 +739,34 @@ function DragSandbox() {
 const hintsFor = (snap: ScheduleSnapshot, source: DragSource | null) =>
   source ? dropHints(snap, source, snap.sections) : null;
 
+/**
+ * The two pieces of the header whose colours do not come from the palette: the
+ * theme button, which sits on the purple bar in both themes, and the
+ * coordinator badge, which stays gold — and therefore light — in the dark, so
+ * its text is the one neutral in the app that must not flip.
+ *
+ * The bar is reproduced rather than mounting `Layout`, which wants a router and
+ * a session; if the header's classes change, change them here too.
+ */
+function HeaderBits() {
+  const theme = useTheme();
+  return (
+    <div
+      style={{ background: "var(--uw-purple)" }}
+      className="flex items-center gap-2 px-4 py-2 text-white"
+    >
+      <span className="text-base font-semibold tracking-tight">CSS Scheduler</span>
+      <span
+        style={{ background: "var(--uw-gold)" }}
+        className="rounded px-1.5 py-0.5 text-xs font-semibold text-slate-950"
+      >
+        coordinator
+      </span>
+      <ThemeToggle {...theme} className="ml-auto" />
+    </div>
+  );
+}
+
 export const SCENES: Record<string, () => JSX.Element> = {
   toasts: () => <ToastScene inset={false} />,
   "toasts-inset": () => <ToastScene inset />,
@@ -979,6 +1011,8 @@ export const SCENES: Record<string, () => JSX.Element> = {
       />
     </div>
   ),
+
+  "header-bits": () => <HeaderBits />,
 
   "drag-sandbox": () => <DragSandbox />,
 

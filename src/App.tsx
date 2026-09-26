@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import RouteFallback from './components/RouteFallback'
 import RouteErrorBoundary from './components/RouteErrorBoundary'
 import { LANDING_PATH, pathsOf, prefetchRouteQuietly, ROUTES, routesFor } from './lib/routes'
+import { useTheme } from './hooks/useTheme'
 
 /**
  * Every page is its own chunk. `Login` is not: it is what an unauthenticated
@@ -20,6 +21,12 @@ const LAZY = new Map(ROUTES.map((r) => [r.path, lazy(r.load)]))
 export default function App() {
   const { session, loading, isCoordinator } = useAuth()
   const location = useLocation()
+  /*
+   * Above every early return below, because the sign-in page and the loading
+   * state are themed too — and because a phone that changes theme at sunset
+   * must be followed wherever the coordinator happens to be.
+   */
+  const theme = useTheme()
 
   /*
    * Start the dashboard's chunk on the way down while the profile request is
@@ -44,7 +51,7 @@ export default function App() {
   if (!session) return <Login />
 
   return (
-    <Layout>
+    <Layout theme={theme}>
       {/*
         The boundary is keyed on the path so that recovering is a matter of
         going somewhere else: a page that threw stays broken until its key

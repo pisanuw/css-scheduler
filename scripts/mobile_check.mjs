@@ -12,7 +12,8 @@
  *     viewport
  *   - every control a finger has to hit is at least 44px in the direction
  *     that matters
- *   - every piece of text clears WCAG AA against what is actually behind it
+ *   - every piece of text clears WCAG AA against what is actually behind it,
+ *     in both themes — the same scene is measured again in the dark
  *   - the console stays clean
  *   - Escape closes a dialog, and Tab does not escape one
  *   - on paper: everything marked `print:hidden` really goes, and everything
@@ -106,13 +107,17 @@ function auditInPage(min) {
     }
     return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
   }
-  /** The first ancestor that actually paints something, the page being white. */
+  /**
+   * The first ancestor that actually paints something. The last resort used to
+   * be white, which is a lie in the dark and would have scored pale text on a
+   * near-black page as a comfortable pass.
+   */
   const backdropOf = (el) => {
     for (let n = el; n; n = n.parentElement) {
       const c = getComputedStyle(n).backgroundColor
       if (c && c !== 'transparent' && !/,\s*0\s*\)$/.test(c)) return rgb(c)
     }
-    return [255, 255, 255]
+    return rgb(getComputedStyle(document.documentElement).getPropertyValue('--color-canvas') || '#fff')
   }
   const contrast = (a, b) => {
     const [l1, l2] = [luminance(a), luminance(b)]
@@ -191,6 +196,12 @@ function auditInPage(min) {
   }
 }
 
+/** Rough relative brightness of a computed `rgb(...)`, for the print assertions. */
+function lumOf(css) {
+  const [r, g, b] = (css.match(/[0-9.]+/g) ?? [255, 255, 255]).map(Number)
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+}
+
 const { chromium } = loadPlaywright()
 
 if (!existsSync(join(OUT, 'index.html'))) {
@@ -254,6 +265,47 @@ for (const scene of scenes) {
   for (const n of noise) problems.push(`console ${n}`)
 
   /*
+   * The same scene in the dark. Every colour in this app is a `var(--color-…)`
+   * that the dark palette re-points, so a pairing that was fine in daylight —
+   * amber text on an amber notice, a muted slate caption — can land anywhere
+   * once both ends move. Nothing but measuring it finds that, and measuring it
+   * in one theme finds half of it.
+   *
+   * The attribute is set the way `src/lib/theme.ts` sets it. What resolves the
+   * device's preference into that attribute is the inline script in
+   * `index.html`, and `scripts/route_check.mjs` drives the real one.
+   */
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'dark'
+  })
+  /*
+   * Let the colours finish arriving. Half this app's surfaces carry
+   * `transition-colors`, so for 150ms after the flip every background is a
+   * blend of the two themes — and measuring then reported a card as still
+   * being daylight-white when it was a third of the way to navy. A real
+   * contrast failure does not heal on its own, so waiting costs nothing but
+   * the wait.
+   */
+  await page.waitForTimeout(300)
+  const dark = await page.evaluate(auditInPage, MIN_TOUCH)
+  if (dark.pageScrollsSideways)
+    problems.push(`in the dark: page scrolls sideways (${dark.scrollWidth}px)`)
+  for (const o of dark.overflowing) problems.push(`in the dark: overflows: ${o.what} is ${o.width}px`)
+  for (const c of dark.lowContrast)
+    problems.push(
+      `in the dark: contrast ${c.ratio}:1 (needs ${c.need}) at ${c.size}px — ${c.fg} on ${c.bg} — "${c.text}"`,
+    )
+  if (shots) {
+    await mkdir(join(OUT, 'shots'), { recursive: true })
+    await page.screenshot({ path: join(OUT, 'shots', `${scene}-dark.png`), fullPage: true })
+  }
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'light'
+  })
+  await page.emulateMedia({ colorScheme: 'light' })
+
+  /*
    * What paper gets. Nothing else here can see it: a `print:hidden` control
    * and a print-only date stamp both look exactly right on screen whether or
    * not the variant works, so a broken one ships silently and turns up on a
@@ -282,6 +334,38 @@ for (const scene of scenes) {
       ).length,
     }
   })
+  /*
+   * And on paper *from* the dark. Someone reading this at night still prints
+   * the schedule for the morning's meeting: the dark palette is confined to
+   * `@media screen` precisely so the printer does not get a page of near-black
+   * ink, and `print-color-adjust: exact` in `index.css` means a mistake here
+   * would be honoured rather than ignored.
+   *
+   * The assertion is that the printed page is the *same* page whichever theme
+   * it was printed from, rather than that it is light — the brand purple on a
+   * primary button is legitimately dark, and on paper it is dark in both.
+   */
+  const inkPrint = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('body *')].map((el) => {
+        const s = getComputedStyle(el)
+        return `${s.backgroundColor}/${s.color}/${s.borderColor}`
+      }),
+    )
+  const fromLight = await inkPrint()
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'dark'
+  })
+  const fromDark = await inkPrint()
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'light'
+  })
+  const drifted = fromDark
+    .map((ink, i) => (ink === fromLight[i] ? null : `#${i} ${fromLight[i]} → ${ink}`))
+    .filter(Boolean)
+  for (const d of drifted.slice(0, 3))
+    problems.push(`the printed page changes with the theme: ${d}`)
+
   await page.emulateMedia({ media: 'screen' })
   for (const w of onPaper.stillShowing) problems.push(`marked print:hidden but prints: ${w}`)
   if (onPaper.missingStamps)

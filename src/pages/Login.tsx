@@ -4,8 +4,8 @@ export default function Login() {
   const { signIn } = useAuth()
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
-        <h1 className="text-xl font-semibold" style={{ color: 'var(--uw-purple)' }}>
+      <div className="w-full max-w-sm rounded-xl bg-surface p-8 shadow-sm ring-1 ring-slate-200">
+        <h1 className="text-xl font-semibold" style={{ color: 'var(--uw-purple-ink)' }}>
           CSS Scheduler
         </h1>
         <p className="mt-2 text-sm text-slate-600">

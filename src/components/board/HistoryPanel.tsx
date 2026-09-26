@@ -121,7 +121,7 @@ export default function HistoryPanel({
   const groups = useMemo(() => groupChanges(changes), [changes])
 
   return (
-    <section className="rounded-lg bg-white ring-1 ring-slate-200" aria-labelledby="history-heading">
+    <section className="rounded-lg bg-surface ring-1 ring-slate-200" aria-labelledby="history-heading">
       <div className="border-b border-slate-200 p-3">
         <h2 id="history-heading" className="font-semibold text-slate-900">
           History

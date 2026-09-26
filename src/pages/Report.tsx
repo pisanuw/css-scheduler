@@ -38,8 +38,8 @@ function pct(v: number | null): string {
 
 function Stat({ value, label, tone }: { value: string | number; label: string; tone?: string }) {
   return (
-    <div className="rounded-lg bg-white p-4 ring-1 ring-slate-200">
-      <div className={`text-2xl font-semibold ${tone ?? ''}`} style={tone ? undefined : { color: 'var(--uw-purple)' }}>
+    <div className="rounded-lg bg-surface p-4 ring-1 ring-slate-200">
+      <div className={`text-2xl font-semibold ${tone ?? ''}`} style={tone ? undefined : { color: 'var(--uw-purple-ink)' }}>
         {value}
       </div>
       <div className="mt-0.5 text-sm text-slate-600">{label}</div>
@@ -136,7 +136,7 @@ export default function Report() {
 
   if (!resolvedId)
     return (
-      <p className="rounded-lg bg-white p-6 text-sm text-slate-600 ring-1 ring-slate-200">
+      <p className="rounded-lg bg-surface p-6 text-sm text-slate-600 ring-1 ring-slate-200">
         No scenarios yet. <Link to="/scenarios" className="underline">Create one</Link> and fill in
         the board first.
       </p>
@@ -144,7 +144,7 @@ export default function Report() {
   if (isLoading) return <p className="text-sm text-slate-500">Building the report…</p>
   if (!scenario.data)
     return (
-      <p className="rounded-lg bg-white p-6 text-sm text-red-700 ring-1 ring-slate-200">
+      <p className="rounded-lg bg-surface p-6 text-sm text-red-700 ring-1 ring-slate-200">
         That scenario could not be loaded. <Link to="/scenarios" className="underline">Back to scenarios</Link>.
       </p>
     )
@@ -183,7 +183,7 @@ export default function Report() {
       )}
 
       {report.totals.sections === 0 ? (
-        <div className="rounded-lg bg-white p-6 ring-1 ring-slate-200">
+        <div className="rounded-lg bg-surface p-6 ring-1 ring-slate-200">
           <p className="text-sm text-slate-600">
             This scenario has no sections yet, so there is nothing to report on.
           </p>
@@ -208,11 +208,11 @@ export default function Report() {
             <Stat
               value={counts.error}
               label="Errors"
-              tone={counts.error > 0 ? 'text-red-600' : 'text-emerald-600'}
+              tone={counts.error > 0 ? 'text-red-700' : 'text-emerald-600'}
             />
           </div>
 
-          <div className="mt-4 rounded-lg bg-white p-4 ring-1 ring-slate-200">
+          <div className="mt-4 rounded-lg bg-surface p-4 ring-1 ring-slate-200">
             <h2 className="font-semibold text-slate-900">Where the assignments went</h2>
             <p className="mt-1 text-sm text-slate-600">
               {report.totals.assignments} assignments across {report.totals.instructorsAssigned}{' '}
@@ -235,7 +235,7 @@ export default function Report() {
             </p>
           </div>
 
-          <div className="mt-4 rounded-lg bg-white p-4 ring-1 ring-slate-200">
+          <div className="mt-4 rounded-lg bg-surface p-4 ring-1 ring-slate-200">
             <h2 className="font-semibold text-slate-900">By quarter</h2>
             <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
               {report.perTerm.map((t) => (
@@ -252,7 +252,7 @@ export default function Report() {
             </ul>
           </div>
 
-          <div className="mt-4 rounded-lg bg-white ring-1 ring-slate-200">
+          <div className="mt-4 rounded-lg bg-surface ring-1 ring-slate-200">
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
               <h2 className="font-semibold text-slate-900">
                 By instructor <span className="font-normal text-slate-500">({shown.length})</span>
@@ -263,8 +263,8 @@ export default function Report() {
                 aria-pressed={onlyProblems}
                 className={`ml-auto flex min-h-11 items-center rounded-full border px-3 text-xs font-medium print:hidden ${
                   onlyProblems
-                    ? 'border-transparent bg-slate-800 text-white'
-                    : 'border-slate-300 bg-white text-slate-700'
+                    ? 'border-transparent bg-ink text-onink'
+                    : 'border-slate-300 bg-surface text-slate-700'
                 }`}
               >
                 Only those with something to fix

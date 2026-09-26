@@ -104,7 +104,7 @@ function ReleaseDialog({
             </span>
             <span>
               Target{' '}
-              <strong style={{ color: 'var(--uw-purple)' }} className="text-base">
+              <strong style={{ color: 'var(--uw-purple-ink)' }} className="text-base">
                 {effective}
               </strong>
             </span>
@@ -303,7 +303,7 @@ export default function Instructors() {
     [loadBy, isCoordinator],
   )
 
-  if (error) return <p className="text-red-600">{(error as Error).message}</p>
+  if (error) return <p className="text-red-700">{(error as Error).message}</p>
 
   return (
     <section>

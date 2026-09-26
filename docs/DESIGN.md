@@ -267,7 +267,9 @@ asserts:
 - every control is at least 44px in the direction a finger aims at;
 - every piece of text clears WCAG AA against the colour actually painted behind
   it — measured by painting each `oklch()` into a canvas and reading the pixel
-  back, rather than trusting the palette name;
+  back, rather than trusting the palette name — **in both themes**, the whole
+  scene being measured again in the dark;
+- the printed page is identical whichever theme it was printed from;
 - the console stays clean;
 - and, where a dialog is on screen, that focus moves into it, that neither Tab
   nor Shift+Tab escapes it at any point, and that Escape closes it.
@@ -407,7 +409,9 @@ reaches the live project. It asserts that a signed-out visitor does not
 download the board, that every destination renders after its chunk arrives,
 that a deep link is still where it was typed, that one tap fetches one page,
 that hovering a link prefetches it, that an instructor can reach no
-coordinator page by nav or by URL, and that the console stays clean.
+coordinator page by nav or by URL, that the theme is already correct with the
+app's JavaScript blocked and that a stored choice outranks the device, that no
+page paints a daylight surface in the dark, and that the console stays clean.
 
 It found a real bug on its first run, and not the one it was written for.
 `AuthProvider` kept `loading` as its own flag, and between the render that
@@ -458,6 +462,92 @@ The conflict tally is announced through a visually-hidden `aria-live` region.
 The pills above the list are the right shape to scan and the wrong shape to
 hear: three button labels read out after every assignment give you the numbers
 without telling you whether anything broke.
+
+## Colour, and dark mode
+
+The coordinator schedules at night. Dark mode is a setting with three states,
+not a switch with two: **follow the device**, **light**, **dark**. Following
+the device is the state everyone starts in, and it has to keep following —
+a phone that turns dark at sunset should take the app with it, including while
+the sign-in page is open. That is why `useTheme` lives in `App`, above every
+early return, rather than inside the button that changes it.
+
+One attribute, `data-theme` on `<html>`, is the whole mechanism. It is written
+twice: by an inline script in `index.html` before the first paint, and by React
+thereafter. Both read the same `localStorage` key, `css-scheduler:theme`, which
+holds `light` or `dark` and is *absent* when the choice is to follow the
+device — an absent key is what "no choice" means, so a stored value never
+quietly outlives it. `src/lib/theme.ts` holds the rules as pure functions;
+storage is wrapped in `try`/`catch` throughout, because a browser that refuses
+to remember a colour scheme must still show one.
+
+**The palette moves, not the markup.** Tailwind 4 compiles every colour utility
+to `var(--color-…)`, so re-pointing those variables under
+`:root[data-theme="dark"]` moves the entire app — including code written before
+dark mode existed, and code written after it without a thought for it. The
+alternative, a `dark:` variant on every one of two thousand class names, is a
+migration that is never finished and that every new page has to remember.
+
+Three details make that work rather than nearly work:
+
+- **The neutral ramp inverts; the accent ramps do not.** `slate-50` becomes the
+  darkest panel and `slate-900` the brightest heading, so every light-on-dark
+  pairing in the app stays a pairing without being touched. Red, amber, emerald
+  and sky are not ramps in practice but three jobs sharing a scale: 50–300 are
+  tinted backgrounds and borders, 400–600 are dots, bars and filled buttons
+  that keep white text, 700–900 are the text that sits on the tinted
+  backgrounds. Each shade gets the value its job needs in the dark, which is
+  why those numbers are not monotonic.
+- **Four colours are roles, not shades.** `surface` (a card, a sheet, a field),
+  `canvas` (the page behind them), and `ink`/`onink` (a filled, selected chip).
+  `bg-white` could not become the dark surface, because white also has to stay
+  white where it sits on the purple header and on a delete button. `danger` and
+  `danger-strong` name the delete button for the same reason: `red-700` is the
+  colour of error *text* in the dark, and a delete button that turned pale pink
+  under a finger would have been the price of reusing it. The brand purple
+  splits too — `--uw-purple` fills the header and the primary buttons in both
+  themes, `--uw-purple-ink` is the same brand as *text*, and it goes light.
+- **Paper has no dark mode.** The whole dark block sits inside `@media screen`.
+  A printed schedule is read in a meeting and handed round, and
+  `print-color-adjust: exact` — which the print stylesheet needs, or badges
+  come out as empty outlines — would otherwise flood a page with near-black
+  ink. Leaving the dark palette out of the print media means the printed page
+  falls back to the stock light one with nothing extra to maintain.
+
+The `dark:` variant exists for exceptions and currently has none. The one place
+that looked like an exception, the gold coordinator badge (gold in both themes,
+so its text must be dark in both), printed differently depending on which theme
+it was printed from. It uses a pinned `--color-slate-950` instead.
+
+### Checking it, rather than believing it
+
+Dark mode is the change most able to break quietly: a pairing that reads
+perfectly in daylight can land anywhere once both ends of it move, and nobody
+finds that by looking at the light theme. So
+
+- **every mobile-check scene is measured twice**, once in each theme, for
+  contrast and for overflow. The first run of that pass found three real
+  failures;
+- **the printed page is asserted to be the same page from either theme** —
+  every element's background, text and border colour compared under
+  `media: print` with the theme flipped between. Not "the printout is light":
+  the brand purple on a button is legitimately dark, and dark in both;
+- **the routing check blocks the app's JavaScript** and asserts the attribute
+  is already right, which is the only honest way to ask what the first paint
+  looked like. Module scripts are deferred, so `DOMContentLoaded` has already
+  waited for React and would pass with the inline script deleted;
+- **and it sweeps all thirteen real pages in the dark** for the three light
+  surfaces the stock palette paints, which is what a hardcoded `#fff` or a
+  `bg-white` written after this landed would look like.
+
+Each of those was made to fail on purpose before being believed: a deliberately
+too-dark `slate-500`, the inline script deleted, and a stray `bg-white` added to
+the dashboard.
+
+One trap for whoever extends this. The theme flip animates, because half these
+surfaces carry `transition-colors` — so a check that measures immediately after
+flipping reads a blend of the two themes and reports a navy card as still being
+daylight-white. The dark pass waits 300ms first.
 
 ## Security
 
@@ -682,6 +772,10 @@ week's.
 student-facing conflict checks are built. Importing a quarter directly from a
 pasted UW time schedule is not; seeding from an already-imported year covers
 most of what it was for.
+
+**Polish.** Undo, one voice for feedback, focus management, tables as cards,
+code splitting, dragging, print output and dark mode are done. An installable
+PWA is not.
 
 ## Suggestions
 

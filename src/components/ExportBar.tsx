@@ -40,7 +40,7 @@ export default function ExportBar({
   }
 
   const button =
-    'flex min-h-11 items-center rounded-md border border-slate-300 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50'
+    'flex min-h-11 items-center rounded-md border border-slate-300 bg-surface px-4 text-sm text-slate-700 hover:bg-slate-50'
 
   return (
     <div className={`flex flex-wrap gap-2 print:hidden ${className}`}>

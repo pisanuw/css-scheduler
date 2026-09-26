@@ -103,7 +103,7 @@ export default function LoadPanel({
   draggable?: boolean
 }) {
   return (
-    <section className="rounded-lg bg-white ring-1 ring-slate-200" aria-labelledby="load-heading">
+    <section className="rounded-lg bg-surface ring-1 ring-slate-200" aria-labelledby="load-heading">
       <div className="border-b border-slate-200 p-3">
         <h2 id="load-heading" className="font-semibold text-slate-900">
           Load

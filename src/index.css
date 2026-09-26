@@ -1,15 +1,166 @@
 @import "tailwindcss";
 
+/*
+ * Dark mode is a choice, not a media query alone: `data-theme` on <html> is
+ * the single source of truth, written by `src/lib/theme.ts` (and, before
+ * React loads, by the inline script in `index.html`, so the first paint is
+ * already the right colour). `system` resolves to `light` or `dark` there
+ * rather than here, which keeps one mechanism instead of two disagreeing.
+ *
+ * The `dark:` variant is here for exceptions and currently has none: the
+ * palette below moves the whole app on its own, and the one place that looked
+ * like an exception — the gold badge's text — turned out to print differently
+ * depending on the theme it was printed from. Prefer a pinned value to a
+ * variant, and check the printed page if you reach for this.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * Two colours the Tailwind palette has no name for, because they are roles
+ * rather than shades:
+ *
+ *   surface — a card, a sheet, a field. White on paper and in daylight.
+ *   canvas  — the page behind the cards.
+ *   ink / onink — a filled, selected chip (a quarter tab, a filter button):
+ *   near-black on white in light, near-white on black in dark. `text-white`
+ *   cannot do this job, because white has to stay white where it sits on the
+ *   purple header and on a red button in both themes.
+ */
+@theme {
+  --color-surface: #ffffff;
+  --color-canvas: #f8f8fa;
+  --color-ink: #1e293b;
+  --color-onink: #ffffff;
+  /*
+   * Delete, and delete-hovered. A name rather than `bg-red-600
+   * hover:bg-red-700` because in the dark palette red-700 is the colour of
+   * error *text*; a button that turned pale pink under a finger would be the
+   * price of that. Dark enough for white text in either theme.
+   */
+  --color-danger: #dc2626;
+  --color-danger-strong: #b91c1c;
+}
+
 :root {
   --uw-purple: #4b2e83;
   --uw-gold: #b7a57a;
+  /*
+   * The brand purple has two jobs and they part company in the dark: it fills
+   * the header and the primary buttons (white text on it, so it must stay
+   * dark) and it colours headings and the big numbers (so it must go light).
+   * `--uw-purple-ink` is the second job.
+   */
+  --uw-purple-ink: #4b2e83;
+  color-scheme: light;
+}
+
+/*
+ * Dark mode, done by re-pointing the palette rather than by writing a `dark:`
+ * variant on two thousand class names. Tailwind 4 compiles every colour
+ * utility to `var(--color-…)`, so redefining those variables under one
+ * attribute moves the whole app at once, including code written before this
+ * existed.
+ *
+ * The neutral ramp inverts: slate-50 becomes the darkest panel and slate-900
+ * the brightest heading, so every existing light-on-dark pairing stays a
+ * pairing. The accent ramps do NOT invert, because their shades are already
+ * doing different jobs: 50–300 are tinted backgrounds and borders, 400–600
+ * are dots, bars and filled buttons that keep white text, and 700–900 are the
+ * text that sits on the tinted backgrounds. Each is given the value its job
+ * needs in the dark, which is why the numbers below are not monotonic. The
+ * mobile check measures every one of them against what is behind it.
+ *
+ * Confined to `@media screen` on purpose. Paper has no dark mode: a printed
+ * schedule is read in a meeting and handed round, and `print-color-adjust:
+ * exact` below would otherwise flood a page with near-black ink. Leaving the
+ * whole block out of the print media means the printed page falls back to the
+ * stock light palette with nothing else to maintain.
+ */
+@media screen {
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --color-surface: #161d2e;
+    --color-canvas: #0c111d;
+    --color-ink: #dde5f0;
+    --color-onink: #0c111d;
+    --uw-purple-ink: #c4b5fd;
+
+    --color-white: #ffffff; /* unchanged, and deliberately so: see above */
+
+    --color-slate-50: #1b2334;
+    --color-slate-100: #222c40;
+    --color-slate-200: #2c3850;
+    --color-slate-300: #3b4a66;
+    --color-slate-400: #64748b;
+    --color-slate-500: #9aa8bd;
+    --color-slate-600: #b2bfd2;
+    --color-slate-700: #ccd6e4;
+    --color-slate-800: #dde5f0;
+    --color-slate-900: #eef3f9;
+    /*
+     * The one neutral that does not flip. It is the text on the coordinator
+     * badge, which is gold — and therefore light — in both themes, so its
+     * text has to be dark in both. Nothing else uses it, and nothing else
+     * should: a `dark:` variant there would have printed differently
+     * depending on the theme it was printed from, which the mobile check
+     * noticed.
+     */
+    --color-slate-950: #14181f;
+
+    --color-red-50: #2b1418;
+    --color-red-100: #3a1a20;
+    --color-red-200: #4e222a;
+    --color-red-300: #6a2f39;
+    --color-red-400: #f87171;
+    --color-red-500: #ef4444;
+    --color-red-600: #dc2626;
+    --color-red-700: #fca5a5;
+    --color-red-800: #fecaca;
+    --color-red-900: #fee2e2;
+
+    --color-rose-600: #e11d48;
+
+    --color-amber-50: #2a1f0a;
+    --color-amber-100: #382a0d;
+    --color-amber-200: #4a3712;
+    --color-amber-300: #5f471a;
+    --color-amber-400: #fbbf24;
+    --color-amber-500: #f59e0b;
+    --color-amber-600: #fbbf24;
+    --color-amber-700: #fcd34d;
+    --color-amber-800: #fde68a;
+    --color-amber-900: #fef3c7;
+
+    --color-emerald-50: #0d2a1e;
+    --color-emerald-100: #113627;
+    --color-emerald-200: #17462f;
+    --color-emerald-300: #1e5c3d;
+    --color-emerald-400: #34d399;
+    --color-emerald-500: #10b981;
+    --color-emerald-600: #34d399;
+    --color-emerald-700: #6ee7b7;
+    --color-emerald-800: #a7f3d0;
+    --color-emerald-900: #d1fae5;
+
+    --color-sky-50: #0b2436;
+    --color-sky-100: #0f2e45;
+    --color-sky-200: #14405e;
+    --color-sky-300: #1b5479;
+    --color-sky-400: #38bdf8;
+    --color-sky-500: #0ea5e9;
+    --color-sky-600: #38bdf8;
+    --color-sky-700: #7dd3fc;
+    --color-sky-800: #bae6fd;
+    --color-sky-900: #e0f2fe;
+  }
 }
 
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background: #f8f8fa;
-  color: #1a1a1a;
+  background: var(--color-canvas);
+  color: var(--color-slate-900);
 }
 
 /*

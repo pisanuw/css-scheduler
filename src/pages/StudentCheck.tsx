@@ -63,7 +63,7 @@ export default function StudentCheck() {
     return (
       <section>
         <h1 className="text-xl font-semibold text-slate-900">Can a student take these together?</h1>
-        <p className="mt-3 rounded-lg bg-white p-6 text-sm text-slate-600 ring-1 ring-slate-200">
+        <p className="mt-3 rounded-lg bg-surface p-6 text-sm text-slate-600 ring-1 ring-slate-200">
           {isCoordinator ? (
             <>
               No scenario to check yet.{' '}
@@ -113,12 +113,12 @@ export default function StudentCheck() {
       {isLoading ? (
         <p className="mt-4 text-sm text-slate-500">Loading the schedule…</p>
       ) : offered.length === 0 ? (
-        <p className="mt-4 rounded-lg bg-white p-6 text-sm text-slate-600 ring-1 ring-slate-200">
+        <p className="mt-4 rounded-lg bg-surface p-6 text-sm text-slate-600 ring-1 ring-slate-200">
           That scenario has no sections yet, so there is nothing to check.
         </p>
       ) : (
         <>
-          <div className="mt-4 rounded-lg bg-white p-4 ring-1 ring-slate-200">
+          <div className="mt-4 rounded-lg bg-surface p-4 ring-1 ring-slate-200">
             <h2 className="text-sm font-medium text-slate-700">
               Courses <span className="font-normal text-slate-500">({picked.length} picked)</span>
             </h2>
@@ -135,7 +135,7 @@ export default function StudentCheck() {
                     className={`flex min-h-11 items-center rounded-full border px-4 text-sm ${
                       on
                         ? 'border-transparent text-white'
-                        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                        : 'border-slate-300 bg-surface text-slate-700 hover:bg-slate-50'
                     }`}
                     title={c.title}
                   >
@@ -156,7 +156,7 @@ export default function StudentCheck() {
           </div>
 
           {picked.length < 2 ? (
-            <p className="mt-4 rounded-lg bg-white p-6 text-sm text-slate-600 ring-1 ring-slate-200">
+            <p className="mt-4 rounded-lg bg-surface p-6 text-sm text-slate-600 ring-1 ring-slate-200">
               Pick at least two courses to check.
             </p>
           ) : (
@@ -199,7 +199,7 @@ export default function StudentCheck() {
               </div>
 
               {sectionLevel.length > 0 && (
-                <div className="mt-4 rounded-lg bg-white p-4 ring-1 ring-slate-200">
+                <div className="mt-4 rounded-lg bg-surface p-4 ring-1 ring-slate-200">
                   <h2 className="font-semibold text-slate-900">
                     Sections that clash{' '}
                     <span className="font-normal text-slate-500">({sectionLevel.length})</span>
@@ -217,7 +217,7 @@ export default function StudentCheck() {
                 </div>
               )}
 
-              <div className="mt-4 rounded-lg bg-white ring-1 ring-slate-200">
+              <div className="mt-4 rounded-lg bg-surface ring-1 ring-slate-200">
                 <h2 className="border-b border-slate-200 p-3 font-semibold text-slate-900">
                   When these are offered
                 </h2>

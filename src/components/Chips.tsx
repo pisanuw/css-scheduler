@@ -35,7 +35,7 @@ export function ChipGroup<T extends string | number>({
             aria-pressed={active}
             style={active && tone === 'purple' ? { background: 'var(--uw-purple)' } : undefined}
             className={`flex min-h-11 items-center rounded-full border px-4 text-sm transition-colors disabled:opacity-50 ${
-              active ? on : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+              active ? on : 'border-slate-300 bg-surface text-slate-700 hover:bg-slate-50'
             }`}
           >
             {o.label}
@@ -77,7 +77,7 @@ export function TriState({
             aria-pressed={active}
             style={active ? { background: 'var(--uw-purple)' } : undefined}
             className={`flex min-h-11 items-center rounded-full border px-4 text-sm disabled:opacity-50 ${
-              active ? 'border-transparent text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+              active ? 'border-transparent text-white' : 'border-slate-300 bg-surface text-slate-700 hover:bg-slate-50'
             }`}
           >
             {o.label}
@@ -98,7 +98,7 @@ export function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-lg bg-white p-5 ring-1 ring-slate-200">
+    <section className="rounded-lg bg-surface p-5 ring-1 ring-slate-200">
       <h2 className="font-semibold text-slate-900">{title}</h2>
       {hint && <p className="mt-1 text-sm text-slate-500">{hint}</p>}
       <div className="mt-4">{children}</div>
