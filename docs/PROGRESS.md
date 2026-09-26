@@ -13,10 +13,115 @@ this file is the state of play.
 | 3 — Assignment board | done |
 | 4 — Reporting | done |
 | 5 — Solver, import, student checks | suggestions and student checks done; time-schedule import not started |
+| Polish | undo done; drag and drop, dark mode, PWA open |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-26 (later still) — undo, and a suite that runs anywhere
+
+**Built.**
+
+- **Undo on the board.** `20260926000400_undo.sql` gives `scenario_changes` the
+  structured half it was missing — `detail`, `undone_at`, `undoes_id` — and two
+  functions, `undo_change(id)` and `undo_changes(ids[])`. Every one of the five
+  logged actions reverses: an assignment, an unassignment, a section added,
+  edited or removed. `src/lib/undo.ts` decides what the board offers;
+  `HistoryPanel` grew Undo buttons, an `undone` marker and a two-tap confirm on
+  a burst; ⌘Z / Ctrl+Z takes back my own most recent change.
+- **A test harness that needs no credentials.** `scripts/local_db.sh` plus
+  `supabase/tests/local_shim.sql` run the whole schema, seed and RLS suite
+  against a throwaway local PostgreSQL. `npm run db:test:rls:local`.
+
+**Verified.** 167 unit tests (17 new in `undo.test.ts`, 2 added to
+`groupChanges.test.ts`), typecheck and build green. **70 of 70 RLS checks
+against a fresh local cluster** — the first time this suite has run in the
+sandbox at all — and 23 of 23 undo-specific checks against the hosted project
+before the migration was trusted. No residue; the three real accounts
+untouched. The history panel rendered at 375px in headless Chromium in three
+states (collapsed, confirming a burst undo, expanded with per-entry buttons):
+no horizontal scroll, no control under 44px, no console errors.
+
+**Deployed and verified.** Commit `c653ad7` is live. The served
+`index-0GzTiO1Q.js` is **byte-for-byte identical** to a local build made with
+the key recovered from the served bundle, and the CSS matches too. The four new
+strings (`undoing an earlier change`, `Nothing of yours left to undo`,
+`undo_change`, `Undo puts a change back`) are all present in the served bundle.
+
+**Learned.**
+
+- *The suite could have run here all along.* The migrations depend on exactly
+  three things Supabase provides: `auth.users`, `auth.uid()`, and four platform
+  roles. That is a seventy-line shim, and with it the whole suite runs on a
+  plain PostgreSQL 16 with no Docker, no project and no secrets. Two previous
+  runs recorded "these scripts cannot run in the sandbox" as a fact of life and
+  fired SQL at the live project instead. It was a fact about the *token*, not
+  about the SQL. **Run `npm run db:test:rls:local` before applying any
+  migration anywhere real.**
+- *An AFTER DELETE trigger is too late to record what the delete destroyed.*
+  The assignments hanging off a section are cascaded away with it, so undoing a
+  deletion logged after the fact would bring the section back empty and call
+  that success. `sections` now has two log triggers: `AFTER INSERT OR UPDATE`,
+  and `BEFORE DELETE`.
+- *Let the reversal go through the ordinary tables.* `undo_change` does not
+  patch rows behind the triggers' backs, so the reversal lands in the log like
+  any other change — and **redo cost nothing to build**, because the entry a
+  reversal writes is itself undoable.
+- *One convention made all three section actions reversible from one field.*
+  `detail.section` is the row as it stood *before* the change, except for a
+  creation, where there was no before and the new row identifies what to
+  remove. `to_jsonb(coalesce(old, new))` expresses that in one line — but not
+  in plpgsql, where evaluating `old` in an INSERT trigger is not safe. An
+  explicit `v_before` variable, set per `tg_op`, is the version that works.
+- *Undo is not symmetric in how much it may destroy.* Undoing a burst of two
+  hundred assignments costs a tap to put back. Undoing two hundred section
+  *creations* destroys everything built on them, and already has a name:
+  deleting the scenario. So a group Undo is offered only when the whole burst is
+  assignments, and the rest keep per-entry buttons in the expanded list. For the
+  same reason, undoing the creation of a section that has since been staffed
+  refuses and says to unassign first, rather than cascading that work away.
+- *⌘Z should mean "my last change", not "the last change".* Reverting a
+  colleague's later edit by reflex is a different act from doing it
+  deliberately; their entries keep their own Undo button.
+
+**Deliberately not done.** Drag and drop. The UW time-schedule import.
+Code-splitting the bundle.
+
+**Next run should pick up — in this order.**
+
+1. **Toasts and optimistic feedback on the report and compare pages**, to match
+   the board's. Small, and the last place the app still feels inert.
+2. **Accessibility pass.** Focus management when the sheets open and close,
+   focus trapping inside them, `aria-live` on the conflict count, a contrast
+   audit of the tier colours. The board's `role="status"` message region is
+   where undo's confirmations land, so it is already the right place for the
+   conflict count to announce through too.
+3. **Code-split the report, compare and student-check routes** off the main
+   chunk. The bundle is 575 kB (159 kB gzipped) and Vite has warned for three
+   runs now.
+4. **Drag and drop**, as an addition to tapping and never a replacement.
+   `@dnd-kit` is already a dependency.
+5. Then dark mode and the installable PWA.
+
+**Watch out for.**
+
+- `scripts/local_db.sh` needs the postgres server binaries. It finds them on
+  Debian/Ubuntu (`/usr/lib/postgresql/*/bin`) and Homebrew, runs the server as
+  the `postgres` account when invoked as root, and puts its cluster under
+  `/var/lib/postgresql/css-local` in that case because a data directory under
+  `/tmp` is usually not traversable by another user. `scripts/local_db.sh stop`
+  when finished.
+- The security advisor now reports **six** SECURITY DEFINER functions callable
+  by `authenticated`, not four. The two new ones are `undo_change` and
+  `undo_changes`, which the board calls over RPC, so the grant is what makes
+  undo work; both check `is_coordinator()` as their first statement, before
+  reading anything. Recorded in `docs/DESIGN.md` as accepted. The advisor
+  otherwise reports exactly what it did before.
+- Entries logged before this migration have an empty `detail` and show no Undo
+  button. That is correct, not a bug — there is nothing to reverse them with.
 
 ---
 
