@@ -168,6 +168,12 @@ Upgrade deliberately (`npm update <package>`, then the checks above, then
 commit the lockfile with the result). `zod` used to be a dependency and was
 imported nowhere; it is gone.
 
+**Node is pinned to 22** in `.nvmrc`, which Netlify honours. Vite 8 requires
+`^20.19.0 || >=22.12.0`, so this is partly a floor — but mostly it is the same
+argument as the committed lockfile: a byte-for-byte comparison between a local
+build and what Netlify serves is only meaningful if both ran on the same
+toolchain, and Netlify's default Node version is not ours to hold still.
+
 `npm audit` reports nothing. Getting there meant `react-router-dom` 7,
 `vite` 8, `vitest` 5 and `esbuild` 0.28 — see `docs/DESIGN.md` for what each was
 for and what the router upgrade cost. When a finding does appear, the thing to

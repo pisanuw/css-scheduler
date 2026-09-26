@@ -798,6 +798,12 @@ its severity label. The four clusters, as they actually stood:
   runs `vite build`.
 - Everything else was transitive on those.
 
+Node is pinned to 22 in `.nvmrc`. Vite 8's floor is `^20.19.0 || >=22.12.0`, so
+the pin is partly that — but mostly it is the lockfile argument again: comparing
+a local build byte for byte against what Netlify serves only means something if
+both ran the same toolchain, and Netlify's default Node version is not this
+project's to hold still.
+
 The upgrades were `react-router-dom` 6.30 → 7.18, `vite` 5.4 → 8.3,
 `vitest` 2.1 → 5.0, `esbuild` 0.21 → 0.28 and `@vitejs/plugin-react` 4 → 6.
 Two things were measured rather than assumed:
