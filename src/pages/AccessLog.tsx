@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import DataTable from '../components/DataTable'
+import DataTable, { type Column } from '../components/DataTable'
+import Toolbar from '../components/Toolbar'
 import {
   useAccessLog,
   useAccessSummary,
@@ -18,6 +19,86 @@ function relative(iso: string): string {
   if (hrs < 24) return `${hrs} h ago`
   return `${Math.round(hrs / 24)} d ago`
 }
+
+/** Exported so the mobile check can put the real columns on a real phone. */
+export const accessSummaryColumns: Column<AccessSummaryRow>[] = [
+  {
+    key: 'name',
+    header: 'Person',
+    className: 'font-medium whitespace-nowrap',
+    card: 'title',
+    render: (r) => r.full_name ?? r.email,
+  },
+  {
+    key: 'email',
+    header: 'Email',
+    className: 'text-slate-600 text-xs',
+    card: 'subtitle',
+    render: (r) => r.email,
+    // The heading above already is the address when there is no name on file.
+    renderCard: (r) => (r.full_name ? r.email : null),
+  },
+  {
+    key: 'role',
+    header: 'Role',
+    card: 'badge',
+    render: (r) => (
+      <span
+        className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+          r.role === 'coordinator' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
+        }`}
+      >
+        {r.role ?? 'unknown'}
+      </span>
+    ),
+  },
+  {
+    key: 'first',
+    header: 'First seen',
+    className: 'whitespace-nowrap text-slate-600',
+    render: (r) => when(r.first_seen),
+  },
+  {
+    key: 'last',
+    header: 'Last seen',
+    className: 'whitespace-nowrap text-slate-600',
+    render: (r) => <span title={when(r.last_seen)}>{relative(r.last_seen)}</span>,
+  },
+  { key: 'visits', header: 'Visits', className: 'text-center', render: (r) => r.visits },
+]
+
+/** Exported so the mobile check can put the real columns on a real phone. */
+export const accessEventColumns: Column<AccessLogRow>[] = [
+  {
+    key: 'when',
+    header: 'When',
+    className: 'whitespace-nowrap font-medium',
+    card: 'title',
+    render: (r) => when(r.occurred_at),
+  },
+  { key: 'email', header: 'Who', card: 'subtitle', render: (r) => r.email },
+  {
+    key: 'event',
+    header: 'Event',
+    card: 'badge',
+    render: (r) => (
+      <span
+        className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+          r.event === 'sign_up' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
+        }`}
+      >
+        {r.event === 'sign_up' ? 'first sign-in' : 'sign-in'}
+      </span>
+    ),
+  },
+  { key: 'provider', header: 'Via', className: 'text-slate-600', render: (r) => r.provider ?? '—' },
+  {
+    key: 'account',
+    header: 'Account',
+    className: 'text-xs text-slate-500',
+    render: (r) => (r.user_id ? 'active' : 'deleted'),
+  },
+]
 
 export default function AccessLog() {
   const [tab, setTab] = useState<'people' | 'events'>('people')
@@ -45,12 +126,12 @@ export default function AccessLog() {
 
   return (
     <section>
-      <div className="mb-4 flex flex-wrap items-baseline gap-3">
-        <h1 className="text-xl font-semibold text-slate-900">Access log</h1>
-        <span className="text-sm text-slate-500">
-          {summary.isLoading ? 'loading…' : `${summary.data?.length ?? 0} people have signed in`}
-        </span>
-      </div>
+      <Toolbar
+        title="Access log"
+        count={
+          summary.isLoading ? 'loading…' : `${summary.data?.length ?? 0} people have signed in`
+        }
+      />
 
       <p className="mb-4 text-sm text-slate-600">
         Recorded from the authentication system itself, so it cannot be bypassed by the app.
@@ -80,45 +161,7 @@ export default function AccessLog() {
             rows={summary.data ?? []}
             rowKey={(r) => r.email}
             empty={summary.isLoading ? 'Loading…' : 'Nobody has signed in yet.'}
-            columns={[
-              {
-                key: 'name',
-                header: 'Person',
-                className: 'font-medium whitespace-nowrap',
-                render: (r) => r.full_name ?? r.email,
-              },
-              { key: 'email', header: 'Email', className: 'text-slate-600 text-xs', render: (r) => r.email },
-              {
-                key: 'role',
-                header: 'Role',
-                render: (r) => (
-                  <span
-                    className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                      r.role === 'coordinator'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    {r.role ?? 'unknown'}
-                  </span>
-                ),
-              },
-              {
-                key: 'first',
-                header: 'First seen',
-                className: 'whitespace-nowrap text-slate-600',
-                render: (r) => when(r.first_seen),
-              },
-              {
-                key: 'last',
-                header: 'Last seen',
-                className: 'whitespace-nowrap text-slate-600',
-                render: (r) => (
-                  <span title={when(r.last_seen)}>{relative(r.last_seen)}</span>
-                ),
-              },
-              { key: 'visits', header: 'Visits', className: 'text-center', render: (r) => r.visits },
-            ]}
+            columns={accessSummaryColumns}
           />
 
           {neverSignedIn.length > 0 && (
@@ -144,37 +187,7 @@ export default function AccessLog() {
           rows={log.data ?? []}
           rowKey={(r) => String(r.id)}
           empty={log.isLoading ? 'Loading…' : 'No events recorded.'}
-          columns={[
-            {
-              key: 'when',
-              header: 'When',
-              className: 'whitespace-nowrap font-medium',
-              render: (r) => when(r.occurred_at),
-            },
-            { key: 'email', header: 'Who', render: (r) => r.email },
-            {
-              key: 'event',
-              header: 'Event',
-              render: (r) => (
-                <span
-                  className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                    r.event === 'sign_up'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  {r.event === 'sign_up' ? 'first sign-in' : 'sign-in'}
-                </span>
-              ),
-            },
-            { key: 'provider', header: 'Via', className: 'text-slate-600', render: (r) => r.provider ?? '—' },
-            {
-              key: 'account',
-              header: 'Account',
-              className: 'text-xs text-slate-500',
-              render: (r) => (r.user_id ? 'active' : 'deleted'),
-            },
-          ]}
+          columns={accessEventColumns}
         />
       )}
     </section>

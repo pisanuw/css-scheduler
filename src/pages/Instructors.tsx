@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import DataTable from '../components/DataTable'
+import DataTable, { type Column } from '../components/DataTable'
+import Toolbar, { FIELD, Toggle } from '../components/Toolbar'
 import Dialog from '../components/Dialog'
 import { useToast } from '../components/Toast'
 import { useAuth } from '../lib/auth'
@@ -12,6 +13,7 @@ import {
   type InstructorRow,
 } from '../hooks/queries'
 import { useAcademicYears } from '../hooks/preferences'
+import type { LoadTarget } from '../hooks/queries'
 
 const CATEGORY_LABEL: Record<string, string> = {
   full_time: 'Full-time',
@@ -196,6 +198,86 @@ function ReleaseDialog({
   )
 }
 
+/**
+ * The instructor table's columns.
+ *
+ * A function rather than a constant because two of them need the year's load
+ * figures and the last one only exists for a coordinator. Exported so the
+ * mobile check can put the real columns on a real phone.
+ */
+export function instructorColumns({
+  loadBy,
+  onReleases,
+}: {
+  loadBy: Map<string, LoadTarget>
+  /** Null for anyone who may not edit releases: the column disappears. */
+  onReleases: ((instructor: InstructorRow) => void) | null
+}): Column<InstructorRow>[] {
+  return [
+    {
+      key: 'name',
+      header: 'Name',
+      className: 'font-medium whitespace-nowrap',
+      card: 'title',
+      render: (i) => i.full_name,
+    },
+    { key: 'rank', header: 'Rank', className: 'text-slate-600', card: 'subtitle', render: (i) => i.rank ?? '—' },
+    {
+      key: 'category',
+      header: 'Category',
+      card: 'badge',
+      render: (i) => (
+        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
+          {CATEGORY_LABEL[i.category] ?? i.category}
+        </span>
+      ),
+    },
+    {
+      key: 'base',
+      header: 'Baseline',
+      className: 'text-center text-slate-600',
+      render: (i) => i.base_annual_courses ?? '—',
+    },
+    {
+      key: 'released',
+      header: 'Released',
+      className: 'text-center',
+      render: (i) => {
+        const r = loadBy.get(i.id)?.released_courses ?? 0
+        return r > 0 ? <span className="text-amber-700">−{r}</span> : <span className="text-slate-500">—</span>
+      },
+    },
+    {
+      key: 'target',
+      header: 'Target',
+      className: 'text-center font-semibold',
+      render: (i) => {
+        const t = loadBy.get(i.id)?.effective_target
+        return t == null ? <span className="font-normal text-slate-500">—</span> : t
+      },
+    },
+    ...(onReleases
+      ? [
+          {
+            key: 'actions',
+            header: '',
+            className: 'text-right',
+            card: 'action' as const,
+            render: (i: InstructorRow) => (
+              <button
+                onClick={() => onReleases(i)}
+                aria-label={`Teaching releases for ${i.full_name}`}
+                className="ml-auto flex min-h-11 items-center rounded border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50"
+              >
+                Releases
+              </button>
+            ),
+          },
+        ]
+      : []),
+  ]
+}
+
 export default function Instructors() {
   const { isCoordinator } = useAuth()
   const [showInactive, setShowInactive] = useState(false)
@@ -214,27 +296,32 @@ export default function Instructors() {
   )
   const rows = data.filter((i) => showInactive || i.is_active)
 
+  // Memoised so the card grouping inside DataTable is not redone on every
+  // keystroke elsewhere on the page.
+  const columns = useMemo(
+    () => instructorColumns({ loadBy, onReleases: isCoordinator ? setEditing : null }),
+    [loadBy, isCoordinator],
+  )
+
   if (error) return <p className="text-red-600">{(error as Error).message}</p>
 
   return (
     <section>
-      <div className="mb-4 flex flex-wrap items-baseline gap-3">
-        <h1 className="text-xl font-semibold text-slate-900">Instructors</h1>
-        <span className="text-sm text-slate-500">{isLoading ? 'loading…' : `${rows.length} shown`}</span>
+      <Toolbar title="Instructors" count={isLoading ? 'loading…' : `${rows.length} shown`}>
         <select
           value={effectiveYear}
           onChange={(e) => setYearId(e.target.value)}
-          className="ml-auto rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          aria-label="Academic year"
+          className={FIELD}
         >
           {(years.data ?? []).map((y) => (
             <option key={y.id} value={y.id}>{y.name}</option>
           ))}
         </select>
-        <label className="flex items-center gap-2 text-sm text-slate-600">
-          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+        <Toggle pressed={showInactive} onChange={setShowInactive}>
           Include inactive
-        </label>
-      </div>
+        </Toggle>
+      </Toolbar>
 
       <p className="mb-3 text-sm text-slate-600">
         Baseline is 8 courses a year on the teaching track and 5 on the tenure track. The target
@@ -244,50 +331,7 @@ export default function Instructors() {
       <DataTable<InstructorRow>
         rows={rows}
         rowKey={(i) => i.id}
-        columns={[
-          { key: 'name', header: 'Name', className: 'font-medium whitespace-nowrap', render: (i) => i.full_name },
-          { key: 'rank', header: 'Rank', className: 'text-slate-600', render: (i) => i.rank ?? '—' },
-          {
-            key: 'category', header: 'Category',
-            render: (i) => (
-              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
-                {CATEGORY_LABEL[i.category] ?? i.category}
-              </span>
-            ),
-          },
-          {
-            key: 'base', header: 'Baseline', className: 'text-center text-slate-600',
-            render: (i) => i.base_annual_courses ?? '—',
-          },
-          {
-            key: 'released', header: 'Released', className: 'text-center',
-            render: (i) => {
-              const r = loadBy.get(i.id)?.released_courses ?? 0
-              return r > 0 ? <span className="text-amber-700">−{r}</span> : <span className="text-slate-500">—</span>
-            },
-          },
-          {
-            key: 'target', header: 'Target', className: 'text-center font-semibold',
-            render: (i) => {
-              const t = loadBy.get(i.id)?.effective_target
-              return t == null ? <span className="font-normal text-slate-500">—</span> : t
-            },
-          },
-          ...(isCoordinator
-            ? [{
-                key: 'actions', header: '', className: 'text-right',
-                render: (i: InstructorRow) => (
-                  <button
-                    onClick={() => setEditing(i)}
-                    aria-label={`Teaching releases for ${i.full_name}`}
-                    className="ml-auto flex min-h-11 items-center rounded border border-slate-300 px-3 text-xs text-slate-700 hover:bg-slate-50"
-                  >
-                    Releases
-                  </button>
-                ),
-              }]
-            : []),
-        ]}
+        columns={columns}
       />
 
       {editing && effectiveYear && (

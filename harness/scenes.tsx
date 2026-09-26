@@ -31,6 +31,25 @@ import { ChipGroup, Section as Card, TriState } from "../src/components/Chips";
 import { useToast, useToastInset } from "../src/components/Toast";
 import type { SuggestionResult } from "../src/lib/suggest";
 import type { TimeSlotRow } from "../src/lib/snapshot";
+import DataTable from "../src/components/DataTable";
+import Toolbar, { FIELD, SEARCH_FIELD, Toggle } from "../src/components/Toolbar";
+import { courseColumns } from "../src/pages/Courses";
+import { historyColumns } from "../src/pages/History";
+import { instructorColumns } from "../src/pages/Instructors";
+import { responseColumns } from "../src/pages/Responses";
+import {
+  accessEventColumns,
+  accessSummaryColumns,
+} from "../src/pages/AccessLog";
+import type {
+  AccessLogRow,
+  AccessSummaryRow,
+  CourseRow,
+  HistoryRow,
+  InstructorRow,
+  LoadTarget,
+} from "../src/hooks/queries";
+import type { ResponseRow } from "../src/hooks/preferences";
 
 const MW = { days: [1, 3], start: "08:45", end: "10:45" };
 const TTH = { days: [2, 4], start: "13:15", end: "15:15" };
@@ -332,6 +351,201 @@ function Closeable({ render }: { render: (close: () => void) => JSX.Element }) {
   return render(() => setOpen(false));
 }
 
+/* ---------------------------------------------------------------------- *
+ * The five list pages.
+ *
+ * These scenes import the real column definitions from the pages, not copies
+ * of them, so a column added to a page without a thought for the phone shows
+ * up here as a failure. The rows are fixtures chosen to be awkward: the
+ * longest course title in the catalog, a name that will not break, an absent
+ * room, a prerequisite paragraph.
+ * ---------------------------------------------------------------------- */
+
+const COURSES: CourseRow[] = [
+  {
+    id: "c143",
+    code: "CSS 143",
+    number: 143,
+    title: "Computer Programming II",
+    credits_min: 5,
+    credits_max: 5,
+    level: "undergraduate",
+    prereq_text:
+      "Minimum grade of 2.0 in CSS 142; may not be repeated. Offered jointly with CSE 143.",
+    is_active: true,
+  },
+  {
+    id: "c497",
+    code: "CSS 497",
+    number: 497,
+    title:
+      "Computing and Software Systems Undergraduate Capstone Project Preparation Seminar",
+    credits_min: 1,
+    credits_max: 5,
+    level: "undergraduate",
+    prereq_text: null,
+    is_active: true,
+  },
+];
+
+const HISTORY: HistoryRow[] = [
+  {
+    id: "h1",
+    instructor_name_raw: "Wolfgang Amadeus Featherstonehaugh",
+    course_code_raw: "CSS 342",
+    academic_year: "2025-26",
+    quarter: "autumn",
+    section_letter: "A",
+    days: [1, 3],
+    start_time: "08:45:00",
+    end_time: "10:45:00",
+    room_label: "DISC 061",
+    enrollment: 58,
+    enrollment_cap: 60,
+  },
+  {
+    id: "h2",
+    instructor_name_raw: "Bo Li",
+    course_code_raw: "CSS 497",
+    academic_year: "2025-26",
+    quarter: "spring",
+    section_letter: null,
+    days: null,
+    start_time: null,
+    end_time: null,
+    room_label: null,
+    enrollment: null,
+    enrollment_cap: null,
+  },
+];
+
+const INSTRUCTOR_ROWS: InstructorRow[] = [
+  {
+    id: "i1",
+    full_name: "Wolfgang Amadeus Featherstonehaugh",
+    email: "wolfgang@uw.edu",
+    rank: "Associate Teaching Professor",
+    category: "full_time",
+    is_active: true,
+    base_annual_courses: 8,
+    max_courses_per_quarter: 3,
+  },
+  {
+    id: "i3",
+    full_name: "Mina Abdelrahman-Tsai",
+    email: null,
+    rank: null,
+    category: "affiliate",
+    is_active: true,
+    base_annual_courses: null,
+    max_courses_per_quarter: null,
+  },
+];
+
+const LOAD_BY = new Map<string, LoadTarget>([
+  [
+    "i1",
+    {
+      instructor_id: "i1",
+      full_name: "Wolfgang Amadeus Featherstonehaugh",
+      category: "full_time",
+      academic_year_id: "y1",
+      academic_year: "2026-27",
+      base_annual_courses: 8,
+      released_courses: 2,
+      effective_target: 6,
+    },
+  ],
+]);
+
+const RESPONSES: ResponseRow[] = [
+  {
+    instructor_id: "i1",
+    full_name: "Wolfgang Amadeus Featherstonehaugh",
+    email: "wolfgang@uw.edu",
+    category: "full_time",
+    status: "submitted",
+    submitted_at: "2026-04-02T18:20:00Z",
+    course_count: 14,
+  },
+  {
+    instructor_id: "i3",
+    full_name: "Mina Abdelrahman-Tsai",
+    email: null,
+    category: "affiliate",
+    status: "not_started",
+    submitted_at: null,
+    course_count: 0,
+  },
+];
+
+const ACCESS_SUMMARY: AccessSummaryRow[] = [
+  {
+    email: "wolfgang.featherstonehaugh@uw.edu",
+    full_name: "Wolfgang Amadeus Featherstonehaugh",
+    role: "coordinator",
+    first_seen: "2026-02-11T16:04:00Z",
+    last_seen: new Date(Date.now() - 42 * 60000).toISOString(),
+    visits: 37,
+  },
+  {
+    email: "bo@uw.edu",
+    full_name: null,
+    role: null,
+    first_seen: "2026-03-01T09:00:00Z",
+    last_seen: "2026-03-01T09:00:00Z",
+    visits: 1,
+  },
+];
+
+const ACCESS_EVENTS: AccessLogRow[] = [
+  {
+    id: 91,
+    email: "wolfgang.featherstonehaugh@uw.edu",
+    event: "sign_in",
+    provider: "azure",
+    occurred_at: "2026-09-26T08:02:00Z",
+    user_id: "u1",
+  },
+  {
+    id: 90,
+    email: "someone.who.left@uw.edu",
+    event: "sign_up",
+    provider: null,
+    occurred_at: "2026-09-01T12:00:00Z",
+    user_id: null,
+  },
+];
+
+/** The toolbar with every kind of control the five pages put in one. */
+function ToolbarScene() {
+  const [on, setOn] = useState(false);
+  const [q, setQ] = useState("");
+  return (
+    <div className="p-4">
+      <Toolbar title="Teaching history" count="1,284 sections">
+        <select aria-label="Quarter" className={FIELD}>
+          <option>All quarters</option>
+          <option>Autumn</option>
+        </select>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          aria-label="Filter history by course or instructor"
+          placeholder="Filter by course or instructor…"
+          className={SEARCH_FIELD}
+        />
+        <Toggle pressed={on} onChange={setOn}>
+          Include inactive
+        </Toggle>
+      </Toolbar>
+      <p className="text-sm text-slate-600">
+        The table goes here.
+      </p>
+    </div>
+  );
+}
+
 export const SCENES: Record<string, () => JSX.Element> = {
   toasts: () => <ToastScene inset={false} />,
   "toasts-inset": () => <ToastScene inset />,
@@ -390,6 +604,71 @@ export const SCENES: Record<string, () => JSX.Element> = {
         />
       )}
     />
+  ),
+  toolbar: () => <ToolbarScene />,
+  "table-courses": () => (
+    <div className="p-4">
+      <DataTable<CourseRow>
+        rows={COURSES}
+        rowKey={(c) => c.id}
+        columns={courseColumns}
+      />
+    </div>
+  ),
+  "table-history": () => (
+    <div className="p-4">
+      <DataTable<HistoryRow>
+        rows={HISTORY}
+        rowKey={(r) => r.id}
+        columns={historyColumns}
+      />
+    </div>
+  ),
+  "table-instructors": () => (
+    <div className="p-4">
+      <DataTable<InstructorRow>
+        rows={INSTRUCTOR_ROWS}
+        rowKey={(i) => i.id}
+        columns={instructorColumns({ loadBy: LOAD_BY, onReleases: () => {} })}
+      />
+    </div>
+  ),
+  "table-responses": () => (
+    <div className="p-4">
+      <DataTable<ResponseRow>
+        rows={RESPONSES}
+        rowKey={(r) => r.instructor_id}
+        columns={responseColumns}
+      />
+    </div>
+  ),
+  "table-access-people": () => (
+    <div className="p-4">
+      <DataTable<AccessSummaryRow>
+        rows={ACCESS_SUMMARY}
+        rowKey={(r) => r.email}
+        columns={accessSummaryColumns}
+      />
+    </div>
+  ),
+  "table-access-events": () => (
+    <div className="p-4">
+      <DataTable<AccessLogRow>
+        rows={ACCESS_EVENTS}
+        rowKey={(r) => String(r.id)}
+        columns={accessEventColumns}
+      />
+    </div>
+  ),
+  "table-empty": () => (
+    <div className="p-4">
+      <DataTable<CourseRow>
+        rows={[]}
+        rowKey={(c) => c.id}
+        empty="No courses match that filter."
+        columns={courseColumns}
+      />
+    </div>
   ),
   "conflict-panel": () => (
     <div className="p-4">

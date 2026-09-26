@@ -1,6 +1,31 @@
 import { useState } from 'react'
-import DataTable from '../components/DataTable'
+import DataTable, { type Column } from '../components/DataTable'
+import Toolbar, { SEARCH_FIELD } from '../components/Toolbar'
 import { useCourses, type CourseRow } from '../hooks/queries'
+
+/** Exported so the mobile check can put the real columns on a real phone. */
+export const courseColumns: Column<CourseRow>[] = [
+  {
+    key: 'code',
+    header: 'Code',
+    className: 'font-medium whitespace-nowrap',
+    card: 'title',
+    render: (c) => c.code,
+  },
+  { key: 'title', header: 'Title', card: 'subtitle', render: (c) => c.title },
+  {
+    key: 'credits',
+    header: 'Credits',
+    className: 'whitespace-nowrap',
+    render: (c) => (c.credits_min === c.credits_max ? c.credits_min : `${c.credits_min}–${c.credits_max}`),
+  },
+  {
+    key: 'prereq',
+    header: 'Prerequisites',
+    className: 'text-slate-500 text-xs',
+    render: (c) => c.prereq_text ?? '—',
+  },
+]
 
 export default function Courses() {
   const [q, setQ] = useState('')
@@ -14,38 +39,23 @@ export default function Courses() {
 
   return (
     <section>
-      <div className="mb-4 flex items-baseline gap-4">
-        <h1 className="text-xl font-semibold text-slate-900">Course catalog</h1>
-        <span className="text-sm text-slate-500">
-          {isLoading ? 'loading…' : `${rows.length} undergraduate courses`}
-        </span>
+      <Toolbar
+        title="Course catalog"
+        count={isLoading ? 'loading…' : `${rows.length} undergraduate courses`}
+      >
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          aria-label="Filter courses by code or title"
           placeholder="Filter by code or title…"
-          className="ml-auto w-64 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          className={SEARCH_FIELD}
         />
-      </div>
+      </Toolbar>
       <DataTable<CourseRow>
         rows={rows}
         rowKey={(c) => c.id}
         empty="No courses match that filter."
-        columns={[
-          { key: 'code', header: 'Code', className: 'font-medium whitespace-nowrap', render: (c) => c.code },
-          { key: 'title', header: 'Title', render: (c) => c.title },
-          {
-            key: 'credits',
-            header: 'Credits',
-            className: 'whitespace-nowrap',
-            render: (c) => (c.credits_min === c.credits_max ? c.credits_min : `${c.credits_min}–${c.credits_max}`),
-          },
-          {
-            key: 'prereq',
-            header: 'Prerequisites',
-            className: 'text-slate-500 text-xs',
-            render: (c) => c.prereq_text ?? '—',
-          },
-        ]}
+        columns={courseColumns}
       />
     </section>
   )

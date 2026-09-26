@@ -13,13 +13,93 @@ this file is the state of play.
 | 3 — Assignment board | done |
 | 4 — Reporting | done |
 | 5 — Solver, import, student checks | suggestions and student checks done; time-schedule import not started |
-| Polish | undo, toasts and focus management done; drag and drop, dark mode, PWA open |
+| Polish | undo, toasts, focus management and tables-as-cards done; drag and drop, dark mode, PWA open |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
 
 ---
+
+## 2026-09-26 (fifth run) — the five list pages on a phone
+
+**Built.**
+
+- **`DataTable` is a table on a laptop and a list of cards on a phone.** One
+  component, five pages — Courses, Instructors, History, Responses and Access —
+  and the honest version of a claim `docs/DESIGN.md` had been making for three
+  runs. A card is not a row with its borders removed, so each column declares
+  where it goes: `title`, `subtitle`, `badge`, `meta` (a labelled pair, the
+  default), `action` or `hidden`. `renderCard` lets a column say something
+  different on a card, which the access log needs: its heading is a name *or*
+  an address and the column beside it is the address, so someone with no name
+  on file got theirs twice.
+- **Two decisions taken from the content, not declared.** A value long enough
+  to wrap twice takes the whole card width instead of half — the prerequisite
+  paragraph next to "Credits 5" was a column of syllables. And a cell holding
+  only a placeholder is dropped: a table needs `—` to keep its columns lined
+  up, a card has no columns to line up, and "Room —, Enrolled —, Released —"
+  is five labels answering nothing. `src/lib/cards.ts` holds all of it as pure
+  functions; `useMediaQuery` picks the shape.
+- **`Toolbar`**, shared by those five page headers. Each had grown its own, and
+  each was a single non-wrapping flex row with a `w-64` search box pushed right
+  by `ml-auto` — at 375px, a page that scrolls sideways — holding selects and
+  inputs about 34px tall against a 44px floor. Instructors' "Include inactive"
+  checkbox, a 13px target, became a pill like the filters elsewhere.
+- **Eight new harness scenes**: the six real tables, the empty state, and the
+  toolbar. They import the columns *from the pages*, so a column added without
+  a thought for the phone fails the check rather than slipping past it.
+
+**Verified.** 236 unit tests (22 new in `cards.test.ts`), typecheck and build
+green. All 16 harness scenes clean at 375px. No database change this run, so no
+migration and no RLS run.
+
+The new assertions were checked for teeth by forcing the table back on at
+375px: six of the seven table scenes failed at once, the access log's at
+**1060px wide in a 375px viewport** — nearly three screens of sideways scroll,
+which is what a coordinator had been living with. Then the other direction,
+which the 375px check cannot see: at 1280px the table still renders (`1 table,
+0 cards`), and narrowing the window flips it live to cards. Shipping cards to a
+laptop would have been a regression invisible to every check here.
+
+**Learned.**
+
+- *Coverage found a bug in the first thing it looked at.* The toolbar scene
+  failed on its first run: the "1,284 sections" count, `text-slate-500` on the
+  page's own background, measures **4.49:1 against a 4.5 floor**. That text has
+  been in all five page headers for weeks. It passes on white, which is where
+  it was eyeballed, and fails on the background it actually sits on.
+- *`isBlankCell` had to look through elements to be worth anything.* The first
+  version compared strings, and the Instructors card still read "RELEASED —
+  TARGET —", because the page renders its dashes as
+  `<span className="text-slate-500">—</span>`. Following `props.children` fixes
+  it. The guard that matters: an element with *no* children is not blank — an
+  `<hr>`, an icon, a progress bar draws itself, and dropping those would be a
+  silent hole.
+- *Do not render both shapes and hide one.* `sm:hidden` is the usual trick and
+  it would have put twelve thousand table cells in the document to show six
+  thousand rows of teaching history. `matchMedia` costs a hook and renders one.
+- *A fixture is only useful if it is awkward.* The long names, the 78-character
+  course title, the instructor with no rank and no target, the person with no
+  name on file, the section with no room — every layout problem found this run
+  came from one of those rows and none from the tidy ones.
+
+**Deliberately not done.** Code-splitting: the bundle is 585 kB (163 kB
+gzipped) and Vite still warns — this is now the oldest item on the list, five
+runs unattended. Drag and drop. Export and print on Compare. Dark mode and the
+PWA.
+
+**Next run should pick up — in this order.**
+
+1. **Code-split the report, compare and student-check routes** off the main
+   chunk. It has been the next-but-one item for five runs; make it the next
+   one.
+2. **Drag and drop**, as an addition to tapping and never a replacement.
+   `@dnd-kit` is already a dependency.
+3. **Export and print on the Compare page**, matching the report's.
+4. **Dark mode.** The contrast check should be taught to run each scene twice,
+   which is most of the work of doing it safely.
+5. The installable PWA.
 
 ## 2026-09-26 (fourth run) — one voice for feedback, and a mobile check that runs
 

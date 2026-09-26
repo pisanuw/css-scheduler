@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useCycles, useResponses, type ResponseRow } from '../hooks/preferences'
-import DataTable from '../components/DataTable'
+import DataTable, { type Column } from '../components/DataTable'
+import Toolbar, { FIELD } from '../components/Toolbar'
 
 const STATUS_STYLE: Record<ResponseRow['status'], string> = {
   submitted: 'bg-emerald-100 text-emerald-800',
@@ -13,6 +14,46 @@ const STATUS_LABEL: Record<ResponseRow['status'], string> = {
   draft: 'In progress',
   not_started: 'Not started',
 }
+
+/** Exported so the mobile check can put the real columns on a real phone. */
+export const responseColumns: Column<ResponseRow>[] = [
+  {
+    key: 'name',
+    header: 'Instructor',
+    className: 'font-medium whitespace-nowrap',
+    card: 'title',
+    render: (r) => r.full_name,
+  },
+  {
+    key: 'email',
+    header: 'Email',
+    className: 'text-xs text-slate-500',
+    card: 'subtitle',
+    render: (r) => r.email ?? '—',
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    card: 'badge',
+    render: (r) => (
+      <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[r.status]}`}>
+        {STATUS_LABEL[r.status]}
+      </span>
+    ),
+  },
+  {
+    key: 'courses',
+    header: 'Courses rated',
+    className: 'text-center',
+    render: (r) => (r.course_count ? r.course_count : '—'),
+  },
+  {
+    key: 'when',
+    header: 'Submitted',
+    className: 'whitespace-nowrap text-slate-600',
+    render: (r) => (r.submitted_at ? new Date(r.submitted_at).toLocaleDateString() : '—'),
+  },
+]
 
 export default function Responses() {
   const cycles = useCycles()
@@ -43,12 +84,12 @@ export default function Responses() {
 
   return (
     <section>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold text-slate-900">Responses</h1>
+      <Toolbar title="Responses">
         <select
           value={effectiveCycle}
           onChange={(e) => setCycleId(e.target.value)}
-          className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          aria-label="Preference cycle"
+          className={FIELD}
         >
           {(cycles.data ?? []).map((c) => (
             <option key={c.id} value={c.id}>
@@ -56,7 +97,7 @@ export default function Responses() {
             </option>
           ))}
         </select>
-      </div>
+      </Toolbar>
 
       {total > 0 && (
         <div className="mb-4 rounded-lg bg-white p-5 ring-1 ring-slate-200">
@@ -109,41 +150,7 @@ export default function Responses() {
         rows={rows}
         rowKey={(r) => r.instructor_id}
         empty={responses.isLoading ? 'Loading…' : 'Nobody matches that filter.'}
-        columns={[
-          {
-            key: 'name',
-            header: 'Instructor',
-            className: 'font-medium whitespace-nowrap',
-            render: (r) => r.full_name,
-          },
-          {
-            key: 'status',
-            header: 'Status',
-            render: (r) => (
-              <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[r.status]}`}>
-                {STATUS_LABEL[r.status]}
-              </span>
-            ),
-          },
-          {
-            key: 'courses',
-            header: 'Courses rated',
-            className: 'text-center',
-            render: (r) => (r.course_count ? r.course_count : '—'),
-          },
-          {
-            key: 'when',
-            header: 'Submitted',
-            className: 'whitespace-nowrap text-slate-600',
-            render: (r) => (r.submitted_at ? new Date(r.submitted_at).toLocaleDateString() : '—'),
-          },
-          {
-            key: 'email',
-            header: 'Email',
-            className: 'text-xs text-slate-500',
-            render: (r) => r.email ?? '—',
-          },
-        ]}
+        columns={responseColumns}
       />
     </section>
   )

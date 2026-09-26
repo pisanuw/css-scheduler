@@ -180,11 +180,32 @@ designed at, not one it degrades to. Three rules hold everywhere:
   that unassigns somebody, the severity filters on the conflict panel, the Undo
   beside a line of the history.
 
-The load panel renders one card per instructor below `sm` and a table above it,
-with the same numbers in both. `DataTable`, which backs Courses, Instructors,
-History, Responses and Access, is **still a sideways-scrolling box** rather than
-cards — no horizontal *page* scroll, but not the card treatment either. That is
-the largest remaining gap against the rule above.
+**Tables become cards below `sm`.** The load panel has always done this.
+`DataTable` — which backs Courses, Instructors, History, Responses and Access —
+now does too, so the rule finally holds everywhere rather than in one panel.
+Above `sm` it is the same table it always was.
+
+A card is not a table row with its borders removed, so each column says where
+it goes: `title`, `subtitle`, `badge`, `meta` (a labelled pair, the default),
+`action` (a button, at the foot) or `hidden`. Unannotated columns still work —
+the first is the heading and the rest are pairs — because a column added
+without a thought for the phone should land somewhere sensible rather than
+vanish. Two further decisions are taken from the content rather than declared:
+a value long enough to wrap twice takes the whole width of the card instead of
+half, and a cell holding only a placeholder (`—`, styled or bare) is left off
+altogether, because a table needs a dash to keep its columns lined up and a
+card has no columns to line up. `src/lib/cards.ts` holds all of that as pure
+functions, tested without a browser; `src/components/DataTable.tsx` renders it.
+
+Which shape appears is decided by `matchMedia`, not by rendering both and
+hiding one: the teaching history is over a thousand rows and six columns, and
+building both shapes of it would put twelve thousand cells in the document to
+show six thousand.
+
+The five list pages share `Toolbar` for their heading and filters. Each had
+grown its own, and each was a single non-wrapping row with a 256px search box
+pushed right — which at 375px is a page that scrolls sideways — holding
+controls about 34px tall against a 44px floor.
 
 The navigation is a drawer below `md`, because thirteen destinations do not fit
 across a phone and a sideways-scrolling nav bar was worse than a menu. A skip
@@ -194,8 +215,9 @@ destination to reach the page.
 ### Checking it, rather than believing it
 
 `npm run check:mobile` builds `harness/`, a second Vite entry that renders each
-over-the-page component with fixture data and no Supabase at all, then drives
-every scene in a 375px headless Chromium and asserts:
+over-the-page component — and each list page's table — with fixture data and no
+Supabase at all, then drives every scene in a 375px headless Chromium and
+asserts:
 
 - the document does not scroll sideways, and nothing sticks out past the
   viewport;
@@ -216,6 +238,13 @@ Three runs in a row rebuilt this scaffolding by hand in a temporary directory
 and threw it away. The first time it ran as committed code it found five
 controls between 24px and 42px and three pieces of text below AA, in pages
 that had each been "checked at 375px" by eye.
+
+The table scenes import their columns from the pages themselves rather than
+copying them, so a column added without a thought for the phone fails the check
+rather than slipping past it. That is why `harness/vite.config.ts` defines a
+throwaway `VITE_SUPABASE_URL` — importing a page reaches `src/lib/supabase.ts`,
+which refuses to load without one. A client is constructed and never used; no
+request is ever made.
 
 ## Feedback and focus
 

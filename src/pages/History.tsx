@@ -1,7 +1,47 @@
 import { useMemo, useState } from 'react'
-import DataTable from '../components/DataTable'
+import DataTable, { type Column } from '../components/DataTable'
+import Toolbar, { FIELD, SEARCH_FIELD } from '../components/Toolbar'
 import { useTeachingHistory, type HistoryRow } from '../hooks/queries'
 import { formatDays, formatTimeRange, titleCase } from '../lib/format'
+
+/** Exported so the mobile check can put the real columns on a real phone. */
+export const historyColumns: Column<HistoryRow>[] = [
+  {
+    key: 'term',
+    header: 'Quarter',
+    className: 'whitespace-nowrap text-slate-600',
+    render: (r) => `${titleCase(r.quarter)} ${r.academic_year}`,
+  },
+  {
+    key: 'course',
+    header: 'Course',
+    className: 'font-medium whitespace-nowrap',
+    card: 'title',
+    render: (r) => `${r.course_code_raw} ${r.section_letter ?? ''}`.trim(),
+  },
+  {
+    key: 'instructor',
+    header: 'Instructor',
+    card: 'subtitle',
+    render: (r) => r.instructor_name_raw,
+  },
+  {
+    key: 'when',
+    header: 'Meets',
+    className: 'whitespace-nowrap text-slate-600',
+    render: (r) =>
+      r.start_time
+        ? `${formatDays(r.days)} ${formatTimeRange(r.start_time, r.end_time)}`
+        : 'to be arranged',
+  },
+  { key: 'room', header: 'Room', className: 'text-slate-500', render: (r) => r.room_label ?? '—' },
+  {
+    key: 'enrl',
+    header: 'Enrolled',
+    className: 'whitespace-nowrap text-center text-slate-600',
+    render: (r) => (r.enrollment == null ? '—' : `${r.enrollment}/${r.enrollment_cap ?? '?'}`),
+  },
+]
 
 export default function History() {
   const [q, setQ] = useState('')
@@ -23,15 +63,15 @@ export default function History() {
 
   return (
     <section>
-      <div className="mb-4 flex items-baseline gap-3">
-        <h1 className="text-xl font-semibold text-slate-900">Teaching history</h1>
-        <span className="text-sm text-slate-500">
-          {isLoading ? 'loading…' : `${rows.length} sections`}
-        </span>
+      <Toolbar
+        title="Teaching history"
+        count={isLoading ? 'loading…' : `${rows.length} sections`}
+      >
         <select
           value={quarter}
           onChange={(e) => setQuarter(e.target.value)}
-          className="ml-auto rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          aria-label="Quarter"
+          className={FIELD}
         >
           <option value="all">All quarters</option>
           {quarters.map((qq) => (
@@ -43,45 +83,16 @@ export default function History() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          aria-label="Filter history by course or instructor"
           placeholder="Filter by course or instructor…"
-          className="w-64 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          className={SEARCH_FIELD}
         />
-      </div>
+      </Toolbar>
       <DataTable<HistoryRow>
         rows={rows}
         rowKey={(r) => r.id}
         empty="No sections match that filter."
-        columns={[
-          {
-            key: 'term',
-            header: 'Quarter',
-            className: 'whitespace-nowrap text-slate-600',
-            render: (r) => `${titleCase(r.quarter)} ${r.academic_year}`,
-          },
-          {
-            key: 'course',
-            header: 'Course',
-            className: 'font-medium whitespace-nowrap',
-            render: (r) => `${r.course_code_raw} ${r.section_letter ?? ''}`.trim(),
-          },
-          { key: 'instructor', header: 'Instructor', render: (r) => r.instructor_name_raw },
-          {
-            key: 'when',
-            header: 'Meets',
-            className: 'whitespace-nowrap text-slate-600',
-            render: (r) =>
-              r.start_time
-                ? `${formatDays(r.days)} ${formatTimeRange(r.start_time, r.end_time)}`
-                : 'to be arranged',
-          },
-          { key: 'room', header: 'Room', className: 'text-slate-500', render: (r) => r.room_label ?? '—' },
-          {
-            key: 'enrl',
-            header: 'Enrolled',
-            className: 'whitespace-nowrap text-center text-slate-600',
-            render: (r) => (r.enrollment == null ? '—' : `${r.enrollment}/${r.enrollment_cap ?? '?'}`),
-          },
-        ]}
+        columns={historyColumns}
       />
     </section>
   )
