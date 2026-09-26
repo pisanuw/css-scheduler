@@ -13,13 +13,111 @@ this file is the state of play.
 | 3 — Assignment board | done |
 | 4 — Reporting | done (export and print on both the report and the comparison) |
 | 5 — Solver, import, student checks | suggestions and student checks done; time-schedule import not started |
-| Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop and print output done; dark mode, PWA open |
+| Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output and dark mode done; PWA open |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
 
 ---
+
+## 2026-09-26 (ninth run) — the app after dark
+
+**Built.** Dark mode, as a three-state setting: follow the device, light, dark.
+One attribute on `<html>` drives it, written before the first paint by an
+inline script in `index.html` and thereafter by React.
+
+- **The palette moves, not the markup.** Tailwind 4 compiles every colour
+  utility to `var(--color-…)`, so re-pointing those variables under
+  `:root[data-theme="dark"]` moves the whole app at once. The alternative — a
+  `dark:` variant on each of two thousand class names — is a migration that is
+  never finished and that every new page has to remember. Six hundred existing
+  class names were themed without being touched.
+- **`src/lib/theme.ts`** holds the rules as pure functions (resolve, cycle,
+  label, read, write) with storage wrapped in `try`/`catch` throughout; 11 new
+  tests. **`useTheme`** owns the state in `App`, above every early return,
+  because the sign-in page has no header to put a button in and still has to
+  follow a phone that turns dark at sunset. **`ThemeToggle`** is one button in
+  the header: sun or moon for what you are looking at, a dot underneath when
+  that is the device's doing rather than a choice.
+
+**Learned — the four decisions that were not just values.**
+
+- *The neutral ramp inverts; the accent ramps must not.* Inverting slate keeps
+  every light-on-dark pairing in the app a pairing, untouched. But red, amber,
+  emerald and sky are not ramps in practice — they are three jobs sharing a
+  scale: 50–300 tinted backgrounds, 400–600 dots and filled buttons that keep
+  white text, 700–900 the text that sits on the tints. Inverting those would
+  have turned the Delete button pale pink under a finger, because `red-700` is
+  both its hover state and the colour of every error message.
+- *Some colours are roles.* `surface`, `canvas`, `ink`/`onink`, `danger`.
+  `bg-white` could not become the dark surface, because white also has to stay
+  white on the purple header and on a red button. The brand purple splits the
+  same way: `--uw-purple` fills, `--uw-purple-ink` is the same brand as text
+  and goes light.
+- *Paper has no dark mode.* The dark block sits inside `@media screen`. The
+  print stylesheet needs `print-color-adjust: exact` or badges come out as
+  empty outlines — which means a dark theme would have been faithfully printed
+  as a page of near-black ink, in a meeting, on the one output this app exists
+  to produce.
+- *A theme flip animates.* Half these surfaces carry `transition-colors`, so
+  measuring immediately after the flip reads a blend of two themes: the first
+  dark pass reported a navy card as daylight-white and sent me looking for a
+  CSS specificity bug that did not exist. The check waits 300ms.
+
+**Checked rather than believed.** Four new assertions, each made to fail on
+purpose before being trusted:
+
+- every mobile-check scene is measured **twice, once per theme** — it found
+  three real failures on its first run;
+- **the printed page is asserted identical from either theme**, comparing every
+  element's background, text and border colour under `media: print`. Not "the
+  printout is light": the brand purple on a button is legitimately dark, in
+  both. This caught the one `dark:` variant in the app, on the gold badge,
+  printing differently depending on the theme it was printed from — it uses a
+  pinned `--color-slate-950` now, and the app has no `dark:` variants at all;
+- **the routing check blocks the app's JavaScript** before reading the
+  attribute. Module scripts are deferred, so `DOMContentLoaded` has already
+  waited for React: the first version of this check passed with the inline
+  script deleted, which is exactly the regression it exists to catch;
+- **a sweep of all thirteen real pages in the dark** for the three light
+  surfaces the stock palette paints, which is what a stray `bg-white` written
+  after today would look like.
+
+**Verified.** 329 unit tests (11 new), typecheck and build green, 27 harness
+scenes clean at 375px in **both** themes, the drag check clean, and the routing
+check clean including the two new sections.
+
+**Deployed and verified.** Commit `9b67d1f`; Netlify deploy published in
+seconds and **all 28 assets are byte-for-byte identical** to a local build made
+with the `sb_publishable_…` key recovered from the served entry chunk. The
+served `index.html` carries the inline theme script and the served CSS carries
+the `[data-theme=dark]` block, so the new code is the code being served.
+
+*Two traps met on the way.* The first fetch after the push returned the
+previous deploy's HTML and the second, seconds later, returned the new one —
+the CDN, not a failure; check `state` and `published_at` before believing a
+stale hash. And driving the **live** site with Playwright from this sandbox
+fails with `ERR_CERT_AUTHORITY_INVALID`, because Chromium does not trust the
+egress proxy's CA. That is not worth working around: `check:routes` drives the
+identical bytes locally, and they are identical by `cmp`.
+
+**Deliberately not done.** The installable PWA. Trimming Supabase's realtime
+and storage clients. A `prefers-contrast` or forced-colors pass.
+
+**Next run should pick up — in this order.**
+
+1. **The installable PWA.** The last item on the polish list, and the chunk
+   split already did the hard part: a service worker can precache the shell and
+   fetch pages on demand. Worth a `check:` script of its own — an offline
+   second load that still renders.
+2. **Trim Supabase's realtime and storage clients**, which look unused and are
+   227 kB of the 408 kB a signed-out visitor downloads. The largest remaining
+   byte win, and the first that needs care rather than configuration.
+3. **Decide about `package-lock.json`**, and about `zod`, still a dependency
+   and still imported nowhere.
+4. **Importing a quarter from a pasted UW time schedule** — the one part of
+   iteration 5 still unbuilt, and the only thing left in the original plan.
 
 ## 2026-09-26 (eighth run) — the comparison leaves the screen
 

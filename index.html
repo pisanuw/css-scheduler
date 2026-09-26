@@ -7,7 +7,7 @@
     <title>CSS Scheduler</title>
     <!--
       The theme, before the first paint. React resolves this properly in
-      ThemeToggle, but it arrives a chunk and a render later — long enough for
+      `useTheme`, owned by App, but it arrives a chunk and a render later — long enough for
       a white page to flash at someone who asked for a dark one, which is the
       one moment dark mode is meant to spare them. Same key, same rules as
       `src/lib/theme.ts`; keep the two in step.
