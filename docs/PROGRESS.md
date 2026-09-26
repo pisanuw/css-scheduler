@@ -89,6 +89,22 @@ queueing assignment changes made with no connection would need conflict
 resolution that the coordinator, not the app, should be doing. Push
 notifications.
 
+**Deployed and verified.** Commits `14c426a` and `462a6ad`. All 28 assets and
+`sw.js` are **byte-for-byte identical** to a local build made with the
+`sb_publishable_…` key recovered from the served entry chunk, and
+`npm run check:deployed` passes against the live site.
+
+*The trap this run added a check for.* The first deploy shipped a correct
+manifest that Netlify served as `application/octet-stream`, which is not a type
+a browser reads a manifest from — so the app was not installable, and every
+local check passed. Nothing in the repository could see it, because everything
+else here checks bytes a build produced rather than what a server says about
+them. `npm run check:deployed` now asks the server directly: the worker's
+content type and cacheability, every file its precache list promises,
+the manifest's type, every icon's real pixel size, and the SPA fallback. It
+found the problem on its first run; `netlify.toml` pins the type, and the
+re-deploy passes.
+
 **Next run should pick up — in this order.**
 
 1. **Trim Supabase's realtime and storage clients**, 227 kB of the 408 kB a
