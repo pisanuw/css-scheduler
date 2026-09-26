@@ -1,0 +1,27 @@
+-- ============================================================================
+-- Close a gap the Supabase linter found: log_access() was callable by `anon`.
+--
+-- 20260925000300_harden.sql revokes EXECUTE from public on every function that
+-- existed at the time, trigger functions included — handle_new_user() and
+-- set_updated_at() are both in that list, so the project already treats this
+-- as the right thing to do for a trigger function.
+--
+-- log_access() arrived two migrations later, in 20260925000500_access_log.sql,
+-- and the revoke was never extended to it. CREATE FUNCTION grants EXECUTE to
+-- PUBLIC, so it has been reachable at /rest/v1/rpc/log_access ever since,
+-- without signing in.
+--
+-- The exposure is small: calling a trigger function outside a trigger fails
+-- immediately, because TG_OP and NEW are not set. It discloses nothing and
+-- changes nothing. It is revoked anyway, because "it happens to be harmless"
+-- is a worse reason to leave a SECURITY DEFINER function exposed than
+-- "nothing needs it".
+--
+-- A trigger fires its function regardless of the calling user's EXECUTE
+-- privilege, so the access_log triggers are unaffected. Note the trap in
+-- docs/DESIGN.md does not apply here: it concerns functions called from a
+-- policy expression, which are evaluated with the querying role's privileges.
+-- log_access() is not called from any policy.
+-- ============================================================================
+
+revoke execute on function log_access() from public, anon, authenticated;

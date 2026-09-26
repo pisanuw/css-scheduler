@@ -94,6 +94,15 @@ Drag and drop, and undo, are still open.
    is already a dependency.
 5. Then dark mode and the installable PWA.
 
+**One thing closed on the way past.** Supabase's security advisor, run after
+the migrations, showed `log_access()` callable by `anon` over
+`/rest/v1/rpc/log_access`. The harden migration revokes EXECUTE on every
+function that existed when it ran; `log_access()` arrived two migrations later
+and was missed. Nothing was exposed — a trigger function called outside a
+trigger fails immediately — but it is revoked now, and the advisor is back to
+exactly the findings `docs/DESIGN.md` records as deliberately accepted. Worth
+running `get_advisors` after any migration; it is cheap and it caught this.
+
 **Watch out for.** The bundle is 572 kB (158 kB gzipped) and Vite warns about
 it. Code-splitting the report, compare and student-check routes off the main
 chunk is the obvious fix and is now worth doing.

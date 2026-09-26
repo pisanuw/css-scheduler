@@ -286,6 +286,21 @@ Two Supabase linter warnings are left standing deliberately:
 - **`citext` is installed in the `public` schema.** Namespace hygiene only.
   Moving an extension that is in active use as a column type risks breaking
   type resolution for no security gain.
+- **Leaked password protection is disabled.** Sign-in is Google OAuth only;
+  this project never sees a password, so there is nothing for the check to
+  test.
+
+One finding that was *not* accepted, closed in
+`20260926000300_revoke_log_access_execute.sql`: `log_access()` was callable by
+`anon` at `/rest/v1/rpc/log_access`. The harden migration above revokes EXECUTE
+on every function that existed when it ran, trigger functions included, but
+`log_access()` arrived two migrations later and was missed. Calling a trigger
+function outside a trigger fails immediately, so nothing was exposed — it is
+revoked because "it happens to be harmless" is a worse reason to leave a
+`SECURITY DEFINER` function reachable than "nothing needs it". A trigger fires
+its function regardless of the caller's EXECUTE privilege, so the access log is
+unaffected; the trap above does not apply, because that concerns functions
+called from a policy expression and this one is not.
 
 ## Iterations
 
