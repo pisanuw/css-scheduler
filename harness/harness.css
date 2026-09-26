@@ -1,9 +1,15 @@
 /*
- * Tailwind 4 detects its sources from the Vite root, which for the harness is
- * `harness/` — so without this it generates utilities for the scene file and
- * none for the components the scenes actually render, and every assertion about
- * layout and touch size measures an unstyled page. Two hours of chasing
- * phantom overflows says it is worth a comment.
+ * The harness renders the app's own components, so it needs the app's own
+ * stylesheet — palette, custom variants and all. Importing it also inherits its
+ * `@source` list, which is `src/` and the app's `index.html`.
+ *
+ * What that list cannot know about is this directory: the scenes live here, and
+ * a scene's own wrapper classes are the ones the check measures layout with. So
+ * `harness/` is added on top. Getting this wrong is expensive rather than
+ * obvious — the page renders, unstyled, and every assertion about overflow and
+ * touch size passes or fails for reasons that have nothing to do with the
+ * component under test. Two hours of chasing phantom overflows says it is worth
+ * a comment.
  */
 @import "../src/index.css";
-@source "../src";
+@source ".";

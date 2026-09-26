@@ -1,10 +1,12 @@
-/// <reference types="vitest" />
-import { defineConfig } from 'vite'
+// `vitest/config` rather than `vite`: from Vitest 3 on, only its own
+// `defineConfig` types the `test` key below.
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
-import { pwa } from './vite-plugins/pwa'
-import { supabaseTrimAliases } from './vite-plugins/supabaseTrim'
+import { pwa } from './vite-plugins/pwa.ts'
+import { supabaseTrimAliases } from './vite-plugins/supabaseTrim.ts'
+import { envGuard } from './vite-plugins/envGuard.ts'
 
 /**
  * Three vendor chunks, because they change on different clocks.
@@ -39,6 +41,12 @@ export default defineConfig({
      * signal. The other eleven are cached the first time they are opened.
      */
     pwa({ swSrc: 'src/sw.ts', pages: ['Dashboard', 'Board'] }),
+    /*
+     * Only ever throws. Without these two values the bundler is entitled to
+     * drop the entire app shell and the build still reports success — see the
+     * plugin for why.
+     */
+    envGuard(['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY']),
   ],
   resolve: {
     alias: {

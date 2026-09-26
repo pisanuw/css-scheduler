@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
-import { supabaseTrimAliases } from '../vite-plugins/supabaseTrim'
+import { supabaseTrimAliases } from '../vite-plugins/supabaseTrim.ts'
 
 /**
  * The mobile check builds this, not the app: no Supabase, no router, no

@@ -53,10 +53,22 @@ npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
                   # reporting, suggestions, undo, drag rules, the toast queue,
                   # the focus trap, the theme rules, the route table, chunk
                   # recovery, the service worker's rules and the Supabase
-                  # clients this build leaves out (369 tests)
+                  # clients this build leaves out, and the offline rules
+                  # (446 tests)
 npm run typecheck
-npm run build
+npm run build        # needs the two Supabase values in the environment
+npm run build:check  # the same build with placeholders, for when you only
+                     # want to know that it builds
 ```
+
+**`npm run build` will not build without `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY`,** and that is deliberate. `src/lib/supabase.ts` throws
+at module scope when they are missing; Vite inlines them at build time, so
+without them the bundler can prove the whole app shell is unreachable and drop
+it — leaving a 2.5 kB entry, a build that reports success, and no application.
+`vite-plugins/envGuard.ts` turns that into an error that says so. Use
+`build:check` when you only want the gate, and real values when you are going
+to compare the output against what Netlify serves.
 
 Mobile and accessibility:
 
@@ -155,6 +167,13 @@ sign in.
 Upgrade deliberately (`npm update <package>`, then the checks above, then
 commit the lockfile with the result). `zod` used to be a dependency and was
 imported nowhere; it is gone.
+
+`npm audit` reports nothing. Getting there meant `react-router-dom` 7,
+`vite` 8, `vitest` 5 and `esbuild` 0.28 — see `docs/DESIGN.md` for what each was
+for and what the router upgrade cost. When a finding does appear, the thing to
+write down is whether it is *reachable from this app*, not its severity label:
+three runs recorded these seven as "all in dev tooling", which was wrong, and
+the entry that said so was the reason nobody looked again.
 
 ## Database
 

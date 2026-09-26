@@ -768,6 +768,103 @@ its function regardless of the caller's EXECUTE privilege, so the access log is
 unaffected; the trap above does not apply, because that concerns functions
 called from a policy expression and this one is not.
 
+### Dependency advisories
+
+`npm audit` reports nothing, and the way it got there is worth recording because
+the previous record was wrong. Three progress entries described the seven
+findings as "all in dev tooling", and that description is the reason nobody
+looked again: `react-router-dom` is a runtime dependency and two of the seven
+were against it.
+
+What matters about a finding here is whether it is reachable from this app, not
+its severity label. The four clusters, as they actually stood:
+
+- **`react-router-dom` — the only one that shipped to the coordinator.** The SSR
+  hydration finding needs `deserializeErrors()`, and there is no server
+  renderer. The open redirect needs a navigation target beginning with a
+  backslash; every target in this app is a template literal with a fixed
+  `/board/` or `/report/` prefix and a UUID after it, so an injected backslash
+  lands mid-path where the browser reads it as a separator. Not reachable — and
+  upgraded anyway, because that is a property of the call sites rather than of
+  the library. The first `?next=` parameter anybody adds to the sign-in flow
+  makes the target user-controlled, and nothing would connect that change to
+  this advisory. 6.x has no patched release, so 7.18 was the only fix.
+- **`vitest` — the critical one, and unreachable.** It needs the Vitest UI
+  server listening. `@vitest/ui` is not installed and the scripts are
+  `vitest run` and `vitest`. Upgraded regardless: a critical sitting in the
+  report is a critical nobody reads past.
+- **`vite` and `esbuild` — the dev server.** Both are about what a page can ask
+  a *running dev server* for. Nothing in production, and nothing in CI, which
+  runs `vite build`.
+- Everything else was transitive on those.
+
+The upgrades were `react-router-dom` 6.30 → 7.18, `vite` 5.4 → 8.3,
+`vitest` 2.1 → 5.0, `esbuild` 0.21 → 0.28 and `@vitejs/plugin-react` 4 → 6.
+Two things were measured rather than assumed:
+
+- **No runtime dependency moved.** Regenerating the lockfile re-resolves every
+  `^` range, which is exactly the hazard committing it was meant to prevent, so
+  the eight runtime packages were compared before and after by version. All
+  eight are identical — `@supabase/supabase-js` included.
+- **The first load got smaller.** React Router 7 costs +15,974 bytes raw and
+  +5,580 gzipped over 6.30. Rolldown, which Vite 8 builds with, more than paid
+  for it: the signed-out first load is 401,468 raw / 116,539 gzipped against
+  403,136 / 116,704 deployed — 165 bytes *less* on the wire, in one more request
+  (a 368-byte rolldown runtime chunk).
+
+### The build that succeeded with no app in it
+
+Vite 8 builds with Rolldown, and Rolldown eliminates dead code across modules in
+a way Rollup did not. `src/lib/supabase.ts` throws at module scope when
+`VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` is missing — deliberately, so a
+misconfigured deploy says so on the first paint rather than on the first query.
+Vite inlines both at build time, so in a build with neither set that condition
+folds to a constant and the module provably throws on import. Rolldown then
+proves everything the entry reaches afterwards is unreachable and drops all of
+it: a 2.5 kB entry holding a module-preload polyfill, every page chunk still
+present because those are dynamic imports, and a build that prints its usual
+table and reports success.
+
+`npm run build` is one of this project's three verification gates. Under Vite 5
+an env-less build produced a working bundle that failed loudly in the browser,
+which is why `scripts/route_check.mjs` has a message about it. Under Vite 8 the
+same command passes on a bundle with no application in it — the same class of
+failure as the Netlify deploy that printed success and shipped nothing, and the
+reason `npm run check:deployed` exists.
+
+So `vite-plugins/envGuard.ts` refuses the build. It checks the cause, in
+`configResolved`, rather than inspecting the bundle for the symptom: the obvious
+alternative — assert `src/App.tsx` is in the output — does not work, because
+`chunk.moduleIds` still lists a module whose code has been eliminated. It was
+written that way first and it passed. A size threshold would need revising
+whenever the shell grew and would not say what was wrong. `npm run build:check`
+supplies placeholders for when the gate is all that is wanted.
+
+### Tailwind scans prose
+
+Tailwind 4 detects its sources by scanning the project, and two directories here
+are full of things that look like class names and render nothing. `scripts/`
+holds Playwright selectors: `[data-drag-id="instructor:i4"]:visible` in the drag
+check was read as the candidate `instructor:i4"]:visible` and emitted into the
+*shipped* stylesheet as `.instructor\:i4\"\]\:visible:is()`, a rule matching
+nothing. Vite 5's CSS minifier warned about it on every build; Vite 8's does not,
+which is the worse of the two states — the noise went and the rule stayed.
+`docs/` is English prose, and `blur`, `italic`, `resize` and `grow` are all
+utility names.
+
+`@source not "../scripts/**"` was the first attempt and is the wrong tool:
+adding any directive changes what automatic detection considers, so excluding
+`scripts/` removed one junk rule and introduced three from the docs. The fix is
+to declare sources instead of subtracting from them — `@import "tailwindcss"
+source(none)` plus `@source "../src"` and `@source "../index.html"`, with
+`harness/` added by `harness/harness.css` for its own scenes. That removed
+thirteen rules and 1,159 bytes, all of it junk: the bare `.bg-white`,
+`.transition`, `.grow` and `.text-slate-400` that went are not used anywhere in
+`src/` — what is used there is `hover:bg-white/10`, `transition-colors` and
+`placeholder:text-slate-400`, which are different rules and are still generated.
+The 30 rendered scenes in `npm run check:mobile` are what would notice a utility
+this list had wrongly excluded.
+
 ## Iterations
 
 **1 — Foundation (done).** Schema, RLS, seeded catalog and roster, imported

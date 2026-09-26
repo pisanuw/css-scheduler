@@ -1,4 +1,26 @@
-@import "tailwindcss";
+/*
+ * Sources declared rather than detected.
+ *
+ * Tailwind 4 otherwise scans the whole project for things that look like class
+ * names, and two directories here are full of things that look like class names
+ * and render nothing. `scripts/` holds Playwright selectors:
+ * `[data-drag-id="instructor:i4"]:visible` in the drag check was read as the
+ * candidate `instructor:i4"]:visible` and emitted into the shipped stylesheet as
+ * `.instructor\:i4\"\]\:visible:is()`, a rule matching nothing — a Vite 5 build
+ * warning that Vite 8 stopped printing without fixing, which is the worse of the
+ * two states. `docs/` holds English prose, and words like `blur`, `italic` and
+ * `resize` are also utility names.
+ *
+ * `@source not` was the first attempt and is the wrong tool: adding any
+ * directive changes what automatic detection considers, so excluding `scripts/`
+ * removed one junk rule and introduced three from the docs. Naming the two
+ * places that actually render markup is exact, and the stylesheet is checked
+ * against 30 rendered scenes in `npm run check:mobile`, which is what would
+ * notice a utility this list had wrongly excluded.
+ */
+@import "tailwindcss" source(none);
+@source "../src";
+@source "../index.html";
 
 /*
  * Dark mode is a choice, not a media query alone: `data-theme` on <html> is

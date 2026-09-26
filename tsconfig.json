@@ -14,6 +14,13 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+    /*
+     * `vite.config.ts` imports its two plugins with a `.ts` extension, which
+     * Vite 8's native config loader requires and which this flag is what
+     * permits. Safe here because nothing in this project is emitted by tsc —
+     * Vite does the building, and `noEmit` above is what makes that true.
+     */
+    "allowImportingTsExtensions": true,
     "types": ["node", "vite/client", "vitest/globals"],
     "baseUrl": ".",
     "paths": { "@/*": ["./src/*"] }

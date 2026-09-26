@@ -3,6 +3,7 @@ dist/
 dist-harness/
 dist-routecheck/
 dist-pwacheck/
+dist-buildcheck/
 coverage/
 .env
 .env.status
