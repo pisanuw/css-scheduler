@@ -84,6 +84,23 @@ laptop would have been a regression invisible to every check here.
   name on file, the section with no room — every layout problem found this run
   came from one of those rows and none from the tidy ones.
 
+**Deployed and verified.** Commit `bc06307` is live as deploy
+`6ab782f2`, published 08:32:03 UTC, secret scan clean. The served
+`index-59lZ64Af.js` is **byte-for-byte identical** to a local build made with
+the key recovered from the served bundle, and `index-BoIMMdSA.css` matches too.
+Five strings only the new code contains are present in the served JavaScript
+(`Filter history by course or instructor`, `Preference cycle`, `Academic year`,
+`col-span-2`, `matchMedia`). The shipped bytes were then served locally and
+rendered at 375px: the sign-in card lays out correctly, its button is the
+full-width 44px one, no sideways scroll, console clean.
+
+One trap worth knowing: **the Netlify project API lags.** Queried a minute
+after the push it still named the *previous* deploy as current, while the site
+was already serving the new bundle. Trust the bytes — fetch the asset and
+compare it — and read the deploy record only to confirm which commit it came
+from. Believing that first response would have meant reporting a deploy that
+had not happened, or waiting for one that already had.
+
 **Deliberately not done.** Code-splitting: the bundle is 585 kB (163 kB
 gzipped) and Vite still warns — this is now the oldest item on the list, five
 runs unattended. Drag and drop. Export and print on Compare. Dark mode and the
