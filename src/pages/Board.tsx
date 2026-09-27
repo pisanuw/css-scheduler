@@ -108,7 +108,7 @@ export default function Board() {
 
   // Somebody else editing the same scenario is news, not a surprise: this
   // watches the change feed and brings the board up to date when it moves.
-  useLiveScenario(resolvedId)
+  useLiveScenario(resolvedId, { surface: 'board', named: true })
 
   const changes = useScenarioChanges(resolvedId)
   const saveSection = useSaveSection(resolvedId ?? '')

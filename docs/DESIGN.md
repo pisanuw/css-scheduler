@@ -193,6 +193,12 @@ coordinator could be told a slot was clear that somebody had filled ten minutes
 earlier. Not a stale screen: a wrong answer from the one part of the app whose
 whole job is to be right.
 
+**And the board is not the only page that reads a scenario.** `Report`,
+`Compare` and `StudentCheck` all build the same snapshot through
+`useScenarioSnapshot`, so all four go stale the same way — and on the report it
+is arguably worse, because the report is the page that gets *exported*. A CSV of
+last hour's answer leaves the building looking authoritative. All four watch.
+
 **The fix watches the change log rather than the board.** `scenario_changes` is
 already an append-only feed of every board write, written by trigger, carrying a
 `bigserial` id, the actor's address and a readable summary. `useLiveScenario`
@@ -214,7 +220,7 @@ Three alternatives were weighed and rejected:
   path to every write. The app's model is to report a conflict, not to refuse the
   keystroke; freshness serves that model and optimistic concurrency fights it.
 
-Four details are worth recording because each was a decision:
+Six details are worth recording because each was a decision:
 
 - **The first look is silent.** Opening a board adopts the newest id as the
   watermark without saying anything. A scenario with no history adopts `0` —
@@ -236,10 +242,32 @@ Four details are worth recording because each was a decision:
   somebody else's rather than as your own tap. That comparison is the one place
   a bug hid — folding "no address" into the equality test suppressed exactly the
   notice that most needed showing — and it has a test of its own.
+- **The sentence names the page, and the page has to say which it is.** The
+  notice is one sentence: what changed, then what has been brought up to date.
+  That second half is a lie on three of the four surfaces — a coordinator told
+  "the board has been brought up to date" while reading a report goes looking
+  for a board that is not on screen — so `SURFACE_TAIL` carries one clause per
+  page and `Viewer.surface` is a required field rather than a default. A page
+  that forgot to say what it was would otherwise claim to be the board. On
+  `Compare`, which shows two drafts at once, the notice also names *which*
+  draft moved: both sides are watched, because either one going stale makes the
+  difference wrong, and the second watcher stands down when both selects point
+  at the same scenario so one change is not announced twice in identical words.
+- **The student check tells a student *that* it changed, not *who* changed it.**
+  `/student-check` is the one page any authenticated user can open, and
+  `scenario_changes` is readable there — but only for the *official* scenario,
+  and only because a published schedule's history is not secret. That is not a
+  reason to push a colleague's address at a student in a toast, so `Viewer.named`
+  follows the role: coordinators get "mashhadi@uw.edu assigned Rob Nash — CSS
+  342 A", everybody else gets "1 change to the schedule". Required rather than
+  defaulted to true, because the safe answer is the one that should have to be
+  asked for. No policy change was needed for this and none was made; it is a
+  decision about what to *display*, which is not the same question as what may
+  be read.
 
 What this does **not** do is stop the double-booking happening. It makes it
-visible within twenty seconds, to both coordinators, with the conflict panel
-computed from data that is that fresh. Given that the app reports conflicts
+visible within twenty seconds, on every page that could report it wrongly, with
+the conflict panel computed from data that is that fresh. Given that the app reports conflicts
 rather than forbidding them, that is the whole of the fix; a constraint that
 refused the second write would be a different design, and a worse one.
 

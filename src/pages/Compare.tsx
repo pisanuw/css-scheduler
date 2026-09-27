@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useScenarioSnapshot } from '../hooks/useScenarioSnapshot'
+import { useLiveScenario } from '../hooks/useLiveScenario'
 import { useScenarios } from '../hooks/scheduling'
 import { countBySeverity, detectConflicts } from '../lib/conflicts'
 import {
@@ -152,6 +153,28 @@ export default function Compare() {
 
   const left = useScenarioSnapshot(leftId || undefined)
   const right = useScenarioSnapshot(rightId || undefined)
+
+  /*
+   * Both sides are watched, because either one going stale makes the
+   * *difference* wrong — and a comparison whose two halves are from different
+   * minutes is the one kind of wrong answer this page exists to avoid.
+   *
+   * Each notice names its own draft, since "2 changes by mashhadi@uw.edu" would
+   * otherwise send the coordinator to check whichever column they happened to
+   * be reading. And the second watcher stands down when both selects point at
+   * the same scenario — a state this page allows and tells the coordinator
+   * about — so that one change is not announced twice in identical words.
+   */
+  useLiveScenario(leftId || undefined, {
+    surface: 'comparison',
+    named: true,
+    where: left.scenario.data?.name,
+  })
+  useLiveScenario(rightId && rightId !== leftId ? rightId : undefined, {
+    surface: 'comparison',
+    named: true,
+    where: right.scenario.data?.name,
+  })
 
   const sides = useMemo(() => {
     if (!left.scenario.data || !right.scenario.data) return null

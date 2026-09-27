@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useScenarioSnapshot } from '../hooks/useScenarioSnapshot'
+import { useLiveScenario } from '../hooks/useLiveScenario'
 import { useScenarios } from '../hooks/scheduling'
 import { useCourses } from '../hooks/queries'
 import { meetingLabel } from '../lib/snapshot'
@@ -30,6 +31,15 @@ export default function StudentCheck() {
   }, [scenarioId, scenarios.data])
 
   const { scenario, snapshot, isLoading } = useScenarioSnapshot(resolvedId)
+
+  /*
+   * "Can I take these two?" has to be answered from the current schedule, so
+   * this page watches the feed like the board does — but `named` follows the
+   * role. A student may read the official scenario's history by policy; that is
+   * not a reason to put a coordinator's address in front of them, so for
+   * anybody else the notice says the schedule moved and not who moved it.
+   */
+  useLiveScenario(resolvedId, { surface: 'check', named: isCoordinator })
 
   const impossible = useMemo(
     () => (picked.length > 1 ? unavoidableStudentClashes(snapshot, picked) : []),

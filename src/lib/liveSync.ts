@@ -1,5 +1,10 @@
 /**
- * How a board that somebody else is also editing finds out.
+ * How a page reading a scenario somebody else is editing finds out.
+ *
+ * Four surfaces share one scenario snapshot — the board, the report, the
+ * comparison and the student check — so all four can be looking at an answer
+ * that stopped being true. This file decides *when* they are behind and *what
+ * to say about it*; `useLiveScenario` holds the watermark and does it.
  *
  * The gap this closes is worth stating precisely, because the obvious
  * description of it is wrong. It is *not* an undo problem — undo is
@@ -113,12 +118,69 @@ export function watchInterval(c: WatchConditions): number | false {
   return WATCH_MS
 }
 
+/**
+ * Which page is watching, and therefore what the notice says has moved.
+ *
+ * The board is not the only surface built from a scenario. `Report`, `Compare`
+ * and `StudentCheck` all derive from the same snapshot, so all four go stale
+ * the same way — but "the board has been brought up to date" is a lie on three
+ * of them, and a coordinator reading it on the report page would look for a
+ * board that is not on screen. The sentence needs a subject, so the surface is
+ * required input rather than a default: a page that forgot to say what it was
+ * would otherwise quietly claim to be the board.
+ */
+export type Surface = 'board' | 'report' | 'comparison' | 'check'
+
+/**
+ * The second half of the notice, per surface.
+ *
+ * "Run again" rather than "brought up to date" for the student check because
+ * that is what happens there: the page is an answer to a question about a set
+ * of courses, and the answer itself may now be different.
+ */
+export const SURFACE_TAIL: Record<Surface, string> = {
+  board: 'the board has been brought up to date.',
+  report: 'this report has been brought up to date.',
+  comparison: 'this comparison has been brought up to date.',
+  check: 'this check has been run again.',
+}
+
+/** Who is looking, and what at. Everything the sentence needs besides the feed. */
+export interface Viewer {
+  /**
+   * The address of the person looking, so the notice never reports somebody's
+   * own tap back to them. Undefined while the profile is still loading.
+   */
+  email: string | null | undefined
+  /** What is on their screen. */
+  surface: Surface
+  /**
+   * Whether this viewer may be told *who* changed it.
+   *
+   * True on the coordinator-only pages. False on the student check, which any
+   * authenticated user can open: `scenario_changes` is readable there by
+   * policy, but only because the official schedule's history is not secret —
+   * that is not a reason to push a colleague's address at a student in a toast.
+   * Required, not defaulted to true, because the safe answer is the one that
+   * should have to be asked for.
+   */
+  named: boolean
+  /**
+   * Which scenario moved, when the page shows more than one.
+   *
+   * Only `Compare` passes it. There the same sentence about two different
+   * drafts is two different pieces of news, and "2 changes by mashhadi@uw.edu"
+   * with no draft named would send the coordinator to check the wrong column.
+   */
+  where?: string
+}
+
 export interface SyncOutcome {
   /** The watermark to remember: the newest entry this look accounted for. */
   seen: number
-  /** Whether the cached board is now known to be behind the database. */
+  /** Whether the cached snapshot is now known to be behind the database. */
   refetch: boolean
-  /** What to tell the coordinator, or nothing when there is nobody to name. */
+  /** What to tell the viewer, or nothing when there is nothing that is news. */
   notice: string | null
 }
 
@@ -126,7 +188,7 @@ export interface SyncOutcome {
  * What a look at the feed means.
  *
  * `lastSeen` is null before the first look and a number after it, including
- * zero — the difference matters. A board opened on a scenario with no history
+ * zero — the difference matters. A page opened on a scenario with no history
  * adopts a watermark of 0 rather than staying null, so that the *first* change
  * anybody makes afterwards is news rather than being silently adopted as the
  * starting point.
@@ -138,9 +200,9 @@ export interface SyncOutcome {
 export function syncFeed(
   lastSeen: number | null,
   feed: WatchEntry[],
-  myEmail: string | null | undefined,
+  view: Viewer,
 ): SyncOutcome | null {
-  // The first look establishes where the board came in; it is not news.
+  // The first look establishes where the page came in; it is not news.
   if (lastSeen === null) {
     return { seen: feed[0]?.id ?? 0, refetch: false, notice: null }
   }
@@ -159,7 +221,7 @@ export function syncFeed(
      * optimisation that reintroduces the bug.
      */
     refetch: true,
-    notice: noticeFor(fresh, myEmail, fresh.length === WATCH_LIMIT),
+    notice: noticeFor(fresh, view, fresh.length === WATCH_LIMIT),
   }
 }
 
@@ -167,7 +229,7 @@ export function syncFeed(
 const SOMEBODY = 'Someone else'
 
 /**
- * The one sentence a coordinator gets when the board moves without them.
+ * The one sentence a viewer gets when the scenario moves without them.
  *
  * Their own entries are dropped first, so the notice never tells somebody
  * about their own tap — and if that leaves nothing, there is no notice at all.
@@ -180,11 +242,7 @@ const SOMEBODY = 'Someone else'
  * here there may be more behind them, and the wording says "at least" rather
  * than claiming a total it cannot know.
  */
-function noticeFor(
-  fresh: WatchEntry[],
-  myEmail: string | null | undefined,
-  truncated: boolean,
-): string | null {
+function noticeFor(fresh: WatchEntry[], view: Viewer, truncated: boolean): string | null {
   /*
    * A caller with no address owns nothing, so everything is somebody else's.
    * Written as a branch rather than folded into the comparison because folding
@@ -192,18 +250,31 @@ function noticeFor(
    * trigger-written entry with no actor read as this coordinator's own tap, and
    * suppressed the one notice that most needed showing.
    */
-  const mine = myEmail?.toLowerCase() ?? null
+  const mine = view.email?.toLowerCase() ?? null
   const theirs =
     mine === null ? fresh : fresh.filter((e) => e.actor_email?.toLowerCase() !== mine)
   if (theirs.length === 0) return null
 
-  const tail = 'the board has been brought up to date.'
+  const tail = SURFACE_TAIL[view.surface]
+  const atLeast = truncated ? 'At least ' : ''
+  // Named once, so the draft cannot be attached to one wording and not another.
+  const where = view.where ? ` in ${view.where}` : ''
+
+  /*
+   * No attribution for this viewer, so the count carries the whole sentence.
+   * The summary goes too, not just the address: naming the section without
+   * naming the actor reads as though the page itself did it, and a student
+   * looking at a schedule needs to know the answer moved, not what moved it.
+   */
+  if (!view.named) {
+    return `${atLeast}${plural(theirs.length, 'change')} to the schedule${where} — ${tail}`
+  }
 
   // One change can be named in full, which is far more use than a count:
   // "pisan@uw.edu assigned Rob Nash — CSS 342 A" is the thing to go and look at.
   if (theirs.length === 1 && !truncated) {
     const only = theirs[0]!
-    return `${only.actor_email ?? SOMEBODY} ${CHANGE_VERB[only.action]} ${only.summary} — ${tail}`
+    return `${only.actor_email ?? SOMEBODY} ${CHANGE_VERB[only.action]} ${only.summary}${where} — ${tail}`
   }
 
   const count = plural(theirs.length, 'change')
@@ -213,5 +284,5 @@ function noticeFor(
       ? (theirs[0]!.actor_email ?? SOMEBODY.toLowerCase())
       : plural(actors.size, 'other person', 'other people')
 
-  return `${truncated ? 'At least ' : ''}${count} by ${who} — ${tail}`
+  return `${atLeast}${count} by ${who}${where} — ${tail}`
 }

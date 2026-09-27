@@ -909,13 +909,15 @@ function UpdateOfferScene() {
 }
 
 /**
- * What the board says when somebody else has been editing it.
+ * What a page says when somebody else has been editing the scenario under it.
  *
  * Its own scene because these are the longest strings the toast stack carries,
- * and the long one is not the one you would guess: naming a single change spells
- * out an instructor and a section — "mashhadi@uw.edu assigned Rob Nash — CSS
- * 342 A — the board has been brought up to date." — which is what has to wrap
- * inside a 375px strip without pushing the dismiss button off the edge.
+ * and the long one is not the one you would guess. Naming a single change spells
+ * out an instructor and a section; on the comparison it also spells out which
+ * draft moved — "mashhadi@uw.edu assigned Rob Nash — CSS 342 A in Winter 2027
+ * (second draft) — this comparison has been brought up to date." — and that is
+ * the longest sentence this app can produce in a toast. It has to wrap inside a
+ * 375px strip without pushing the dismiss button off the edge.
  *
  * The text comes out of `syncFeed` rather than being typed here, so the scene
  * cannot drift from the sentence the app actually shows.
@@ -932,7 +934,7 @@ function LiveSyncScene() {
         actor_email: "mashhadi@uw.edu",
       },
     ],
-    "pisan@uw.edu",
+    { email: "pisan@uw.edu", surface: "board", named: true },
   );
   const burst = syncFeed(
     10,
@@ -942,7 +944,38 @@ function LiveSyncScene() {
       summary: "Rob Nash — CSS 342 A",
       actor_email: i % 2 ? "mashhadi@uw.edu" : "someone.else@uw.edu",
     })),
-    "pisan@uw.edu",
+    { email: "pisan@uw.edu", surface: "board", named: true },
+  );
+  /* The longest one the app can build: a named change *and* a draft name. */
+  const compared = syncFeed(
+    41,
+    [
+      {
+        id: 42,
+        action: "assigned",
+        summary: "Rob Nash — CSS 342 A",
+        actor_email: "mashhadi@uw.edu",
+      },
+    ],
+    {
+      email: "pisan@uw.edu",
+      surface: "comparison",
+      named: true,
+      where: "Winter 2027 (second draft)",
+    },
+  );
+  /* And the shortest, which the student check gives anybody who is not staff. */
+  const unnamed = syncFeed(
+    41,
+    [
+      {
+        id: 42,
+        action: "assigned",
+        summary: "Rob Nash — CSS 342 A",
+        actor_email: "mashhadi@uw.edu",
+      },
+    ],
+    { email: "student@uw.edu", surface: "check", named: false },
   );
   return (
     <div className="space-y-3 p-4">
@@ -955,10 +988,12 @@ function LiveSyncScene() {
         onClick={() => {
           if (one?.notice) toast.say(one.notice);
           if (burst?.notice) toast.say(burst.notice);
+          if (compared?.notice) toast.say(compared.notice);
+          if (unnamed?.notice) toast.say(unnamed.notice);
         }}
         className="flex min-h-11 items-center rounded-md border border-slate-300 bg-surface px-4 text-sm"
       >
-        Show both notices
+        Show every notice
       </button>
     </div>
   );

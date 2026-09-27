@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useScenarioSnapshot } from '../hooks/useScenarioSnapshot'
+import { useLiveScenario } from '../hooks/useLiveScenario'
 import { useScenarios } from '../hooks/scheduling'
 import { countBySeverity, detectConflicts } from '../lib/conflicts'
 import { meetingLabel } from '../lib/snapshot'
@@ -115,6 +116,14 @@ export default function Report() {
   }, [routeId, scenarios.data])
 
   const { scenario, snapshot, isLoading } = useScenarioSnapshot(resolvedId)
+
+  /*
+   * A report is the most dangerous page to let go stale, because it is the one
+   * that gets exported. Every number here comes from the same snapshot the
+   * board uses, so the same watcher applies — only the sentence differs.
+   * Coordinator-only by route, so the change is attributed.
+   */
+  useLiveScenario(resolvedId, { surface: 'report', named: true })
   const report = useMemo(() => buildReport(snapshot), [snapshot])
   const conflicts = useMemo(() => detectConflicts(snapshot), [snapshot])
   const counts = useMemo(() => countBySeverity(conflicts), [conflicts])
