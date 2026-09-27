@@ -59,6 +59,10 @@ import RouteFallback from "../src/components/RouteFallback";
 import RouteErrorNotice from "../src/components/RouteErrorNotice";
 import OfflineBanner from "../src/components/OfflineBanner";
 import EmptyState from "../src/components/EmptyState";
+import { parseTimeSchedule } from "../src/lib/timeSchedule";
+// The real Autumn 2026 listing, committed for the parser tests and read here as
+// text by Vite. A quarter's worth of real course codes, times, rooms and names.
+import AUT2026 from "../scripts/data/aut2026_timeschedule.txt?raw";
 import { bannerFor } from "../src/lib/online";
 import { syncFeed, WATCH_LIMIT } from "../src/lib/liveSync";
 import ShortcutHelp from "../src/components/board/ShortcutHelp";
@@ -1064,8 +1068,74 @@ function EmptyStateScene() {
   );
 }
 
+/**
+ * A quarter at the size the coordinator actually has.
+ *
+ * Every board scene until now used four or five cards. The real Autumn 2026 is
+ * **67**, and the coordinator's live scenario holds exactly that — so the list
+ * that has been measured at 375px has never been the list they scroll. The
+ * sections here are parsed from the committed listing rather than invented, so
+ * the course codes, section letters, meeting times, rooms and instructor names
+ * are all the real ones, including the longest.
+ *
+ * What this is looking for is what only length exposes: a row that fits alone
+ * and stops fitting in a column, a sticky header that eats the top of the list,
+ * and the plain question of whether 67 cards at 375px is usable at all.
+ */
+function RealSizeBoardScene() {
+  const parsed = parseTimeSchedule(AUT2026);
+  const sections = parsed.sections.map((p, i) => ({
+    id: `s${i}`,
+    termId: "au",
+    courseId: `c${p.number}`,
+    courseCode: p.courseCodeRaw,
+    sectionLetter: p.sectionLetter,
+    // A published meeting without both ends of its time is an arranged one.
+    meeting:
+      p.meetings[0]?.start && p.meetings[0].end
+        ? {
+            days: p.meetings[0].days ?? [],
+            start: p.meetings[0].start,
+            end: p.meetings[0].end,
+          }
+        : null,
+    modality: "in_person" as const,
+    roomId: p.meetings[0]?.roomLabel ?? null,
+    roomLabel: p.meetings[0]?.roomLabel ?? undefined,
+    instructorIds: p.instructorRaw ? [p.instructorRaw] : [],
+  }));
+  return (
+    <div className="bg-slate-50 p-4">
+      <p className="mb-3 text-sm text-slate-600">
+        Autumn 2026 — {sections.length} sections, as published.
+      </p>
+      <ul className="space-y-3">
+        {sections.map((section) => (
+          <SectionCard
+            key={section.id}
+            section={section}
+            /* The published name is `Last,First`; the board shows the roster's. */
+            instructorNames={section.instructorIds.map((raw) => ({
+              id: raw,
+              name: raw.split(",").reverse().join(" ").trim(),
+            }))}
+            worst={section.instructorIds.length === 0 ? "warning" : null}
+            conflictCount={section.instructorIds.length === 0 ? 1 : 0}
+            highlighted={false}
+            dragEnabled
+            onAssign={() => {}}
+            onUnassign={() => {}}
+            onEdit={() => {}}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export const SCENES: Record<string, () => JSX.Element> = {
   "empty-states": () => <EmptyStateScene />,
+  "board-real-size": () => <RealSizeBoardScene />,
   toasts: () => <ToastScene inset={false} />,
   "toast-live-sync": () => <LiveSyncScene />,
   "toasts-inset": () => <ToastScene inset />,
