@@ -59,6 +59,7 @@ import RouteFallback from "../src/components/RouteFallback";
 import RouteErrorNotice from "../src/components/RouteErrorNotice";
 import OfflineBanner from "../src/components/OfflineBanner";
 import { bannerFor } from "../src/lib/online";
+import { syncFeed, WATCH_LIMIT } from "../src/lib/liveSync";
 import ShortcutHelp from "../src/components/board/ShortcutHelp";
 import { activeShortcuts } from "../src/lib/shortcuts";
 import { useShortcuts } from "../src/hooks/useShortcuts";
@@ -907,8 +908,65 @@ function UpdateOfferScene() {
   );
 }
 
+/**
+ * What the board says when somebody else has been editing it.
+ *
+ * Its own scene because these are the longest strings the toast stack carries,
+ * and the long one is not the one you would guess: naming a single change spells
+ * out an instructor and a section — "mashhadi@uw.edu assigned Rob Nash — CSS
+ * 342 A — the board has been brought up to date." — which is what has to wrap
+ * inside a 375px strip without pushing the dismiss button off the edge.
+ *
+ * The text comes out of `syncFeed` rather than being typed here, so the scene
+ * cannot drift from the sentence the app actually shows.
+ */
+function LiveSyncScene() {
+  const toast = useToast();
+  const one = syncFeed(
+    41,
+    [
+      {
+        id: 42,
+        action: "assigned",
+        summary: "Rob Nash — CSS 342 A",
+        actor_email: "mashhadi@uw.edu",
+      },
+    ],
+    "pisan@uw.edu",
+  );
+  const burst = syncFeed(
+    10,
+    Array.from({ length: WATCH_LIMIT }, (_, i) => ({
+      id: 60 - i,
+      action: "assigned" as const,
+      summary: "Rob Nash — CSS 342 A",
+      actor_email: i % 2 ? "mashhadi@uw.edu" : "someone.else@uw.edu",
+    })),
+    "pisan@uw.edu",
+  );
+  return (
+    <div className="space-y-3 p-4">
+      <h1 className="text-xl font-semibold text-slate-900">
+        Somebody else edited this
+      </h1>
+      <button
+        data-seed
+        type="button"
+        onClick={() => {
+          if (one?.notice) toast.say(one.notice);
+          if (burst?.notice) toast.say(burst.notice);
+        }}
+        className="flex min-h-11 items-center rounded-md border border-slate-300 bg-surface px-4 text-sm"
+      >
+        Show both notices
+      </button>
+    </div>
+  );
+}
+
 export const SCENES: Record<string, () => JSX.Element> = {
   toasts: () => <ToastScene inset={false} />,
+  "toast-live-sync": () => <LiveSyncScene />,
   "toasts-inset": () => <ToastScene inset />,
   "toast-offer": () => <UpdateOfferScene />,
   dialog: () => <DialogScene />,

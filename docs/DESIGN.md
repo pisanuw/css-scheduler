@@ -166,6 +166,83 @@ anyway.
 Both files are pure functions over a snapshot, tested directly, for the same
 reason the conflict engine is: they re-run on every tap and every keystroke.
 
+### Two coordinators at once
+
+There are two coordinators, and nothing stops them opening the same scenario.
+What happens then was worked out rather than assumed, because the obvious
+descriptions of the problem are both wrong.
+
+**It is not an undo problem.** Undo is `undo_change` in the database, and
+`myLastUndoableIds` already scopes ⌘Z to the caller's own entries — see *Undo*
+below. Somebody else's later edit is theirs to take back.
+
+**It is not a lost update either.** Two coordinators assigning two different
+people write two different rows. `section_instructors` is unique only on
+`(section_id, instructor_id)`, verified against the live database, and there is
+no constraint and no trigger anywhere that refuses a double-booking: **both
+writes succeed.** Every time conflict in this app is a client-side reading of
+`src/lib/conflicts.ts`, and that is deliberate — the coordinator is sometimes
+right to create one knowingly, so the engine reports rather than forbids.
+
+Which is precisely what makes staleness serious here. `main.tsx` sets
+`refetchOnWindowFocus: false`, the board's queries carry a `staleTime`, there is
+no polling, and realtime is aliased out of the bundle by
+`vite-plugins/supabaseTrim.ts`. So the board refetched only in response to its
+*own* mutations — and the conflict panel is computed from that snapshot. A
+coordinator could be told a slot was clear that somebody had filled ten minutes
+earlier. Not a stale screen: a wrong answer from the one part of the app whose
+whole job is to be right.
+
+**The fix watches the change log rather than the board.** `scenario_changes` is
+already an append-only feed of every board write, written by trigger, carrying a
+`bigserial` id, the actor's address and a readable summary. `useLiveScenario`
+polls its newest six rows — three columns, a few hundred bytes — and invalidates
+the board only when the feed has moved past the watermark it holds. The rules
+are pure, in `src/lib/liveSync.ts`, and tested there.
+
+Three alternatives were weighed and rejected:
+
+- **Turning realtime back on.** The trim is worth about 40 kB on a phone and is
+  argued for under *The Supabase clients that are not in it*. Undoing that to
+  solve a problem a 300-byte poll solves would be a poor trade.
+- **Refetching the whole board on a timer.** Blind, and much larger: the board
+  is every section and every assignment in the year. The feed says *when* to
+  refetch, so the expensive request happens only when something changed.
+- **A version column on the scenario that a write checks.** It would reject the
+  harmless concurrent edit — two coordinators working on two different quarters,
+  which is the likely case — as readily as the harmful one, and add a failure
+  path to every write. The app's model is to report a conflict, not to refuse the
+  keystroke; freshness serves that model and optimistic concurrency fights it.
+
+Four details are worth recording because each was a decision:
+
+- **The first look is silent.** Opening a board adopts the newest id as the
+  watermark without saying anything. A scenario with no history adopts `0` —
+  not null, which means "not looked yet" — so the first change anybody makes
+  afterwards is still news.
+- **The watcher pauses while a write of its own is outstanding.** Assign,
+  unassign and move update the cached board optimistically. A refetch landing
+  between the optimistic insert and its settle would return rows without the
+  pending assignment, so the pill the coordinator had just placed would vanish
+  and reappear. The write's own `onSettled` invalidation brings the board up to
+  date anyway.
+- **The count is counted, never inferred from the ids.** `scenario_changes.id`
+  is one sequence across every scenario, so a gap of forty between two entries
+  on this board means thirty-nine changes on somebody else's. When the window is
+  full the notice says "at least", because it genuinely does not know.
+- **The notice names the person, and never the caller.** `actor_email` is
+  `citext`, so addresses are compared case-insensitively; a caller with no
+  address owns nothing, so a trigger-written entry with no actor reads as
+  somebody else's rather than as your own tap. That comparison is the one place
+  a bug hid — folding "no address" into the equality test suppressed exactly the
+  notice that most needed showing — and it has a test of its own.
+
+What this does **not** do is stop the double-booking happening. It makes it
+visible within twenty seconds, to both coordinators, with the conflict panel
+computed from data that is that fresh. Given that the app reports conflicts
+rather than forbidding them, that is the whole of the fix; a constraint that
+refused the second write would be a different design, and a worse one.
+
 ## Mobile
 
 The coordinator does this work on a phone, so 375px is the width the layout is

@@ -33,6 +33,7 @@ import {
   type DragSource,
 } from '../lib/dnd'
 import { useAuth } from '../lib/auth'
+import { useLiveScenario } from '../hooks/useLiveScenario'
 import { useAcademicYears } from '../hooks/preferences'
 import { suggestAssignments } from '../lib/suggest'
 import SectionCard from '../components/board/SectionCard'
@@ -104,6 +105,10 @@ export default function Board() {
   const { scenario, snapshot, board, terms, courses, instructors, timeSlots, rooms, cycleId } =
     useScenarioSnapshot(resolvedId)
   const years = useAcademicYears()
+
+  // Somebody else editing the same scenario is news, not a surprise: this
+  // watches the change feed and brings the board up to date when it moves.
+  useLiveScenario(resolvedId)
 
   const changes = useScenarioChanges(resolvedId)
   const saveSection = useSaveSection(resolvedId ?? '')

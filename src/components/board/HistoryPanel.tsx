@@ -1,14 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ChangeAction, ScenarioChange } from '../../hooks/scheduling'
 import { groupUndo, isUndoable } from '../../lib/undo'
-
-const ACTION_LABEL: Record<ChangeAction, string> = {
-  created: 'added',
-  updated: 'edited',
-  deleted: 'removed',
-  assigned: 'assigned',
-  unassigned: 'unassigned',
-}
+import { CHANGE_VERB } from '../../lib/liveSync'
 
 const ACTION_DOT: Record<ChangeAction, string> = {
   created: 'bg-emerald-500',
@@ -154,7 +147,7 @@ export default function HistoryPanel({
                   />
                   <div className="min-w-0 flex-1">
                     <p className={`text-sm ${g.undone ? 'text-slate-500' : 'text-slate-700'}`}>
-                      <span className="font-medium">{g.actor ?? 'Someone'}</span> {ACTION_LABEL[g.action]}{' '}
+                      <span className="font-medium">{g.actor ?? 'Someone'}</span> {CHANGE_VERB[g.action]}{' '}
                       {many ? (
                         <span className="font-medium">{g.entries.length} sections</span>
                       ) : (

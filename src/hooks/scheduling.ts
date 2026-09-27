@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { supabase } from '../lib/supabase'
 import type { AssignmentRow, SectionRow, SubmissionBundle, TimeSlotRow } from '../lib/snapshot'
 import type { HistoryRow, SeedPlan } from '../lib/seedPlan'
+import { WATCH_LIMIT, type WatchEntry } from '../lib/liveSync'
 
 function rows<T>({ data, error }: { data: T[] | null; error: { message: string } | null }): T[] {
   if (error) throw new Error(error.message)
@@ -568,3 +569,42 @@ export function useUndoChanges(scenarioId: string) {
     onSuccess: () => invalidateBoard(qc, scenarioId),
   })
 }
+
+/**
+ * The newest few change-log entries, polled while the board is open.
+ *
+ * Deliberately separate from `useScenarioChanges`, which fetches two hundred
+ * rows with every column for the history panel. That shape is right for a panel
+ * somebody opened and wrong for a request on a timer: this one is three columns
+ * and at most `WATCH_LIMIT` rows, a few hundred bytes, which is what makes it
+ * affordable to ask for on a phone every twenty seconds.
+ *
+ * Ordered by `id` alone rather than by `occurred_at` first, because the
+ * watermark that decides what is new is the id and nothing else. Two entries
+ * written inside the same millisecond order arbitrarily by timestamp and
+ * correctly by sequence.
+ *
+ * `staleTime: 0` overrides the app-wide default: a watcher whose answer is
+ * allowed to be thirty seconds old is not a watcher. `refetchOnWindowFocus`
+ * likewise — coming back to the tab after lunch should catch up at once rather
+ * than waiting out a tick.
+ *
+ * @param refetchInterval What `watchInterval` decided, or false to stop asking.
+ */
+export const useScenarioFeed = (scenarioId: string | undefined, refetchInterval: number | false) =>
+  useQuery<WatchEntry[]>({
+    enabled: !!scenarioId,
+    queryKey: ['scenario_feed', scenarioId],
+    staleTime: 0,
+    refetchInterval,
+    refetchOnWindowFocus: true,
+    queryFn: async () =>
+      rows<WatchEntry>(
+        await supabase
+          .from('scenario_changes')
+          .select('id, action, summary, actor_email')
+          .eq('scenario_id', scenarioId!)
+          .order('id', { ascending: false })
+          .limit(WATCH_LIMIT),
+      ),
+  })

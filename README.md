@@ -16,6 +16,12 @@ against the roster, meetings landed on the standard grid, and everything it
 could not place named rather than dropped. Nothing is written until you confirm
 it. See **Importing a quarter** in [docs/DESIGN.md](docs/DESIGN.md).
 
+Two coordinators can work on the same scenario at once. The board watches the
+change log and brings itself up to date when the other one writes something,
+naming who did what — so the conflict panel is never answering from a snapshot
+that is minutes old. See **Two coordinators at once** in
+[docs/DESIGN.md](docs/DESIGN.md).
+
 **Live:** https://uwb-css-scheduler.netlify.app — sign-in needs the Google
 OAuth client set up first (see **Setting up Google sign-in** below).
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useSyncExternalStore } from 'react'
 import { onlineManager, useMutationState } from '@tanstack/react-query'
 import {
   bannerFor,
@@ -54,5 +54,33 @@ export function useConnection(): { banner: Banner | null; waiting: number } {
   return useMemo(
     () => ({ banner: bannerFor(state, paused.length), waiting: paused.length }),
     [state, paused.length],
+  )
+}
+
+/**
+ * Whether there is a connection, as one boolean.
+ *
+ * `useConnection` answers a different question — what to *say* — and its state
+ * machine deliberately lingers in `restored` for four seconds after the
+ * connection is back. Anything deciding whether to make a request wants the
+ * raw answer, without that delay and without the banner's vocabulary.
+ *
+ * Read through `onlineManager` for the reason given above: it is what decides
+ * whether React Query runs a request, so a caller that asked `navigator`
+ * directly could poll while the query layer held everything.
+ *
+ * The server snapshot is `true`. Nothing here renders on a server, but the
+ * third argument is not optional and guessing "offline" would be the wrong
+ * guess for a hydration pass that has no `navigator` to consult.
+ */
+export function useIsOnline(): boolean {
+  const subscribe = useCallback(
+    (notify: () => void) => onlineManager.subscribe(() => notify()),
+    [],
+  )
+  return useSyncExternalStore(
+    subscribe,
+    () => onlineManager.isOnline(),
+    () => true,
   )
 }
