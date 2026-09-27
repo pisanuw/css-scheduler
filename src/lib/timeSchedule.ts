@@ -148,11 +148,33 @@ const SECTION_TYPES = new Set([...LECTURE_TYPES, 'QZ', 'LB', 'ST', 'CL', 'CO', '
  * with a nonsense course name as the only clue.
  *
  * So: a subject is **one** code word, or a campus letter and a code word —
- * which is all UW actually uses — and the number must be followed by a space or
- * the end of the line. `CSS 112, 132, OR 142.` is a sentence, not a heading,
- * and the comma is what says so.
+ * which is all UW actually uses — and `CSS 112, 132, OR 142.` is a sentence,
+ * not a heading, because the number is followed by a comma.
+ *
+ * That was still not enough, and the *same* note proved it from the other
+ * direction. Copied out of the browser rather than a PDF the note wraps
+ * elsewhere, and one line is nothing but:
+ *
+ *     OR 142
+ *
+ * `OR` is two capitals and `142` is three digits, so that read as a heading too
+ * — and it sits immediately above CSS 142's sections, so all four of them and
+ * two of CSS 143's went with it.
+ *
+ * The rule that covers both is the one the format actually follows: **a course
+ * heading names its course.** `CSS 101 DIGITAL THINKING` has a title after the
+ * number and every published heading does, because the title is a link to the
+ * catalogue. A line that is a code and a number and nothing else is prose that
+ * happened to wrap there. A heading with no title is now no heading, and the
+ * sections under it are reported as having none rather than being filed under a
+ * conjunction.
+ *
+ * What this still cannot catch is a note that wraps to `OR 142 REQUIRED`.
+ * Nothing in the two real listings does, and `resolveImport` is a second net:
+ * a phantom course is not in the catalogue, so its sections are named and
+ * dropped where the coordinator can see them rather than written.
  */
-const COURSE_HEADING = /^([A-Z]{2,6}|[A-Z]\s+[A-Z&]{2,6})\s*(\d{3})(?=\s|$)/
+const COURSE_HEADING = /^([A-Z]{2,6}|[A-Z]\s+[A-Z&]{2,6})\s*(\d{3})\s+(?=\S)/
 const SLN = /(?<![\d/])(\d{5})(?!\d)/
 const ROOM_WORDS = new Set(['ONLINE', 'REMOTE', 'TBD', 'TBA', 'ARR', '*'])
 

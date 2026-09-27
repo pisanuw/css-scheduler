@@ -1390,19 +1390,39 @@ repo already extracted.
 
 `src/lib/timeSchedule.aut2026.test.ts` is the other half: the **Autumn 2026 CSS
 listing as published**, supplied by the coordinator (the schedule is behind a
-NetID now, so nobody else could), extracted from
-`past-course-schedules/aut2026.pdf` into
-`scripts/data/aut2026_timeschedule.txt`. 75 sections, nothing ignored, 74 rows
-ready to import — and it found two bugs the round trip could not, because the
-round trip synthesises tidy headings and never writes a course note at all:
+NetID now, so nobody else could), and supplied *twice* — as
+`past-course-schedules/aut2026.pdf` and as the web page itself,
+`past-course-schedules/aut2026.html`, rendered to
+`scripts/data/aut2026_timeschedule.txt` and
+`scripts/data/aut2026_timeschedule_web.txt`.
+
+Two renderings of one quarter is not redundancy. The page is HTML 4 with
+unclosed `<pre>` tags and `&nbsp;` inside its headings, and its course notes
+wrap in different places — which is precisely where the bugs were. Both must
+parse to the same 75 sections, field for field, and that equality is the
+strongest assertion in the file: a parser that depends on how the page was
+copied is one that will fail on somebody's phone. 75 sections, nothing ignored,
+74 rows ready to import — and between them they found three bugs the round trip
+could not, because it synthesises tidy headings and never writes a note at all:
 
 - **A wrapped sentence read as a course heading.** Course notes are prose. One
   wrapped so a line began `OF CSS 112,`, the subject pattern accepted any two
   short words, and the two CSS 142 sections printed under that note were filed
   against a course called "OF CSS 112" — which no catalogue holds, so the import
   dropped them. A subject is now one code word, or a campus letter and a code
-  word, which is all UW uses; and a heading's number must be followed by a space
-  or the end of the line, so `CSS 112, 132, OR 142.` is a sentence.
+  word, which is all UW uses.
+- **The same note, copied from the web page, broke it a second way.** The page
+  wraps elsewhere than the PDF and leaves a line that is nothing but `OR 142` —
+  two capitals and three digits, directly above CSS 142's sections, so all four
+  of them and two of CSS 143's went to a subject called "OR". The rule that
+  covers both is the one the format follows: **a heading names its course.**
+  Every published heading carries a title, because the title is a link to the
+  catalogue. A code and a number with nothing after them is prose that wrapped,
+  and the sections below it are now reported as having no heading rather than
+  filed under a conjunction. What this still would not catch is a note wrapping
+  to `OR 142 REQUIRED`; nothing in either listing does, and `resolveImport` is a
+  second net, since a phantom course is not in the catalogue and its sections
+  are named and dropped where the coordinator can see them.
 - **A person called "to be arranged".** The phrase sits in the meeting-times
   column of every independent study. The parser noticed it — it already refused
   to read a day pattern from it — but never consumed the words, so they fell

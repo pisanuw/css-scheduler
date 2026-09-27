@@ -16,9 +16,17 @@
  * with two spaces, page furniture and column headers are interleaved, and every
  * course note is present as the wrapped prose it really is.
  *
- * It found two bugs on first contact, and both are pinned below. Neither would
- * have shown up in the round trip, because the round trip synthesises tidy
- * headings and never writes a course note at all.
+ * The coordinator then supplied the same quarter a second way — the web page
+ * itself, `past-course-schedules/aut2026.html`, rendered to text in
+ * `scripts/data/aut2026_timeschedule_web.txt`. That is not a spare copy. The
+ * page is HTML 4 with unclosed `<pre>` tags and `&nbsp;` inside its headings,
+ * and its course notes wrap in different places than the PDF's — which is
+ * exactly where the bugs were. Parsing both and requiring them to *agree* is
+ * the strongest check in this file: two independent renderings of one truth.
+ *
+ * Between them they found three bugs on first contact, all pinned below. None
+ * would have shown up in the round trip, because the round trip synthesises
+ * tidy headings and never writes a course note at all.
  */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
@@ -30,6 +38,22 @@ const LISTING = readFileSync(
 )
 
 const parsed = parseTimeSchedule(LISTING)
+
+/**
+ * The same quarter as the web page renders it.
+ *
+ * Honest about what this is: the text was produced by stripping the markup, not
+ * captured from a real clipboard, so the tabs and newlines between table cells
+ * are a reading of what a browser would put there. What is *not* a guess is
+ * where the lines break inside the course notes — those breaks are the page's
+ * own, and they are what broke the parser.
+ */
+const WEB = readFileSync(
+  new URL('../../scripts/data/aut2026_timeschedule_web.txt', import.meta.url),
+  'utf8',
+)
+
+const fromWeb = parseTimeSchedule(WEB)
 
 describe('Autumn 2026, as published', () => {
   it('reads every section and ignores no line', () => {
@@ -106,6 +130,51 @@ describe('Autumn 2026, as published', () => {
     const slns = parsed.sections.map((s) => s.sln)
     expect(slns.every((s) => s !== null && /^\d{5}$/.test(s))).toBe(true)
     expect(new Set(slns).size).toBe(slns.length)
+  })
+})
+
+describe('the same quarter, copied from the web page instead', () => {
+  it('reads the same 75 sections with nothing ignored', () => {
+    expect(fromWeb.sections).toHaveLength(75)
+    expect(fromWeb.ignored).toEqual([])
+  })
+
+  /*
+   * The third bug, and the one the PDF could not have found. The note wraps
+   * differently here, leaving a line that is nothing but `OR 142` — two
+   * capitals and three digits, immediately above CSS 142's sections. It read as
+   * a course heading for a subject called "OR", and took all four sections of
+   * CSS 142 and two of CSS 143 with it.
+   */
+  it('does not file six sections under a conjunction', () => {
+    const strange = fromWeb.sections.filter((s) => s.subject !== 'CSS')
+    expect(strange.map((s) => `${s.subject} ${s.number} ${s.sectionLetter}`)).toEqual([])
+    expect(fromWeb.sections.filter((s) => s.number === 142)).toHaveLength(4)
+    expect(fromWeb.sections.filter((s) => s.number === 143)).toHaveLength(2)
+  })
+
+  /*
+   * The real assertion. Two renderings of one published quarter — different
+   * whitespace, different line breaks, `&nbsp;` in one and plain spaces in the
+   * other — have to produce the same sections, field for field. A parser that
+   * depends on how the page was copied is a parser that will fail on somebody's
+   * phone.
+   */
+  it('agrees with the PDF on every field of every section', () => {
+    const shape = (s: (typeof parsed.sections)[number]) => ({
+      course: s.courseCodeRaw,
+      number: s.number,
+      letter: s.sectionLetter,
+      type: s.sectionType,
+      credits: s.credits,
+      instructor: s.instructorRaw,
+      cap: s.enrollmentCap,
+      meetings: s.meetings,
+    })
+    const byPdf = new Map(parsed.sections.map((s) => [s.sln!, shape(s)]))
+    const byWeb = new Map(fromWeb.sections.map((s) => [s.sln!, shape(s)]))
+    expect([...byWeb.keys()].sort()).toEqual([...byPdf.keys()].sort())
+    for (const [sln, want] of byPdf) expect({ sln, ...byWeb.get(sln) }).toEqual({ sln, ...want })
   })
 })
 

@@ -280,6 +280,39 @@ describe('lines from a real listing that used to be misread', () => {
     expect(parsed.sections[0]!.sectionLetter).toBe('C')
   })
 
+  /*
+   * The same note, copied from the web page instead of the PDF, wraps
+   * elsewhere and leaves a line that is only `OR 142`. Two capitals and three
+   * digits, sitting directly above the sections it then stole.
+   */
+  it('does not read a wrapped conjunction and a number as a course heading', () => {
+    const parsed = parseTimeSchedule(
+      [
+        'CSS 142 CMPT PROG I (NSc,RSN)',
+        'CREDIT CAN ONLY BE EARNED FOR ONE OF CSS 112, 132,',
+        'OR 142',
+        'Restr 13454 A 5 MW 115-315 UW1 050 Champion,Mia Closed 48/ 48 $30',
+      ].join('\n'),
+    )
+    expect(parsed.sections).toHaveLength(1)
+    expect(parsed.sections[0]!.subject).toBe('CSS')
+    expect(parsed.sections[0]!.number).toBe(142)
+  })
+
+  /*
+   * The rule that catches it: a heading names its course. A code and a number
+   * with nothing after them is prose that wrapped, so the sections below are
+   * reported as having no heading rather than filed under one that is wrong.
+   */
+  it('reports sections under a heading with no title rather than guessing', () => {
+    const parsed = parseTimeSchedule(
+      ['CSS 142', 'Restr 13454 A 5 MW 115-315 UW1 050 Champion,Mia Closed 48/ 48'].join('\n'),
+    )
+    expect(parsed.sections).toEqual([])
+    expect(parsed.ignored).toHaveLength(1)
+    expect(parsed.ignored[0]!.reason).toBe('no course heading above this line')
+  })
+
   /* The campus subjects UW really writes still have to work. */
   it('still reads a two-word subject when it is a real one', () => {
     const parsed = parseTimeSchedule(

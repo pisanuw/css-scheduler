@@ -1,0 +1,1104 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+COMPUTING & SOFTWARE SYSTEMS
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+     Search |
+    Directories |
+    Reference
+    Tools
+
+
+
+
+ 
+ 
+  
+  
+ 
+
+  
+
+
+
+
+UW Home > Discover UW > Student Guide > Time Schedule 
+
+
+
+
+
+
+
+
+Autumn Quarter 2026 Time Schedule
+
+COMPUTING & SOFTWARE SYSTEMS
+(UW BOTHELL                                                                                                                                          
+)	
+Enrollment and status (open/closed) were accurate when this page was created (12:03 am September 26, 2026) but may have changed since then.
+For current enrollment and status, check the Enrollment Summary.  (UW NetID required.)
+	
+
+
+	
+
+
+Help with the UW Time Schedule
+
+USE SEAT AVAILABILITY NOTIFICATION IF COURSE IS                                                                                                     
+
+FULL: HTTP://NOTIFY.UW.EDU.                                                                                                                         
+
+
+
+
+Enrl        Sect                                                                                             Crs
+Restr   SLN  ID Cred    Meeting Times     Bldg/Rm       Instructor                 Status Enrl/Lim   Grades  Fee Other
+ ?       ?       ?           ?             ?               ?                         ?       ?         ?      ?    ?	
+
+
+
+
+
+
+
+
+CSS   101  DIGITAL THINKING	(RSN)		
+
+
+
+Restr  13450 A  5       MW     115-315    UW1  040      Pyle,Douglas M.            Open      5/  30                J     
+                        STUDENTS MUST BRING LAPTOP TO                               
+                        CLASS.                                                      
+                        CSSE, COMPE, AND ACMPT MAJORS NOT                           
+                        PERMITTED TO REGISTER.                                      
+	
+
+
+
+
+
+
+
+CSS   107  PROG-ANIMATED STORY 	(A&H,RSN)		
+
+
+
+Restr  13451 A  5       MW     545-745P   UW1  040      Oliver,Dawn-Marie          Open     17/  48                      
+                        STUDENTS MUST BRING A LAPTOP                                
+                        TO CLASS                                                    
+	
+
+
+
+
+
+
+
+CSS   112  INTRO PROG SCI APP	(NSc,RSN)		
+
+
+
+Restr  13452 A  4       TTh    845-1045   UW1  020      Zade,Himanshu              Open     46/  48                      
+                        CREDIT CAN ONLY BE EARNED FOR ONE                           
+                        OF CSS 112, 132, OR 142.                                    
+	
+
+
+
+
+
+
+
+CSS   132  COMPT PROG ENGR I	(NSc,RSN)	Prerequisites	
+
+
+CONCURRENT REGISTRATION IN CSSSKL 132 REQUIRED.                                                                                                     
+
+CREDIT CAN ONLY BE EARNED FOR ONE OF CSS 112,                                                                                                       
+
+132, OR 142                                                                                                                                         
+
+                                                                                                                                                    
+
+
+Restr  13453 A  5       MW     1100-100   UW2  221      Khemani,Vishesh            Closed   30/  30           $30        
+                        THIS CLASS IS INTENDED FOR                                  
+                        EE MAJORS. OTHER INTERESTED                                 
+                        STUDENTS SHOULD DIRECT ANY                                  
+                        QUESTIONS TO ACADEMIC ADVISOR.                              
+                        ---                                                         
+                        CONCURRENT ENROLLMENT IN CSSSKL                             
+                        132 REQUIRED.                                               
+                        ---                                                         
+                        CREDIT CAN ONLY BE EARNED FOR                               
+                        ONE OF CSS 112, 132, OR 142.                                
+	
+
+
+
+
+
+
+
+CSS   142  CMPT PROG I	(NSc,RSN)		
+
+
+CONCURRENT REGISTRATION IN CSSSKL 142 REQUIRED.                                                                                                     
+
+CREDIT CAN ONLY BE EARNED FOR ONE OF CSS 112, 132,                                                                                                  
+
+OR 142                                                                                                                                              
+
+                                                                                                                                                    
+
+
+Restr  13454 A  5       MW     115-315    UW1  050      Champion,Mia               Closed   48/  48           $30        
+                        CONCURRENT ENROLLMENT IN CSSSKL 142                         
+                        REQUIRED. THE COURSE WILL BE                                
+                        DROPPED FROM YOUR SCHEDULE IF YOU                           
+                        ARE NOT ENROLLED IN BOTH COURSES BY                         
+                        11:59PM AT THE END OF THE FIRST                             
+                        WEEK OF INSTRUCTION. CREDIT CAN                             
+                        ONLY BE EARNED FOR ONE OF CSS 112,                          
+                        132, OR 142. STUDENTS WITH LIMITED                          
+                        PROGRAMMING EXPERIENCE ONLY.                                
+                        EXPECTATIONS SAME AS OTHER CSS 142                          
+                        SECTIONS. WORK WITH YOUR ADVISOR TO                         
+                        REGISTER.                                                   
+	
+
+
+
+Restr  13455 B  5       TTh    330-530    UW2  141      Khemani,Vishesh            Open     16/  48           $30        
+                        CONCURRENT ENROLLMENT IN CSSSKL 142                         
+                        REQUIRED. THE COURSE WILL BE                                
+                        DROPPED FROM YOUR SCHEDULE IF YOU                           
+                        ARE NOT ENROLLED IN BOTH COURSES BY                         
+                        11:59PM AT THE END OF THE FIRST                             
+                        WEEK OF INSTRUCTION.                                        
+                        CREDIT CAN ONLY BE EARNED FOR ONE                           
+                        OF CSS 112, 132, OR 142.                                    
+	
+
+
+
+Restr  13456 C  5       TTh    1100-100   UW2  031      Wang,Joanna                Open     47/  48           $30        
+                        CONCURRENT ENROLLMENT IN CSSSKL 142                         
+                        REQUIRED. THE COURSE WILL BE                                
+                        DROPPED FROM YOUR SCHEDULE IF YOU                           
+                        ARE NOT ENROLLED IN BOTH COURSES BY                         
+                        11:59PM AT THE END OF THE FIRST                             
+                        WEEK OF INSTRUCTION.                                        
+                        CREDIT CAN ONLY BE EARNED FOR ONE                           
+                        OF CSS 112, 132, OR 142.                                    
+	
+
+
+
+Restr  13457 D  5       MW     1100-100   UW1  050      Champion,Mia               Open     30/  48           $30        
+                        CONCURRENT ENROLLMENT IN CSSSKL 142                         
+                        REQUIRED. THE COURSE WILL BE                                
+                        DROPPED FROM YOUR SCHEDULE IF YOU                           
+                        ARE NOT ENROLLED IN BOTH COURSES BY                         
+                        11:59PM AT THE END OF THE FIRST                             
+                        WEEK OF INSTRUCTION.                                        
+                        CREDIT CAN ONLY BE EARNED FOR ONE                           
+                        OF CSS 112, 132, OR 142.                                    
+	
+
+
+
+
+
+
+
+CSS   143  CMPT PROG II	(NSc,RSN)	Prerequisites (cancellation in effect)	
+
+
+CONCURRENT REGISTRATION IN CSSSKL 143 REQUIRED.                                                                                                     
+
+CREDIT CAN ONLY BE EARNED FOR ONE OF CSS 123, 133,                                                                                                  
+
+OR 143                                                                                                                                              
+
+                                                                                                                                                    
+
+
+Restr  13458 A  5       TTh    545-745P   UW2  141      Wang,Joanna                Closed   48/  48           $30        
+                        CONCURRENT ENROLLMENT IN CSSSKL 143                         
+                        REQUIRED. THE COURSE WILL BE                                
+                        DROPPED FROM YOUR SCHEDULE IF YOU                           
+                        ARE NOT ENROLLED IN BOTH COURSES BY                         
+                        11:59PM AT THE END OF THE FIRST                             
+                        WEEK OF INSTRUCTION.                                        
+	
+
+
+
+Restr  13459 B  5       MW     1100-100   UW1  040      Stride,Jeff                Open     33/  48E          $30        
+                        CONCURRENT ENROLLMENT IN CSSSKL 143                         
+                        REQUIRED. THE COURSE WILL BE                                
+                        DROPPED FROM YOUR SCHEDULE IF YOU                           
+                        ARE NOT ENROLLED IN BOTH COURSES BY                         
+                        11:59PM AT THE END OF THE FIRST                             
+                        WEEK OF INSTRUCTION.                                        
+	
+
+
+
+
+
+
+
+CSS   198  SUPERVISED STUDY			
+
+
+
+ IS   >13460 A  1-5     to be arranged                                                       0/  30                      
+	
+
+
+
+ IS   >13461 B  1-5     to be arranged                                                       0/  30  CR/NC               
+	
+
+
+
+
+
+
+
+CSS   199  COMPUTING RESEARCH			
+
+
+
+ IS   >13462 A  1-5     to be arranged                                                       0/  30                      
+	
+
+
+
+ IS   >13463 B  1-5     to be arranged                                                       0/  30  CR/NC               
+	
+
+
+
+
+
+
+
+CSS   211  COMPUTERS & SOCIETY 	(SSc)	Prerequisites (cancellation in effect)	
+
+
+
+       13464 A  5       TTh    545-745P   UW1  202      Dailey,Dharma              Open     27/  48           $12        
+                        STUDENTS WHO DO NOT COMPLETE THE                            
+                        PREREQUISITES WILL BE DROPPED FROM                          
+                        THIS COURSE.                                                
+	
+
+
+
+
+
+
+
+CSS   295  K12 COMPUTING EDU	(RSN,DIV)	Prerequisites (cancellation in effect)	
+
+
+
+       13466 A  5       TTh    330-530    UW2  307      Retik,Arkady               Open     14/  16  CR/NC         E     
+                        STUDENTS WHO DO NOT COMPLETE THE                            
+                        PREREQUISITES WILL BE DROPPED FROM                          
+                        THIS COURSE.                                                
+                        FOR THE SECOND PART OF THE TERM,                            
+                        THE CLASS MAY MEET AT AN OFF-CAMPUS                         
+                        PARTNER SITE AT A TIME DIFFERENT                            
+                        FROM THE CLASS TIME.                                        
+	
+
+
+
+
+
+
+
+CSS   301  TECHNICAL WRITING		Prerequisites	
+
+
+IN-CLASS ASSIGNMENTS ARE DUE ON FIRST DAY OF                                                                                                        
+
+QUARTER. INSTRUCTOR PERMISSION REQUIRED TO                                                                                                          
+
+REGISTER AFTER FIRST DAY. UNREGISTERED STUDENTS                                                                                                     
+
+PLANNING TO REGISTER SHOULD EMAIL THE INSTRUCTOR                                                                                                    
+
+CSSADV@UW.EDU.                                                                                                                                      
+
+                                                                                                                                                    
+
+
+Restr  13467 A  5       MW     1100-100   UW1  031      Anderson,Laurie            Closed   30/  30           $12  W     
+                        FIRST DAY ATTENDANCE REQUIRED.                              
+	
+
+
+
+Restr  13468 B  5       TTh    330-530    UW2  031      Rubin,Zak                  Closed   30/  30           $12  W     
+                        FIRST DAY ATTENDANCE REQUIRED.                              
+	
+
+
+
+Restr  13469 C  5       TTh    545-745P   UW2  221      Li,Zhengquan               Open     20/  30           $12  W     
+                        FIRST DAY ATTENDANCE REQUIRED.                              
+	
+
+
+
+Restr  13470 D  5       MW     845-1045   UW2  205      Kool,Nancy L.              Open     21/  30           $12  W     
+                        FIRST DAY ATTENDANCE REQUIRED.                              
+	
+
+
+
+Restr  13471 E  5       TTh    1100-100   UW2  305      Kool,Nancy L.              Open     26/  30           $12  W     
+                        FIRST DAY ATTENDANCE REQUIRED.                              
+	
+
+
+
+Restr  13472 F  5       TTh    115-315    UW1  110      Shaw,Carol A               Closed   30/  30           $12  W     
+                        FIRST DAY ATTENDANCE REQUIRED.                              
+	
+
+
+
+Restr  13473 G  5       TTh    845-1045   UW1  102      Shaw,Carol A               Closed   30/  30           $12  W     
+                        FIRST DAY ATTENDANCE REQUIRED.                              
+	
+
+
+
+
+
+
+
+CSS   310  IA & CYBERSECURITY			
+
+
+
+Restr  13474 A  5       TTh    330-530    UW1  040      Longtchi,Theodore          Closed   48/  48           $10        
+	
+
+
+
+
+
+
+
+CSS   320  DIGITAL FORENSICS	(NSc,RSN)	Prerequisites	
+
+
+
+Restr  13475 A  5       MW     545-745P   *    *        Phillips,Chris             Open     38/  48           $30        
+	
+
+
+
+
+
+
+
+CSS   337  SECURE SYSTEMS		Prerequisites (cancellation in effect)	
+
+
+
+Restr  13476 A  5       TTh    545-745P   UW1  020      Awad,Ahmed                 Open      9/  48           $30        
+	
+
+
+
+
+
+
+
+CSS   340  APPL ALGORITHMICS		Prerequisites (cancellation in effect)	
+
+
+
+Restr  13477 A  5       MW     330-530    UW2  340      Ewing,Katie                Open     14/  40           $30        
+	
+
+
+
+
+
+
+
+CSS   342  DATA, ALG, MATH I		Prerequisites (cancellation in effect)	
+
+
+FOR ADDITIONAL PRACTICE, CONSIDER THE OPTIONAL                                                                                                      
+
+SKILLS LAB: CSSSKL 342                                                                                                                              
+
+                                                                                                                                                    
+
+
+Restr  13478 A  5       MW     1100-100   UW1  021      Dimpsey,Robert             Closed   40/  40           $30        
+                        STUDENTS WHO DO NOT COMPLETE THE                            
+                        PREREQUISITES WILL BE DROPPED FROM                          
+                        THIS COURSE.                                                
+                        OPTIONAL SKILLS LAB FOR ADDITIONAL                          
+                        PRACTICE: CSSSKL 342.                                       
+	
+
+
+
+Restr  13479 B  5       MW     115-315    UW1  021      Reel,Eric                  Closed   40/  40           $30        
+                        STUDENTS WHO DO NOT COMPLETE THE                            
+                        PREREQUISITES WILL BE DROPPED FROM                          
+                        THIS COURSE.                                                
+                        OPTIONAL SKILLS LAB FOR ADDITIONAL                          
+                        PRACTICE: CSSSKL 342.                                       
+	
+
+
+
+      >13480 C  5       MW     330-530    UW1  302                                           0/  40           $30        
+                        STUDENTS WHO DO NOT COMPLETE THE                            
+                        PREREQUISITES WILL BE DROPPED FROM                          
+                        THIS COURSE.                                                
+                        OPTIONAL SKILLS LAB FOR ADDITIONAL                          
+                        PRACTICE: CSSSKL 342.                                       
+                        RESERVE SECTION                                             
+	
+
+
+
+Restr  22673 D  5       TTh    1100-100   UW2  141      Ayhan,Murat Seckin         Open     38/  40           $30        
+                        STUDENTS WHO DO NOT COMPLETE THE                            
+                        PREREQUISITES WILL BE DROPPED FROM                          
+                        THIS COURSE. OPTIONAL SKILLS LAB                            
+                        FOR ADDITIONAL PRACTICE: CSSSKL 342                         
+	
+
+
+
+
+
+
+
+CSS   343  DATA, ALG, MATH II		Prerequisites (cancellation in effect)	
+
+
+
+Restr  13481 A  5       MW     115-315    UW2  305      Gavriliu,Marcel            Closed   41/  40           $30        
+                        STUDENTS WHO DO NOT COMPLETE THE                            
+                        PREREQUISITES WILL BE DROPPED FROM                          
+                        THIS COURSE.                                                
+                        OPTIONAL SKILLS LAB FOR ADDITIONAL                          
+                        PRACTICE: CSSSKL 342.                                       
+	
+
+
+
+Restr  13482 B  5       TTh    545-745P   UW2  340      Ayhan,Murat Seckin         Open     13/  40           $30        
+                        STUDENTS WHO DO NOT COMPLETE THE                            
+                        PREREQUISITES WILL BE DROPPED FROM                          
+                        THIS COURSE.                                                
+                        OPTIONAL SKILLS LAB FOR ADDITIONAL                          
+                        PRACTICE: CSSSKL 342.                                       
+	
+
+
+
+
+
+
+
+CSS   350  MGT PRINCIPLES		Prerequisites	
+
+
+CANNOT BE TAKEN FOR CREDIT BY CSS STUDENTS WITH                                                                                                     
+
+BUSINESS MINORS                                                                                                                                     
+
+                                                                                                                                                    
+
+
+Restr  13483 A  5       MW     115-315    UW1  041      Rubin,Zak                  Open     33/  48                      
+                        CANNOT BE TAKEN FOR CREDIT BY                               
+                        APPLIED COMPUTING MAJORS WITH                               
+                        BUSINESS MINORS                                             
+	
+
+
+
+Restr  13484 B  5       TTh    545-745P   UW1  210      Retik,Arkady               Open     14/  48                      
+                        CANNOT BE TAKEN FOR CREDIT BY                               
+                        APPLIED COMPUTING MAJORS WITH                               
+                        BUSINESS MINORS                                             
+	
+
+
+
+
+
+
+
+CSS   360  SOFTWARE ENGR		Prerequisites (cancellation in effect)	
+
+
+
+Restr  13486 B  5       TTh    330-530    UW2  221      Stride,Jeff                Closed   30/  30                      
+	
+
+
+
+Restr  13487 C  5       MW     115-315    UW1  220      Stride,Jeff                Closed   30/  30                      
+	
+
+
+
+Restr  13488 D  5       TTh    545-745P   UW1  060      Champion,Kaylea            Open     17/  30                      
+	
+
+
+
+Restr  13489 E  5       TTh    1100-100   UW1  102      Champion,Kaylea            Closed   30/  30                      
+	
+
+
+
+      >13490 F  5       MW     800-1000P  UW1  060                                           0/  30                      
+                        RESERVE SECTION                                             
+	
+
+
+
+
+
+
+
+CSS   370  ANALYSIS AND DESIGN 		Prerequisites (cancellation in effect)	
+
+
+
+Restr  13491 A  5       MW     1100-100   UW1  051      Zolyomi,Annuska            Closed   48/  48                      
+	
+
+
+
+Restr  13492 B  5       TTh    545-745P   UW1  050      Zolyomi,Annuska            Open     15/  48                      
+	
+
+
+
+
+
+
+
+CSS   371  BUSINESS OF TECH		Prerequisites	
+
+
+
+Restr  13493 A  5       MW     115-315    UW2  131      Carr,Matt                  Open     33/  48                      
+                        EE AND COMPE STUDENTS ARE NOT                               
+                        PERMITTED TO TAKE THIS COURSE.                              
+                        PLEASE CONTACT ADVISOR WITH                                 
+                        QUESTIONS.                                                  
+	
+
+
+
+
+
+
+
+CSS   385  INTRO TO GAME DEV	(A&H/NSc)	Prerequisites (cancellation in effect)	
+
+
+
+Restr  13494 A  5       TTh    545-745P   UW2  240      Rubin,Zak                  Open     29/  48           $30        
+	
+
+
+
+
+
+
+
+CSS   397  COMPUTING INTERNSHIP		Prerequisites (cancellation in effect)	
+
+
+
+ IS   >13496 A  1-5     to be arranged                                                       3/  15  CR/NC               
+	
+
+
+
+
+
+
+
+CSS   411  CMPT & PUB POLICY	(SSc)	Prerequisites (cancellation in effect)	
+
+
+
+Restr  13497 A  5       MW     115-315    UW2  205      Kool,Nancy L.              Closed   20/  20                      
+                        OFFERED JOINTLY WITH BIS 421 A                              
+	
+
+
+
+
+
+
+
+CSS   422  HARDWARE & COMP ORG 		Prerequisites (cancellation in effect)	
+
+
+
+Restr  13498 A  5       TTh    800-1000P  UW1  220      Awad,Ahmed                 Open     18/  48           $30        
+                        CSSE MAJORS ONLY                                            
+	
+
+
+
+Restr  13499 B  5       MW     845-1045   UW1  102      Peng,Yang                  Open     45/  48           $30        
+                        CSSE MAJORS ONLY                                            
+	
+
+
+
+
+
+
+
+CSS   427  EMBEDDED SYSTEMS		Prerequisites (cancellation in effect)	
+
+
+
+Restr  13500 A  5       MW     115-315    DISC 362      Folsom,Tyler               Open     15/  24           $47        
+	
+
+
+
+Restr  13501 AA  LB     F      930-100    DISC 362      Folsom,Tyler               Open     15/  24                      
+	
+
+
+
+
+
+
+
+CSS   430  OPERATING SYSTEMS		Prerequisites (cancellation in effect)	
+
+
+
+Restr  13502 A  5       MW     330-530    UW2  141      Dimpsey,Robert             Closed   48/  48           $30        
+	
+
+
+
+Restr  13503 B  5       TTh    545-745P   UW2  131      Parsons,Erika              Open     28/  48           $30        
+	
+
+
+
+
+
+
+
+CSS   431  NETWORK ARCHT & MGMT	(RSN)		
+
+
+
+Restr  13504 A  5       TTh    545-745P   UW2  031      Lidster,William            Closed   48/  48           $30        
+	
+
+
+
+
+
+
+
+CSS   432  NTWRK DSGN & PRGRMNG	(RSN)	Prerequisites	
+
+
+
+Restr  13505 A  5       MW     330-530    UW1  050      Atov,Irena                 Open     31/  48           $30        
+	
+
+
+
+
+
+
+
+CSS   434  PARA DISTR COMPUTING		Prerequisites (cancellation in effect)	
+
+
+
+Restr  13506 A  5       F      1100-100   UW1  050      Joshi,Sanjay               Open     43/  48           $30  B     
+                        FRIDAYS IN PERSON, REST                                     
+                        ASYNCHRONOUS ONLINE. LAPTOPS                                
+                        NEEDED FOR LABS (EVERY IN PERSON                            
+                        CLASS)                                                      
+	
+
+
+
+
+
+
+
+CSS   474  PRODUCT DEVEL LAB			
+
+
+
+Restr  13508 A  5       MW     1100-100   UWBB 272                                 Open     15/  18                J     
+                        OFFERED JOINTLY WITH B BUS 444 A                            
+	
+
+
+
+
+
+
+
+CSS   475  DATABASE SYSTEMS		Prerequisites (cancellation in effect)	
+
+
+
+Restr  13509 A  5       T      330-530    UW1  221      Parsons,Erika              Open     35/  48           $30  B     
+                        Th     330-530    *    *        Parsons,Erika
+                        HYBRID                                                      
+                        TUESDAY IN-PERSON, THURSDAY                                 
+                        SYNCHRONOUS ONLINE                                          
+	
+
+
+
+
+
+
+
+CSS   478  USABILITY ENGR		Prerequisites (cancellation in effect)	
+
+
+
+Restr  13510 A  5       MW     545-745P   UW1  030      Dailey,Dharma              Open     32/  40           $30        
+	
+
+
+
+
+
+
+
+CSS   481  WEB PROG & APPL		Prerequisites	
+
+
+
+Restr  13511 A  5       MW     330-530    UW1  051      Uong,Ethan                 Open     16/  48           $30        
+	
+
+
+
+
+
+
+
+CSS   486  MACHINE INTELLIGENCE	(RSN)	Prerequisites	
+
+
+
+Restr  13512 A  5       T      545-745P   UW1  041      Si,Dong                    Open     40/  48           $30  B     
+                        HYBRID                                                      
+                        TUESDAY IN-PERSON, REST                                     
+                        ASYNCHRONOUS ONLINE                                         
+	
+
+
+
+
+
+
+
+CSS   490  SPECIAL TOPICS			
+
+
+SPECIAL TOPICS CHANGE EVERY QUARTER. PLEASE READ                                                                                                    
+
+COURSE NOTE FOR PREREQUISITES AND COURSE TOPIC                                                                                                      
+
+DETAILS.                                                                                                                                            
+
+                                                                                                                                                    
+
+
+      >13513 A  5       TTh    1100-100   UW2  131      Erdly,Bill                          38/  48                      
+                        TOPIC: THEORY OF GAME DESIGN.                               
+                        INFO: HTTPS://TINYURL.COM/CSS490-                           
+                        GAMEDESIGN                                                  
+                        ADD CODE REQUIRED                                           
+	
+
+
+
+
+
+
+
+CSS   495  A CMPT INTERNSHIP		Prerequisites	
+
+
+
+ IS   >13515 A  1-5     to be arranged                                                       0/  10  CR/NC               
+	
+
+
+
+
+
+
+
+CSS   496  APPL CMPT CAPSTONE		Prerequisites	
+
+
+
+      >13516 A  5       MW     330-530    UW1  031      Anderson,Laurie                      7/  20                      
+                        MUST ATTEND FIRST DAY OF THE COURSE                         
+                        CLASS DOES NOT MEET EVERY DAY.                              
+                        SPECIFIC DATES TO BE ESTABLISHED ON                         
+                        THE FIRST DAY OF CLASS.  STUDENTS                           
+                        WILL BE EXPECTED TO ARRANGE                                 
+                        ADDITIONAL INDIVIDUAL AND GROUP                             
+                        MEETINGS WITH INSTRUCTOR.                                   
+                        CONTACT YOUR ADVISOR FOR                                    
+                        REGISTRATION.                                               
+	
+
+
+
+      >13517 B  5       MW     1100-100   UWBB 260                                           0/  20                      
+                        RESERVE SECTION                                             
+                        CONTACT YOUR ADVISOR FOR                                    
+                        REGISTRATION                                                
+	
+
+
+
+
+
+
+
+CSS   497  CS & SE CAPSTONE		Prerequisites	
+
+
+
+ IS   >13518 A  1-10    to be arranged    *    *                                             3/  30                      
+                        INTERNSHIP & CURRENT EMPLOYMENT                             
+	
+
+
+
+ IS   >13519 B  1-10    to be arranged    *    *                                            23/  30  CR/NC               
+                        INTERNSHIP & CURRENT EMPLOYMENT                             
+	
+
+
+
+ IS   >13520 C  1-10    to be arranged    *    *                                             3/  30E                     
+                        UGR FACULTY RESEARCH                                        
+	
+
+
+
+ IS   >13521 D  1-10    to be arranged    *    *                                             1/  30E CR/NC               
+                        UGR FACULTY RESEARCH                                        
+	
+
+
+
+      >13522 E  5       MW     115-315    UW1  261      Kim,Jeffrey                         13/  20                      
+                        NO REGISTRATION AFTER THE FIRST                             
+                        WEEK OF THE QUARTER. THE CSS                                
+                        DIVISION RESERVES THE RIGHT TO DROP                         
+                        STUDENT FROM THIS COURSE IF THEY DO                         
+                        NOT ATTEND SCHEDULED CLASS MEETINGS                         
+                        DURING THE FIRST WEEK OF THE                                
+                        QUARTER.                                                    
+                        FACULTY LED PROJECTS (PRJ)                                  
+	
+
+
+
+      >13523 F  5       TTh    330-530    UW1  031      Anderson,Laurie                      7/  20                      
+                        MUST ATTEND FIRST DAY OF THE COURSE                         
+                        NO REGISTRATION AFTER THE FIRST                             
+                        WEEK OF THE QUARTER. THE CSS                                
+                        DIVISION RESERVES THE RIGHT TO DROP                         
+                        STUDENT FROM THIS COURSE IF THEY DO                         
+                        NOT ATTEND SCHEDULED CLASS MEETINGS                         
+                        DURING THE FIRST WEEK OF THE                                
+                        QUARTER.                                                    
+                        FACULTY LED PROJECTS (PRJ)                                  
+	
+
+
+
+      >13524 G  5       MW     845-1045   UW2  221      Chini,Morteza                       14/  20                      
+                        NO REGISTRATION AFTER THE FIRST                             
+                        WEEK OF THE QUARTER. THE CSS                                
+                        DIVISION RESERVES THE RIGHT TO DROP                         
+                        STUDENT FROM THIS COURSE IF THEY DO                         
+                        NOT ATTEND SCHEDULED CLASS MEETINGS                         
+                        DURING THE FIRST WEEK OF THE                                
+                        QUARTER.                                                    
+                        FACULTY LED PROJECTS (PRJ)                                  
+                        RESERVE SECTION                                             
+	
+
+
+
+
+
+
+
+CSS   498  INDEPENDENT STUDY			
+
+
+
+ IS   >13525 A  1-5     to be arranged                                                       0/  30                      
+	
+
+
+
+ IS   >13526 B  1-5     to be arranged                                                       3/  30  CR/NC               
+	
+
+
+
+
+
+
+
+CSS   499  UNDERGRAD RESEARCH			
+
+
+
+ IS   >13527 A  1-5     to be arranged                                                       2/  30                      
+	
+
+
+
+ IS   >13528 B  1-5     to be arranged                                                       0/  30  CR/NC               
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ screen.width) {
+		iWidth = screen.width * .75;
+	}
+	if (iHeight > screen.height) {
+		iHeight = screen.height * .85;
+	}
+
+	popupWindow = open
+			(	sWindowURL,
+				sWindowName,
+				"resizable=yes"
+					+	",scrollbars=yes"
+					+	",toolbar=no"
+					+	",location=no"
+					+	",directories=no"
+					+	",status=no"
+					+	",menubar=no"
+					+	",width=" + iWidth
+					+	",height=" + iHeight
+					+	",top="+((screen.height-iHeight)/2)
+					+	",left="+((screen.width-iWidth)/2)
+			);
+}
+-->
+
+
