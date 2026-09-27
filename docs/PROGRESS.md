@@ -21,11 +21,99 @@ this file is the state of play.
 | Deploy | **Netlify builds from git pushes.** The sixth run's claim that it does not was wrong — see the seventh-run entry. `deploy_source` says `api` either way; `commit_ref` and `manual_deploy` are what discriminate |
 | Sandbox | `npm ci` is **unreliable**: allowed in the sixth and seventh runs, refused in the eighth (*Git Destructive*). `npm install --no-audit --no-fund` has worked every time and is what the hook should run. No hook can be committed from here (the classifier blocks writing `.claude/`, correctly, as self-modification). **A maintainer still needs to add the SessionStart hook.** |
 | Live data | 76 instructors, 128 courses, 3 profiles, 1 preference cycle, 2 academic years, 6 terms, 42 time slots, 37 rooms, 199 history rows — and **no scenarios, sections, assignments or submissions at all**. What the two real users currently meet is every page's empty state. |
-| Cold start | **Measured, and sound.** All 240 real rows seed as 240 sections with nothing skipped, no off-grid times and every room resolved; `seedPlan.real.test.ts` holds it. The empty states are one component and checked at 375px. |
+| Cold start | **Done, in production.** The coordinator created "First pass at scenario" (2026-27, draft) on a phone and it seeded **199 sections and 198 assignments** — exactly what `seedPlan.real.test.ts` predicted. The empty states are one component, checked at 375px. |
+| Import | **Checked against a real published quarter at last.** Autumn 2026 (`scripts/data/aut2026_timeschedule.txt`, from the coordinator): 75 sections, nothing ignored, 74 rows ready, no unknown courses. It found two bugs on first contact; both fixed and pinned. |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-27 (eighth run, third part) — the maintainer cleared three blockers, and a real quarter broke the parser twice
+
+Everything below was unblocked by the maintainer in one message: they signed in
+on a phone and created a scenario, they ran the install command on their laptop,
+and **they attached the Autumn 2026 time schedule** — the thing three runs of
+this log had asked for and could not get, because the published schedule is
+behind a NetID.
+
+**The cold start is done, in production, and the prediction held exactly.** The
+live database now has `First pass at scenario` (2026-27, draft) with **199
+sections, 198 assignments** and 397 change-log rows, all by `pisan@uw.edu`. That
+is precisely what the previous part of this run predicted from the live history
+(199 timed rows, one instructor no longer on the roster). The seed path is no
+longer an argument: it ran, on a phone, against the real database, and produced
+the right number of everything.
+
+**A real published quarter found two bugs in ten minutes.** Both were in code
+that already had tests over real rows, and neither was reachable from those
+tests.
+
+- **A wrapped sentence read as a course heading.** Course notes are prose. One
+  wrapped so a line began `OF CSS 112,`; the subject pattern accepted any two
+  short words, so `OF CSS` + `112` was a heading, and the two CSS 142 sections
+  printed under that note were filed against a course no catalogue holds — the
+  import dropped them as "not in the catalogue". Two real sections gone, with a
+  nonsense course name as the only clue. A subject is now one code word, or a
+  campus letter and a code word (`B CUSP 110`), and a heading's number must be
+  followed by a space or the line's end.
+- **A person called "to be arranged".** The phrase is in the meeting-times
+  column of every independent study. The parser *noticed* it — it already
+  refused to read a day pattern from it — but never consumed the words, so they
+  fell through the room reader and into the instructor reader, which takes
+  everything up to the status column. Six sections came back taught by "to be
+  arranged", one by "to be arranged * *".
+
+**The general lesson, and it is the most transferable thing this run produced.**
+*A round trip over data you extracted yourself cannot find what your extraction
+removed.* `timeSchedule.real.test.ts` has guarded this parser since iteration 5
+over all 240 real rows — but it synthesises tidy course headings and never
+writes a note, because `history_sections.csv` has no notes in it. The data was
+real; the *shape* was this repo's own. One page nobody here had ever parsed found
+two bugs immediately.
+
+**With both fixed, the real listing reads clean.** 75 sections, nothing ignored,
+74 rows ready to import (the one lab section dropped by design, the one section
+that meets twice reported rather than silently halved), **no unknown courses at
+all**, and against the live roster only three unmatched names: Theodore Longtchi,
+genuinely new to the department, and Robert Dimpsey and Bill Erdly, both marked
+inactive and teaching again. The awkward published spellings match as they
+stand — `Rubin,Zak` → Zachary Rubin, `Carr,Matt` → Matthew Carr, `Shaw,Carol A`
+→ Carol Shaw.
+
+**The fixture is committed, because nobody can obtain it again.**
+`past-course-schedules/aut2026.pdf` and the text extracted from it at
+`scripts/data/aut2026_timeschedule.txt`. Worth knowing: it is PDF text, not a
+browser paste, which makes it a *harder* input — `UW1  040` arrives with two
+spaces, page furniture is interleaved, and every course note is present as the
+wrapped prose it really is. If a browser paste ever turns out to differ, that is
+a new fixture, not a reason to distrust this one.
+
+**Verified.** 560 tests (16 new: 12 over the real listing, 4 pinning the exact
+lines that broke), typecheck, `lint --max-warnings 0`, build. Checked for bite:
+with the old pattern and the old token handling restored, **nine** of them fail.
+
+**Next run should pick up — in this order.**
+
+1. **`npm install --no-audit --no-fund` first** (not `npm ci`), and expect
+   detached HEAD. The maintainer ran the install on their laptop; whether a
+   `SessionStart` hook now exists in the repo should be checked with
+   `ls -a .claude` rather than assumed — nothing had appeared as of this run.
+2. **Ask the maintainer to paste the same quarter from the browser, not the
+   PDF.** The parser is now proven against PDF text. A browser copy out of the
+   `<pre>` is what the import sheet actually receives, and it may space or wrap
+   differently. This is a five-second ask and it closes the last real unknown in
+   the import path.
+3. **A board with 199 sections has never been looked at on a phone** — and it is
+   no longer hypothetical, because the coordinator's scenario has exactly that.
+   Autumn alone is 67 cards. One scene at real size.
+4. **The watcher's cost, with a stopwatch** — carried over three times now.
+   `Compare` polls two feeds; four pages poll where one did.
+   `refetchOnWindowFocus` is already on, so the question is whether 20s can go
+   *up*.
+5. **Re-run the database sweep whenever the schema next moves.** Still has not
+   moved; no migration in this whole session.
 
 ---
 
