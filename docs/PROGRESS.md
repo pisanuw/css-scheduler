@@ -14,16 +14,144 @@ this file is the state of play.
 | 4 — Reporting | done (export and print on both the report and the comparison) |
 | 5 — Solver, import, student checks | done |
 | Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA, the Supabase trim and offline awareness done |
-| Concurrency | the board watches `scenario_changes` and refetches when another coordinator writes, naming them. `Report`, `Compare` and `StudentCheck` do **not** yet |
+| Concurrency | **all four** scenario pages watch `scenario_changes` — board, report, comparison and student check — and each notice names its own page. `Compare` watches both sides; the student check withholds the actor from anybody who is not a coordinator |
 | Dependencies | `npm audit` clean; Node pinned to 22 |
 | Keyboard | nine shortcuts on the board, with a `?` sheet rendered from the same table |
 | Lint | `npm run lint` runs: ESLint 10, type-aware, fails on one warning. **Every `react-hooks` v7 rule is now an error**, nothing grandfathered and nothing suppressed — `refs` was the last one off |
 | Deploy | **Netlify builds from git pushes.** The sixth run's claim that it does not was wrong — see the seventh-run entry. `deploy_source` says `api` either way; `commit_ref` and `manual_deploy` are what discriminate |
-| Sandbox | `npm ci` **worked** in the 2026-09-27 sixth and seventh runs, so the fifth run's refusal was not permanent — but it is not reliable either, and no hook can be committed from here (the classifier blocks writing `.claude/`, correctly, as self-modification). **A maintainer still needs to add the SessionStart hook.** See the sixth-run entry. |
+| Sandbox | `npm ci` is **unreliable**: allowed in the sixth and seventh runs, refused in the eighth (*Git Destructive*). `npm install --no-audit --no-fund` has worked every time and is what the hook should run. No hook can be committed from here (the classifier blocks writing `.claude/`, correctly, as self-modification). **A maintainer still needs to add the SessionStart hook.** |
+| Live data | 76 instructors, 128 courses, 3 profiles, 1 preference cycle — and **no scenarios, sections, assignments or submissions at all**. What the two real users currently meet is every page's empty state. Read 2026-09-27, eighth run. |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-27 (eighth run today) — the other three pages notice too, and the sentence learned which page it is on
+
+`npm ci` was **refused** this run (classifier: *Git Destructive*), and
+`npm install --no-audit --no-fund` was allowed and worked in 6s. That is the
+command the SessionStart hook is meant to run, so the request on the handoff is
+the right one — and this run is evidence that `npm ci` specifically cannot be
+relied on. Detached HEAD again; `git branch -f main <commit> && git checkout
+main` again the fix. Expect both every run. No `.claude/` directory has
+appeared, so the hook is still a maintainer item and was not retried from here.
+
+**Item 3 done, and the interesting half was the sentence, not the wiring.**
+`Report`, `Compare` and `StudentCheck` now call `useLiveScenario` like the board
+does. Three calls. The handoff already knew the hard part: "the board has been
+brought up to date" is a lie on three of the four surfaces, and a coordinator
+told that while reading a report goes looking for a board that is not on screen.
+
+So `syncFeed` takes a `Viewer` now — `{ email, surface, named, where? }` —
+instead of a bare address, and `SURFACE_TAIL` holds one clause per page. The
+surface is **required**, not defaulted to `'board'`, which is the whole point: a
+page that forgot to say what it was would otherwise quietly claim to be the
+board, which is exactly the bug being fixed. The report and the comparison say
+"brought up to date"; the student check says "this check has been run again",
+because that is what happens there — the answer to "can I take these two?" may
+now be different.
+
+**Two decisions came out of the pages rather than the plan.**
+
+- **`Compare` watches both sides, and names which draft moved.** Either side
+  going stale makes the *difference* wrong, which is the one thing that page
+  exists to get right, so both are watched. But "2 changes by mashhadi@uw.edu"
+  on a page showing two drafts sends the coordinator to check whichever column
+  they happened to be reading, so the notice carries an `in <draft name>`
+  clause. The second watcher stands down when both selects point at the same
+  scenario — a state the page allows and warns about — so one change is not
+  announced twice in identical words.
+- **The student check tells a student *that* it changed, not *who*.**
+  `/student-check` is the only scenario page that is not `coordinatorOnly`, and
+  the read policy on `scenario_changes` genuinely does let any authenticated
+  user see the *official* scenario's history. The policy was read back from the
+  live database to be sure (`pg_policy`: `status = 'official' or
+  is_coordinator()`, exactly as the migration says) and **left alone**. But
+  readable is not the same as worth showing: `Viewer.named` follows
+  `isCoordinator`, so anybody else gets "1 change to the schedule" with no
+  address and no section code in it. A display decision, not a policy one, and
+  worth keeping those two questions apart.
+
+No migration, no new table, view or policy, so `rls_test.sql` is untouched and
+stays complete.
+
+**Verified.** 533 tests (7 new: every surface's wording, the withheld
+attribution, the "at least" wording surviving into the unnamed form, the draft
+clause, and a missing draft name leaving the clause out rather than printing
+"in undefined"), typecheck, `lint --max-warnings 0`, build, and `check:mobile`
+over **34 scenes** at 375px. The `toast-live-sync` scene was extended rather
+than left alone, because the longest sentence the app can produce moved: it is
+now the comparison's, which spells out an instructor, a section *and* a draft
+name — "mashhadi@uw.edu assigned Rob Nash — CSS 342 A in Winter 2027 (second
+draft) — this comparison has been brought up to date." The scene builds it from
+`syncFeed` rather than typing it, so what is checked cannot drift from what the
+app says, and the shortest form (the unnamed one) is in the same scene.
+
+**Deployed and verified — by a git build, which settles the sixth run's
+correction.** Commit `24ee2f7`, deploy `6ab90d2593a9a500086241f8`, published
+`12:33:55Z`, 14 seconds after `git push`, `commit_ref: 24ee2f7…`,
+`manual_deploy: false`, 24 new files. **No MCP deploy was run this session at
+all.** All **37 files byte for byte** by `cmp` against a local `dist/` built
+with `sb_publishable_71_-uGHRKjaXisg8DLjmjw_dVMFbYsa`; the served entry chunk
+is `index-DvmkrmVP.js` and so is the local one. `check:deployed` clean, 16
+precached files. Two runs in a row now: **a push to `main` ships.**
+
+**Learned, and it is about the shape of an API rather than this feature.** The
+tidy version of this change would have defaulted `surface` to `'board'` so the
+board's call site and fourteen existing tests did not have to move. That default
+is precisely the failure mode being fixed — a page saying nothing and getting
+the board's sentence — so the churn was the correct price. *When a wrong value
+is the thing that hurts, do not give it a default; make the caller say it.* The
+same reasoning made `named` required: the safe answer to "may this person be
+told who?" is the one that should have to be asked for.
+
+**One fact about the live database that is worth more than it looks.** Read this
+run while checking the policy: **there are no scenarios at all.** 76
+instructors, 128 courses, 3 profiles and 1 preference cycle, but `scenarios`,
+`sections`, `section_instructors`, `preference_submissions` and
+`scenario_changes` are all **empty**. So every concurrency feature of the last
+three runs is, against real data, untested by use — and more to the point, what
+the two real people actually see when they open the deployed app is the *empty
+state* of every page built so far. Nobody has created a scenario. That reframes
+what "next most valuable" means (see item 2 below).
+
+**Next run should pick up — in this order.**
+
+1. **`npm install --no-audit --no-fund` first** (not `npm ci` — refused this
+   run), and expect detached HEAD.
+2. **Walk the cold-start path as a coordinator with an empty database, and fix
+   what is in the way.** This is the item with the most evidence behind it: the
+   live database has no scenario, so the first thing either real user meets is
+   the zero state, and every screenshot check to date has been of a scene with
+   data in it. Specifically — from `/scenarios` with nothing there, can a
+   coordinator create a year, create a scenario, and get sections into it
+   without reading the source? `seedPlan` and `ImportSheet` exist but the
+   time-schedule paste cannot be sourced from the sandbox; the hand-built path
+   is what needs to work. Check it at 375px, and check the empty states of
+   `Report`, `Compare` and `StudentCheck`, which now all poll a feed that will
+   be empty.
+3. **The watcher's cost, with a stopwatch rather than an argument** — carried
+   over, and now with more reason to look: `Compare` polls *two* feeds, so the
+   worst case on that page is six requests a minute, and four pages poll where
+   one did. Twenty seconds was chosen against the gesture, never measured.
+   `useScenarioFeed` already sets `refetchOnWindowFocus: true`, so the question
+   worth answering is how much of the benefit focus alone carries — if it is
+   most, the interval can go up. Do not shorten it; the flicker gate is the part
+   that would suffer.
+4. **A real paste through the time-schedule import still needs the maintainer.**
+   Not re-attempted, per the sixth run's finding: the published UW time schedule
+   is behind a Shibboleth redirect now. **This is off the list.**
+5. **The SessionStart hook still needs the maintainer** — `.claude/` cannot be
+   written from the sandbox (auto-mode classifier, *Self-Modification*,
+   correctly). `npm install --no-audit --no-fund`, guarded by
+   `[ "$CLAUDE_CODE_REMOTE" = "true" ]`. This run's `npm ci` refusal is the
+   third data point that the install step needs to be outside the classifier.
+6. **Re-run the database sweep whenever the schema next moves.** It has not
+   moved since the fifth run — no migration this run either — so it was not
+   repeated. The query is `pg_class.relrowsecurity` + `reloptions` over
+   `public`, joined to `pg_policy`.
 
 ---
 
