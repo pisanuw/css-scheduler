@@ -58,6 +58,7 @@ import { compareScenarios } from "../src/lib/report";
 import RouteFallback from "../src/components/RouteFallback";
 import RouteErrorNotice from "../src/components/RouteErrorNotice";
 import OfflineBanner from "../src/components/OfflineBanner";
+import EmptyState from "../src/components/EmptyState";
 import { bannerFor } from "../src/lib/online";
 import { syncFeed, WATCH_LIMIT } from "../src/lib/liveSync";
 import ShortcutHelp from "../src/components/board/ShortcutHelp";
@@ -999,7 +1000,72 @@ function LiveSyncScene() {
   );
 }
 
+/**
+ * Every empty state, on one screen.
+ *
+ * The cold start is nothing but these: the live database has no scenario in it,
+ * so what the coordinator meets on their first visit is this card on five pages
+ * in a row. Until now not one of them had ever been measured at 375px, and two
+ * offered an underlined link inside a sentence — about twenty pixels tall — as
+ * the only thing to tap.
+ *
+ * All four shapes are here because the differences are what break: the longest
+ * sentence (the board's, which interpolates a quarter name), a title above the
+ * card, a disabled action, and the one with no action at all, which is what a
+ * student sees and must not leave them at a dead end.
+ */
+function EmptyStateScene() {
+  return (
+    <div className="space-y-4 bg-slate-50 p-4">
+      <EmptyState
+        title="Can a student take these together?"
+        action={{ label: "Create a scenario", to: "/scenarios", primary: true }}
+      >
+        There is no scenario to check yet. Create one and lay out its sections,
+        and this page will tell you which required courses clash.
+      </EmptyState>
+
+      <EmptyState action={{ label: "New scenario", onClick: () => {}, primary: true }}>
+        No scenarios yet. Create one to start laying out a year&rsquo;s sections
+        — you can begin from a past year&rsquo;s schedule rather than an empty
+        board.
+      </EmptyState>
+
+      {/* The board's, with the longest label an action can carry. */}
+      <EmptyState
+        action={{
+          label: "Import Autumn 2026 from a time schedule",
+          onClick: () => {},
+        }}
+      >
+        No sections in Autumn 2026 yet. Paste the published time schedule to
+        start from what is already there, or add the first one by hand and tap it
+        to assign an instructor.
+      </EmptyState>
+
+      {/* Locked, because the scenario is archived: greyed but still explained. */}
+      <EmptyState
+        action={{
+          label: "Import Winter 2027 from a time schedule",
+          onClick: () => {},
+          disabled: true,
+        }}
+      >
+        No sections in Winter 2027 yet. This scenario is archived, so it cannot
+        be edited — unarchive it first.
+      </EmptyState>
+
+      {/* A student, who has nowhere to be sent. */}
+      <EmptyState title="Can a student take these together?">
+        No schedule has been published yet. Once the coordinator publishes one,
+        this page will tell you whether the courses you need fit together.
+      </EmptyState>
+    </div>
+  );
+}
+
 export const SCENES: Record<string, () => JSX.Element> = {
+  "empty-states": () => <EmptyStateScene />,
   toasts: () => <ToastScene inset={false} />,
   "toast-live-sync": () => <LiveSyncScene />,
   "toasts-inset": () => <ToastScene inset />,

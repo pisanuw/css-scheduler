@@ -14,6 +14,7 @@ import {
   type TierBucket,
 } from '../lib/report'
 import { slug } from '../lib/download'
+import EmptyState from '../components/EmptyState'
 import ExportBar from '../components/ExportBar'
 import PrintStamp from '../components/PrintStamp'
 
@@ -145,10 +146,13 @@ export default function Report() {
 
   if (!resolvedId)
     return (
-      <p className="rounded-lg bg-surface p-6 text-sm text-slate-600 ring-1 ring-slate-200">
-        No scenarios yet. <Link to="/scenarios" className="underline">Create one</Link> and fill in
-        the board first.
-      </p>
+      <EmptyState
+        title="How well the schedule serves people"
+        action={{ label: 'Create a scenario', to: '/scenarios', primary: true }}
+      >
+        There is no scenario to report on yet. Create one, lay out the year&rsquo;s sections on the
+        board, and this page tells you who got what they asked for.
+      </EmptyState>
     )
   if (isLoading) return <p className="text-sm text-slate-500">Building the report…</p>
   if (!scenario.data)

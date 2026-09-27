@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useScenarioSnapshot } from '../hooks/useScenarioSnapshot'
 import { useLiveScenario } from '../hooks/useLiveScenario'
+import EmptyState from '../components/EmptyState'
 import { useScenarios } from '../hooks/scheduling'
 import { countBySeverity, detectConflicts } from '../lib/conflicts'
 import {
@@ -202,16 +202,13 @@ export default function Compare() {
 
   if (options.length < 2)
     return (
-      <section>
-        <h1 className="text-xl font-semibold text-slate-900">Compare scenarios</h1>
-        <p className="mt-3 rounded-lg bg-surface p-6 text-sm text-slate-600 ring-1 ring-slate-200">
-          Comparing needs two drafts of the same year.{' '}
-          <Link to="/scenarios" className="underline">
-            Create another
-          </Link>{' '}
-          and fill it in differently — then this page shows which one serves people better.
-        </p>
-      </section>
+      <EmptyState
+        title="Compare scenarios"
+        action={{ label: 'Create another scenario', to: '/scenarios', primary: true }}
+      >
+        Comparing needs two drafts of the same year. Create another and fill it in differently —
+        then this page shows which one serves people better.
+      </EmptyState>
     )
 
   const differentYears =

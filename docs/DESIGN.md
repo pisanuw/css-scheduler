@@ -55,6 +55,24 @@ in those three quarters without appearing on the CSS faculty page, and at least
 one emeritus (Robert Dimpsey) is actively teaching. The instructor table is
 therefore editable and not derived from the directory.
 
+**And the cold start off that data is measured, not hoped for.** A coordinator's
+first real move is *New scenario → start from the year as it was taught*, and
+what one tap produces is the board they live in for the year.
+`seedPlan.real.test.ts` runs all 240 rows through `planFromHistory` against the
+real 42-slot grid and the real room list: 240 sections, nothing skipped, no
+off-grid times, every room resolved, the 41 arranged rows kept as arranged, and
+`describePlan` — the only sentence the coordinator sees before committing —
+checked against those numbers. The live `teaching_history` holds 199 rows rather
+than 240 because the seed SQL excludes the arranged ones.
+
+One trap is pinned there because it was walked into while measuring. The `rooms`
+table does **not** hold `'UW1 050'` anywhere: `useRooms` joins `buildings` and
+composes the label from `code` and `room_number`, and the seed derives the rooms
+from those same labels by splitting on the space. A room list built from
+`room_number` alone matches *nothing*, on every row, silently — the whole year
+would land with no rooms at all and the room-clash check would have nothing to
+work with. A test feeds bare numbers in and asserts exactly that failure.
+
 ## Data model
 
 Four groups of tables.
@@ -285,6 +303,23 @@ designed at, not one it degrades to. Three rules hold everywhere:
 - **Every control at least 44px tall.** Including the small ones — the chip
   that unassigns somebody, the severity filters on the conflict panel, the Undo
   beside a line of the history.
+
+### Empty states
+
+The cold start is nothing *but* empty states: the live database has no scenario
+in it, so a first visit is this card on five pages in a row. They are one
+component, `EmptyState`, for three reasons that had all gone wrong separately —
+the styling had drifted (`text-slate-500` against `text-slate-600`), the report's
+dropped the page heading so there was a floating sentence and no title, and the
+way out was sometimes a real button and sometimes an underlined link inside the
+prose, about twenty pixels tall, on a phone.
+
+So the component takes its action as **data**, not as children: you cannot hand
+it an inline link, and it renders a 44px control or nothing. Nothing is a real
+answer — a student looking at an unpublished schedule has nowhere to be sent, so
+they are told what will appear here instead of being given a dead end. The
+`empty-states` scene puts all four shapes on one 375px screen, which is how they
+are checked rather than asserted.
 
 **Tables become cards below `sm`.** The load panel has always done this.
 `DataTable` — which backs Courses, Instructors, History, Responses and Access —

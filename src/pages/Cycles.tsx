@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAcademicYears, useCycles, useUpsertCycle } from '../hooks/preferences'
 import type { CycleStatus, PreferenceCycle } from '../lib/types'
 import Dialog from '../components/Dialog'
+import EmptyState from '../components/EmptyState'
 import { useToast } from '../components/Toast'
 
 const STATUS_STYLE: Record<CycleStatus, string> = {
@@ -127,9 +128,10 @@ export default function Cycles() {
           </div>
         ))}
         {cycles.data?.length === 0 && (
-          <p className="rounded-lg bg-surface p-6 text-sm text-slate-500 ring-1 ring-slate-200">
-            No cycles yet. Create one to start collecting preferences.
-          </p>
+          <EmptyState action={{ label: 'New cycle', onClick: startNew, primary: true }}>
+            No cycles yet. A cycle is one round of asking instructors what they would like to teach;
+            create one to start collecting preferences.
+          </EmptyState>
         )}
       </div>
 

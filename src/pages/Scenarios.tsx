@@ -17,6 +17,7 @@ import {
 } from '../hooks/scheduling'
 import { describePlan, planFromHistory } from '../lib/seedPlan'
 import Dialog from '../components/Dialog'
+import EmptyState from '../components/EmptyState'
 import { useToast } from '../components/Toast'
 
 const STATUS_STYLE: Record<ScenarioStatus, string> = {
@@ -259,18 +260,10 @@ export default function Scenarios() {
 
         {scenarios.isLoading && <p className="text-sm text-slate-500">Loading…</p>}
         {scenarios.data?.length === 0 && (
-          <div className="rounded-lg bg-surface p-6 ring-1 ring-slate-200">
-            <p className="text-sm text-slate-600">
-              No scenarios yet. Create one to start laying out a year&rsquo;s sections.
-            </p>
-            <button
-              onClick={startNew}
-              style={{ background: 'var(--uw-purple)' }}
-              className="mt-3 flex min-h-11 items-center rounded-md px-4 text-sm font-medium text-white hover:opacity-90"
-            >
-              New scenario
-            </button>
-          </div>
+          <EmptyState action={{ label: 'New scenario', onClick: startNew, primary: true }}>
+            No scenarios yet. Create one to start laying out a year&rsquo;s sections — you can begin
+            from a past year&rsquo;s schedule rather than an empty board.
+          </EmptyState>
         )}
       </div>
 

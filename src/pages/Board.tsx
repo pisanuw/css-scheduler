@@ -34,6 +34,7 @@ import {
 } from '../lib/dnd'
 import { useAuth } from '../lib/auth'
 import { useLiveScenario } from '../hooks/useLiveScenario'
+import EmptyState from '../components/EmptyState'
 import { useAcademicYears } from '../hooks/preferences'
 import { suggestAssignments } from '../lib/suggest'
 import SectionCard from '../components/board/SectionCard'
@@ -646,21 +647,16 @@ export default function Board() {
           {board.isLoading ? (
             <p className="text-sm text-slate-500">Loading sections…</p>
           ) : visible.length === 0 ? (
-            <div className="rounded-lg bg-surface p-6 ring-1 ring-slate-200">
-              <p className="text-sm text-slate-600">
-                No sections in {termLabel(termId)} yet. Paste the published time schedule to start
-                from what is already there, or add the first one by hand and tap it to assign an
-                instructor.
-              </p>
-              <button
-                type="button"
-                onClick={() => setImporting(true)}
-                disabled={locked}
-                className="mt-3 flex min-h-11 items-center rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-              >
-                Import {termLabel(termId)} from a time schedule
-              </button>
-            </div>
+            <EmptyState
+              action={{
+                label: `Import ${termLabel(termId)} from a time schedule`,
+                onClick: () => setImporting(true),
+                disabled: locked,
+              }}
+            >
+              No sections in {termLabel(termId)} yet. Paste the published time schedule to start from
+              what is already there, or add the first one by hand and tap it to assign an instructor.
+            </EmptyState>
           ) : (
             <ul className="space-y-3">
               {visible.map((s) => {

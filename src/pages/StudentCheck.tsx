@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useScenarioSnapshot } from '../hooks/useScenarioSnapshot'
 import { useLiveScenario } from '../hooks/useLiveScenario'
+import EmptyState from '../components/EmptyState'
 import { useScenarios } from '../hooks/scheduling'
 import { useCourses } from '../hooks/queries'
 import { meetingLabel } from '../lib/snapshot'
@@ -71,22 +71,17 @@ export default function StudentCheck() {
 
   if (!resolvedId)
     return (
-      <section>
-        <h1 className="text-xl font-semibold text-slate-900">Can a student take these together?</h1>
-        <p className="mt-3 rounded-lg bg-surface p-6 text-sm text-slate-600 ring-1 ring-slate-200">
-          {isCoordinator ? (
-            <>
-              No scenario to check yet.{' '}
-              <Link to="/scenarios" className="underline">
-                Create one
-              </Link>
-              .
-            </>
-          ) : (
-            'No schedule has been published yet.'
-          )}
-        </p>
-      </section>
+      <EmptyState
+        title="Can a student take these together?"
+        /* A student has nowhere to go, so they are told rather than sent. */
+        action={
+          isCoordinator ? { label: 'Create a scenario', to: '/scenarios', primary: true } : undefined
+        }
+      >
+        {isCoordinator
+          ? 'There is no scenario to check yet. Create one and lay out its sections, and this page will tell you which required courses clash.'
+          : 'No schedule has been published yet. Once the coordinator publishes one, this page will tell you whether the courses you need fit together.'}
+      </EmptyState>
     )
 
   return (
