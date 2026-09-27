@@ -76,10 +76,41 @@ def main() -> int:
         call(f"{URL}/auth/v1/admin/users/{blocked['id']}", headers=SH, method="DELETE")
 
     # Link the throwaway account to an instructor so it can own a submission.
-    st, inst = call(f"{URL}/rest/v1/instructors?select=id&full_name=eq.Clark%20Olson", headers=SH)
-    instructor_id = inst[0]["id"]
-    call(f"{URL}/rest/v1/profiles?id=eq.{uid}", {"instructor_id": instructor_id},
-         {**SH, "Prefer": "return=minimal"}, "PATCH")
+    #
+    # It has to be an instructor nobody has claimed. `profiles.instructor_id` is
+    # unique, so borrowing one who already has an account fails here — and this
+    # test used to name Clark Olson, who signed up for real, after which the
+    # PATCH was rejected, the profile kept a null instructor_id, and the failure
+    # surfaced four checks later as an RLS 403 on the submission upsert. A real
+    # user arriving is not a reason for a test to break, and a hard-coded name
+    # guarantees it eventually will.
+    #
+    # Instructors who already have a submission in any cycle are excluded too:
+    # the upsert below merges on (cycle_id, instructor_id) and the purge deletes
+    # what it finds, so borrowing one of those would edit and then delete
+    # somebody's real answers.
+    st, claimed_rows = call(f"{URL}/rest/v1/profiles?select=instructor_id", headers=SH)
+    st2, sub_rows = call(f"{URL}/rest/v1/preference_submissions?select=instructor_id", headers=SH)
+    if st != 200 or st2 != 200:
+        print("could not read who is already linked:", st, st2); purge(); return 1
+    taken = {r["instructor_id"] for r in claimed_rows if r["instructor_id"]}
+    taken |= {r["instructor_id"] for r in sub_rows if r["instructor_id"]}
+
+    st, inst = call(
+        f"{URL}/rest/v1/instructors?select=id,full_name&is_active=eq.true&order=full_name",
+        headers=SH)
+    free = next((i for i in (inst or []) if i["id"] not in taken), None)
+    check("an unclaimed instructor to borrow", free is not None,
+          "" if free else f"all {len(inst or [])} active instructors are claimed")
+    if not free:
+        purge(); return 1
+    instructor_id = free["id"]
+
+    st, linked = call(f"{URL}/rest/v1/profiles?id=eq.{uid}", {"instructor_id": instructor_id},
+                      {**SH, "Prefer": "return=minimal"}, "PATCH")
+    check("linked the throwaway account to an instructor", st in (200, 204), f"http={st}")
+    if st not in (200, 204):
+        print(linked); purge(); return 1
 
     st, tok = call(f"{URL}/auth/v1/token?grant_type=password", {"email": EMAIL, "password": PW},
                    {"apikey": PUB, "Content-Type": "application/json"}, "POST")

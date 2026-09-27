@@ -255,7 +255,7 @@ Migrations live in `supabase/migrations/`, seed data in `supabase/seed.sql`.
 
 ```bash
 npm run db:test:rls        # row level security regression test (70 checks)
-npm run test:e2e           # full stack through the real auth + REST API (20 checks)
+npm run test:e2e           # full stack through the real auth + REST API (24 checks)
 npm run db:types           # regenerate src/lib/database.types.ts from the schema
 python3 scripts/run_sql.py <file.sql> [project_ref]   # run any SQL file
 ```

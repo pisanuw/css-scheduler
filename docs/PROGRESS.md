@@ -125,20 +125,36 @@ and `build:check`. `npm run db:types` run three times, reporting the committed
 file already current — so what is checked in is byte for byte what the CLI
 produces. The live-data counts above were read-only through the Management API.
 
-*Not verified here:* every browser check (`check:routes`, `check:mobile`,
+**`npm run test:e2e` now passes 24/24, and fixing it was the rest of this run.**
+It failed on `upsert own submission` with an RLS 403 — nothing to do with this
+change, since that script talks to the REST API directly and never loads the
+TypeScript. The cause is that the test hard-coded the instructor it borrows,
+**Clark Olson, who has since signed up for real** (`cfolson@uw.edu`).
+`profiles.instructor_id` is unique, so the PATCH that borrows him was rejected;
+the test never checked that PATCH, so the throwaway profile kept a null
+`instructor_id`, `my_instructor_id()` returned null, and the policy's
+`instructor_id = my_instructor_id()` failed four checks later. *A real user
+arriving is not a reason for a test to break.* It picks the first active
+instructor that no profile has claimed and no submission belongs to now — the
+second condition because the upsert merges on `(cycle_id, instructor_id)` and the
+purge deletes what it finds, so the old version would have edited and then
+deleted a real instructor's answers had Clark Olson filled the form in before
+running it. Both the choice and the link are checked, so the next failure of this
+kind names itself where it happens. Residue confirmed independently afterwards,
+not just from the test's own cleanup line: 3 profiles, no submissions, no child
+rows, no `e2e-test@uw.edu` anywhere.
+
+*Still not verified here:* every browser check (`check:routes`, `check:mobile`,
 `check:drag`, `check:keys`, `check:pwa`) skips on this machine — Playwright is not
 installed — and `db:test:rls:local` cannot run either, because only libpq's client
-binaries are present, with no PostgreSQL server. The boundary changes are covered
-by `tsc` and the unit tests, but nothing here has watched the access log or the
-load table render since.
+binaries are present, with no PostgreSQL server. Nothing here has watched the
+access log or the load table render.
 
 **Next run should pick up — in this order.**
 
 1. **`npm install --no-audit --no-fund` first**, and expect detached HEAD.
-2. **Run the browser checks and `npm run test:e2e`** before deploying this.
-   `test:e2e` is the one that would drive the new boundary against real rows
-   through the real REST layer; the read-only counts above argue that it will
-   pass, they are not evidence that it does.
+2. **Run the browser checks** before deploying this — they are the only gate
+   this run could not reach. `npm run test:e2e` has been run: 24/24.
 3. **Make the board usable at 67 sections** — the eighth run's top item, with a
    measurement behind it rather than an opinion. Unchanged by this run.
 4. **The two migration histories are not the same shape.** The hosted project
