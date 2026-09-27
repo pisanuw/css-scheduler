@@ -174,6 +174,22 @@ changed and because two of the check scripts were themselves edited.
 
 No migration: nothing in the database changed, so the RLS suite was not re-run.
 
+**Deployed and verified.** Deploy `6ab866bc4b460000081844e7` built the merge
+commit `894e5ad` from `main` and published in 22s. **All 37 files byte for byte**
+against the served site by `cmp` — 0 differing, 0 missing — plus
+`check:deployed` clean and the served entry chunk carrying the failure-message
+strings, which matters because a hash match alone would not say whether the
+behaviour shipped.
+
+One trap worth recording, because it wasted a build. The procedure below says to
+recover the publishable key by grepping the served entry chunk, and it is still
+right — but a *second* deploy landed between reading the entry's name from
+`index.html` and fetching it, so the fetch returned a 404 body, the grep found no
+key, and the build failed on the env guard. It looked like the key had moved into
+another chunk with the code splitting. It had not. **Read `index.html` and fetch
+the chunk it names in the same breath**, and if the key comes back empty, check
+for a rotated hash before concluding anything about where it lives.
+
 **Watch out for.**
 
 - **The verification bar is now four commands, not three.** `npm test`,
