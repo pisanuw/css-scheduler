@@ -15,10 +15,115 @@ this file is the state of play.
 | 5 — Solver, import, student checks | done |
 | Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA, the Supabase trim and offline awareness done |
 | Dependencies | `npm audit` clean; Node pinned to 22 |
+| Keyboard | nine shortcuts on the board, with a `?` sheet rendered from the same table |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-27 (sixteenth run) — nine keys, and a list that cannot lie about them
+
+**Built.** Keyboard shortcuts on the board, and the discoverability that was the
+larger half of the problem.
+
+- `src/lib/shortcuts.ts` — the table, and `activeShortcuts`, `matchShortcut`,
+  `isTypingTarget`, `keyCap`, `looksApple`, `shortcutGroups`. All pure.
+- `src/hooks/useShortcuts.ts` — the window listener, attached once.
+- `src/components/board/ShortcutHelp.tsx` — the `?` sheet, rendered from the
+  table rather than from a copy of it.
+- `src/pages/Board.tsx` — the hand-rolled ⌘Z effect is gone, replaced by a
+  dispatch over the keymap. `openNew` moved above the early returns and became a
+  `useCallback`.
+- `scripts/keys_check.mjs` and `npm run check:keys` — real key presses in a real
+  browser, on a new `shortcut-sandbox` harness scene.
+
+The nine: ⌘Z undo, `N` add a section, `I` import a quarter, `F` fill the gaps,
+`1`–`4` the quarters, `?` the list.
+
+**Learned.**
+
+- *Rendering the help from the binding table is the whole design.* A shortcut
+  cannot be added without appearing in the help, and the help cannot claim a key
+  that does nothing. A hand-kept list would have drifted by the second shortcut,
+  and a wrong help sheet is worse than none — somebody presses the key it
+  promised, nothing happens, and they conclude the feature is broken.
+- *The harness scene found a real bug on its first run, which is the whole point
+  of having it.* `Board` was passing its own live state to the help sheet. That
+  state says a sheet is open — this one — so `activeShortcuts` correctly reported
+  that nothing else was bound, and the sheet greyed out every row. What a help
+  sheet wants is what the keys do *once it is closed*. Nothing in the unit tests
+  could have caught it: both halves were behaving exactly as specified.
+- *`check:mobile` rejected the obvious way to show "unavailable", and it was
+  right for a better reason than the one it gave.* `text-slate-400` on the sheet
+  is 2.6:1 in daylight and 3.5:1 in the dark. But colour alone is a poor way to
+  say "this does nothing" regardless of contrast, and the rows that do nothing
+  are the ones most in need of being read. The label stays legible, the key cap
+  takes a dashed border, and the row carries `aria-disabled` and a sentence
+  giving the reason.
+- *An assertion can pass for the wrong reason, and removing unrelated code is how
+  you find out.* "A matched key is prevented and an unmatched one is not" was
+  green only because a step I later deleted had moved focus out of the textarea.
+  Without it the key landed in a field, was suppressed by the typing guard rather
+  than prevented by a match, and the check failed. The line that moves focus is
+  now there on purpose with a comment saying why. Worth remembering that I
+  deleted that block because it was dead code — and it was dead code doing
+  something.
+- *Single letters, not chords.* `g` then `b` buys a namespace bigger than nine
+  actions need and costs a mode: press `g`, go and answer the door, come back to a
+  board that is waiting for a second key and will not respond to the first thing
+  you try.
+- *The old ⌘Z handler had a subtler problem than its dependency array.* Fourteen
+  dependencies meant a `keydown` listener rebuilt on every keystroke in the import
+  sheet, which is ugly and harmless. The refs in `useShortcuts` fix that — and
+  introduce the risk they exist to remove: `runAction` closes over `openNew`,
+  which closes over `termId`, so a stale callback would open the section editor
+  preset to the quarter the coordinator had left. `openNew` is memoised on
+  `termId` and listed in `runAction`'s dependencies for exactly that reason.
+
+**Verified.** 483 tests (446 before, 37 new), typecheck and build green. All 33
+mobile scenes clean at 375px including `shortcut-help` — measured in its tallest
+state, a locked scenario where four of the nine rows carry a reason — and
+`shortcut-help-open`. Drag, PWA and routing clean. And `check:keys`, twelve
+assertions: a plain letter fires, `?` fires with Shift, ⌘Z and Ctrl+Z both fire,
+⇧⌘Z does not, an unclaimed key does nothing, a field and a textarea keep every
+character and fire nothing, a sheet takes the keyboard away and gives it back,
+Tab still moves focus, and a matched key is prevented where an unmatched one is
+not.
+
+No migration: nothing new in the database.
+
+**Deployed and verified.** Commit `c6116eb`. Every file byte for byte again — 29
+assets plus `sw.js`, `manifest.webmanifest` and `index.html`, by `cmp` — and the
+served board chunk holds the new strings ("Keyboard shortcuts", "Show this list",
+"Go to the first quarter", "closes any sheet"), which matters because the entry
+chunk would have matched whether or not the feature shipped. `check:deployed`
+clean, and `route_check.mjs` run against that same `dist/`.
+
+**Watch out for.**
+
+- **`npm run lint` cannot run.** There is no `eslint.config.js` and ESLint is not
+  a devDependency; the script has presumably been dead for a while and nothing
+  noticed, because nothing runs it. Either write the config or delete the script —
+  a gate that cannot run is worse than no gate, and this is the second one of
+  those this week.
+- **`?` is hidden below `sm`.** Deliberate: shortcuts are no use to a phone and a
+  44px target listing keys nobody has is worse than nothing. If the coordinator
+  turns out to work on an iPad in portrait, that is 768px and still `sm`, so it
+  is there.
+
+**Next run should pick up — in this order.**
+
+1. **`npm run lint`**, per above. Small, and it closes a gate that is currently
+   lying about existing.
+2. **An `aria-busy` or equivalent on a paused write.** The offline banner says
+   how many changes are waiting in total; an individual pill on the board still
+   looks exactly like a saved one. Worth doing only if the banner turns out not to
+   be enough in practice.
+3. `.env.asc` arrived in `dd09666` with nothing saying which key opens it or what
+   to do with it — worth a line in the README, from whoever added it. Needs the
+   maintainer; nothing in this sandbox can decrypt it.
 
 ---
 
