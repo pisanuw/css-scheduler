@@ -133,8 +133,26 @@ const SECTION_TYPES = new Set([...LECTURE_TYPES, 'QZ', 'LB', 'ST', 'CL', 'CO', '
  * The subject needs two letters of its own, or a single letter followed by a
  * second word: without that, the `W` on a continuation meeting line reads as a
  * subject and `115-315` as its course number.
+ *
+ * Both halves are narrower than they look, and the real Autumn 2026 listing is
+ * why. Course notes are prose, they wrap, and a wrapped line can start with
+ * something shaped exactly like a heading:
+ *
+ *     CREDIT CAN ONLY BE EARNED FOR ONE
+ *     OF CSS 112, 132, OR 142.
+ *
+ * The earlier pattern allowed any two short words as a subject, so `OF CSS`
+ * with number `112` read as a course heading — and the two CSS 142 sections
+ * printed under that note were filed against a course that does not exist, so
+ * the import dropped them as "not in the catalogue". Two real sections, gone,
+ * with a nonsense course name as the only clue.
+ *
+ * So: a subject is **one** code word, or a campus letter and a code word —
+ * which is all UW actually uses — and the number must be followed by a space or
+ * the end of the line. `CSS 112, 132, OR 142.` is a sentence, not a heading,
+ * and the comma is what says so.
  */
-const COURSE_HEADING = /^([A-Z]{2,6}(?:\s+[A-Z&]{2,6})?|[A-Z]\s+[A-Z&]{2,6})\s*(\d{3})\b/
+const COURSE_HEADING = /^([A-Z]{2,6}|[A-Z]\s+[A-Z&]{2,6})\s*(\d{3})(?=\s|$)/
 const SLN = /(?<![\d/])(\d{5})(?!\d)/
 const ROOM_WORDS = new Set(['ONLINE', 'REMOTE', 'TBD', 'TBA', 'ARR', '*'])
 
@@ -266,6 +284,18 @@ export function parseTimeSchedule(text: string): ParsedSchedule {
 
     const meetings: ParsedMeeting[] = []
     const arranged = /to be arranged/i.test(line)
+    /*
+     * `to be arranged` sits in the meeting-times column, and the words have to
+     * be eaten as well as noticed. Left in the stream they fall through the
+     * room reader — none of them looks like a building — and into the
+     * instructor reader, which takes everything up to the status column: the
+     * real Autumn 2026 listing produced six independent-study sections taught
+     * by a person called "to be arranged", and one called "to be arranged * *",
+     * the stars being the empty room column swept up with them.
+     */
+    if (arranged) {
+      while (tokens[i] && /^(to|be|arranged)$/i.test(tokens[i]!)) i += 1
+    }
     let days: number[] | null = null
     if (!arranged && tokens[i]) {
       const maybe = parseDayPattern(tokens[i]!)

@@ -252,6 +252,67 @@ describe('parseTimeSchedule', () => {
   })
 })
 
+/*
+ * Both of these come from the real Autumn 2026 listing, which is the first
+ * current quarter this parser has ever been shown. `timeSchedule.aut2026.test.ts`
+ * runs the whole thing; these two pin the specific lines that broke, because a
+ * one-line failure is a better bug report than a count that moved.
+ */
+describe('lines from a real listing that used to be misread', () => {
+  /*
+   * Course notes are prose and they wrap. This one wrapped so that a line began
+   * "OF CSS 112," — which read as a course heading for a subject called "OF CSS",
+   * and the two CSS 142 sections printed under the note were filed against a
+   * course that does not exist.
+   */
+  it('does not read a wrapped sentence as a course heading', () => {
+    const parsed = parseTimeSchedule(
+      [
+        'CSS 142 CMPT PROG I (NSc,RSN)',
+        'CONCURRENT REGISTRATION IN CSSSKL 142 REQUIRED. CREDIT CAN ONLY BE EARNED FOR ONE',
+        'OF CSS 112, 132, OR 142.',
+        'Restr 13456 C 5 TTh 1100-100 UW2 031 Wang,Joanna Open 47/ 48 $30',
+      ].join('\n'),
+    )
+    expect(parsed.sections).toHaveLength(1)
+    expect(parsed.sections[0]!.subject).toBe('CSS')
+    expect(parsed.sections[0]!.number).toBe(142)
+    expect(parsed.sections[0]!.sectionLetter).toBe('C')
+  })
+
+  /* The campus subjects UW really writes still have to work. */
+  it('still reads a two-word subject when it is a real one', () => {
+    const parsed = parseTimeSchedule(
+      'B CUSP 110 INTRO TO COMPUTING\n12345 A 5 MW 115-315 UW1 050 Stride,Jeff Open 1/ 48',
+    )
+    expect(parsed.sections[0]!.subject).toBe('B CUSP')
+    expect(parsed.sections[0]!.number).toBe(110)
+  })
+
+  /*
+   * `to be arranged` is in the meeting-times column of every independent study.
+   * Noticing it was not enough: the words stayed in the token stream, fell
+   * through the room reader and were taken as the instructor's name.
+   */
+  it('does not hire a person called "to be arranged"', () => {
+    const parsed = parseTimeSchedule(
+      ['CSS 198 SUPERVISED STUDY', ' IS   >13460 A  1-5     to be arranged      0/  30'].join('\n'),
+    )
+    expect(parsed.sections).toHaveLength(1)
+    expect(parsed.sections[0]!.instructorRaw).toBeNull()
+    expect(parsed.sections[0]!.meetings).toEqual([])
+  })
+
+  /* The same line with the empty room column printed, which is also swept up. */
+  it('does not hire "to be arranged * *" either', () => {
+    const parsed = parseTimeSchedule(
+      ['CSS 499 UNDERGRAD RESEARCH', ' IS   >13515 A  1-5  to be arranged * *   0/  10  CR/NC'].join('\n'),
+    )
+    expect(parsed.sections[0]!.instructorRaw).toBeNull()
+    expect(parsed.sections[0]!.meetings).toEqual([])
+  })
+})
+
 describe('matchInstructor', () => {
   it('matches Last,First against First Last', () => {
     expect(matchInstructor('Nixon,David', ROSTER)?.id).toBe('i-nixon')

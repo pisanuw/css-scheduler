@@ -1381,9 +1381,35 @@ teaching load. A section that meets twice keeps its first meeting and says so �
 the schema holds one meeting per section, and halving one quietly would be the
 worst of the three options.
 
-**Checked against the real thing.** `src/lib/timeSchedule.real.test.ts` writes
-all 240 rows of `scripts/data/history_sections.csv` back out in published layout
-and requires the parser to recover every field of every one. It is a round trip,
-so it cannot prove the layout is faithful — but it is the only check that
-exercises every real course, room, name and time block together, including the
-awkward ones: `* *` for no room, `to be arranged`, and a cap written `48E`.
+**Checked against the real thing, twice, and the second one matters more.**
+`src/lib/timeSchedule.real.test.ts` writes all 240 rows of
+`scripts/data/history_sections.csv` back out in published layout and requires
+the parser to recover every field of every one. It is a round trip, so it cannot
+prove the layout is faithful — it can only prove the parser reads back what this
+repo already extracted.
+
+`src/lib/timeSchedule.aut2026.test.ts` is the other half: the **Autumn 2026 CSS
+listing as published**, supplied by the coordinator (the schedule is behind a
+NetID now, so nobody else could), extracted from
+`past-course-schedules/aut2026.pdf` into
+`scripts/data/aut2026_timeschedule.txt`. 75 sections, nothing ignored, 74 rows
+ready to import — and it found two bugs the round trip could not, because the
+round trip synthesises tidy headings and never writes a course note at all:
+
+- **A wrapped sentence read as a course heading.** Course notes are prose. One
+  wrapped so a line began `OF CSS 112,`, the subject pattern accepted any two
+  short words, and the two CSS 142 sections printed under that note were filed
+  against a course called "OF CSS 112" — which no catalogue holds, so the import
+  dropped them. A subject is now one code word, or a campus letter and a code
+  word, which is all UW uses; and a heading's number must be followed by a space
+  or the end of the line, so `CSS 112, 132, OR 142.` is a sentence.
+- **A person called "to be arranged".** The phrase sits in the meeting-times
+  column of every independent study. The parser noticed it — it already refused
+  to read a day pattern from it — but never consumed the words, so they fell
+  through the room reader and into the instructor reader, which takes everything
+  up to the status column. Six sections came back taught by "to be arranged",
+  and one by "to be arranged * *".
+
+*A round trip over data you extracted yourself cannot find the thing your
+extraction removed.* Both bugs were in code with tests over real rows, and both
+needed one real page that nobody in this project had ever parsed.
