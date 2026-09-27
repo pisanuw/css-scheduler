@@ -219,6 +219,10 @@ describe('registerServiceWorker', () => {
     const { onError, done } = setup(container)
     const stop = await done
 
+    // `expect.any` is typed `any` by construction — that is what an asymmetric
+    // matcher is. Disabled at the one line rather than for every test file, so
+    // `no-unsafe-assignment` still guards the rest of the suite.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.any(String) }))
     expect(() => stop()).not.toThrow()
   })

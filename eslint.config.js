@@ -84,21 +84,19 @@ export default tseslint.config(
        */
       '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
       /*
-       * Off, and the reason is a gap rather than a preference: no
-       * `src/lib/database.types.ts` has ever been generated, so
-       * `supabase.from(...)` is typed with `any` rows and every `const { data }
-       * = await ...` is an unsafe assignment. The codebase's answer is a cast
-       * at the boundary (`data as Scenario`), which is visible and checked by
-       * everything downstream of it.
+       * On, and it took generating `src/lib/database.types.ts` to get there.
+       * Until then `supabase.from(...)` handed back `any` rows, every
+       * `const { data } = await ...` was an unsafe assignment, and the rule
+       * would have reported nine findings whose only honest fix was a cast. The
+       * client is parameterised with `Database` now, so a row arrives as its
+       * row type and the rule has nothing left to report — which means it is
+       * finally a gate rather than a standing complaint.
        *
-       * The real fix is `npm run db:types`, which needs a linked Supabase CLI
-       * this sandbox does not have. Until then the rule would report nine
-       * findings nobody can act on. Its sharper relatives —
-       * `no-unsafe-member-access`, `no-unsafe-call`, `no-unsafe-return`,
-       * `no-unsafe-argument` — stay on, and they are the ones that catch an
-       * `any` being *used* rather than merely received.
+       * What it guards from here is the regression: drop the type parameter, or
+       * let the generated file go stale against a migration, and the `any`
+       * comes back silently. This says so at build time.
        */
-      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
     },
   },
 

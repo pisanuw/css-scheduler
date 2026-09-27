@@ -6,6 +6,7 @@ import type {
   PreferenceCycle,
   PreferenceSubmission,
   PreferenceTerm,
+  PrefTier,
   Term,
 } from '../lib/types'
 
@@ -108,7 +109,7 @@ export interface SavePayload {
     | 'max_new_preps'
     | 'note_to_coordinator'
   >
-  courses: { course_id: string; tier: string }[]
+  courses: { course_id: string; tier: PrefTier }[]
   terms: { term_id: string; available: boolean; desired_course_count: number | null; leave_reason: string | null }[]
 }
 
@@ -138,7 +139,7 @@ export function useSaveSubmission() {
         .single()
       if (error) throw new Error(error.message)
 
-      const submissionId = (saved as PreferenceSubmission).id
+      const submissionId = saved.id
 
       const delCourses = await supabase.from('preference_courses').delete().eq('submission_id', submissionId)
       if (delCourses.error) throw new Error(delCourses.error.message)
@@ -157,7 +158,7 @@ export function useSaveSubmission() {
           .insert(p.terms.map((t) => ({ ...t, submission_id: submissionId })))
         if (ins.error) throw new Error(ins.error.message)
       }
-      return saved as PreferenceSubmission
+      return saved
     },
     onSuccess: (_d, vars) => {
       void qc.invalidateQueries({ queryKey: ['submission', vars.cycleId] })
@@ -172,7 +173,7 @@ export function useUpsertCycle() {
     mutationFn: async (c: Partial<PreferenceCycle> & { academic_year_id: string; name: string }) => {
       const { data, error } = await supabase.from('preference_cycles').upsert(c).select().single()
       if (error) throw new Error(error.message)
-      return data as PreferenceCycle
+      return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['preference_cycles'] }),
   })

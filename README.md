@@ -71,11 +71,11 @@ npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
                   # reporting, suggestions, undo, drag rules, the toast queue,
                   # the focus trap, the theme rules, the route table, chunk
                   # recovery, the service worker's rules and the Supabase
-                  # clients this build leaves out, the offline rules and the
-                  # keyboard shortcuts (492 tests)
+                  # clients this build leaves out, the offline rules, the
+                  # keyboard shortcuts and the database row checks (581 tests)
 npm run typecheck
 npm run lint         # ESLint: hook dependency lists, unhandled promises,
-                     # dead code, stray `any` — 119 files, no warnings allowed
+                     # dead code, stray `any` — 132 files, no warnings allowed
 npm run build        # needs the two Supabase values in the environment
 npm run build:check  # the same build with placeholders, for when you only
                      # want to know that it builds
@@ -84,7 +84,7 @@ npm run build:check  # the same build with placeholders, for when you only
 `npm run lint` is deliberately small, and it is not a formatter: no rule in
 `eslint.config.js` reflows a line, so lint and the build can never disagree
 about a file. Formatting is Prettier's argument and not worth having twice.
-`tsc` has the types, the four browser checks have the behaviour, and 492 unit
+`tsc` has the types, the four browser checks have the behaviour, and 581 unit
 tests have the rules; what those leave is the class of mistake that type-checks
 and runs and is still wrong.
 
@@ -102,13 +102,30 @@ ships as. The board keeps its conflict findings, tallies and drop hints in
 yesterday's conflicts beside today's assignment, which is the exact failure this
 app exists to prevent.
 
-There are no standing warnings: the script fails on one. Six rules are off and a
-seventh narrowed, each with its reason written beside it, because a rule
-switched off without one becomes a rule nobody can argue with later. The one to
-revisit is `@typescript-eslint/no-unsafe-assignment`: it is off only because no
-`src/lib/database.types.ts` has ever been generated, so Supabase rows arrive as
-`any` and are cast at the boundary. `npm run db:types` is the fix, and it needs
-a linked Supabase CLI.
+There are no standing warnings: the script fails on one. Three rules are off and
+two narrowed, each with its reason written beside it, because a rule switched off
+without one becomes a rule nobody can argue with later.
+
+`@typescript-eslint/no-unsafe-assignment` was a fourth. It was off because no
+`src/lib/database.types.ts` had ever been generated, so every Supabase row
+arrived as `any` and was cast at the boundary. `npm run db:types` has been
+run: the client is `createClient<Database>` now, rows arrive as their row types,
+and the rule is an **error** with nothing suppressed but one `expect.any` in a
+test. Turning it on cost seven type errors, and every one was a place the code
+claimed more than the schema can promise — a `tier` typed `string` that Postgres
+only accepts four values for, `access_log.event` narrowed to two values the
+column enforces with a `check` rather than an enum, a `jsonb` column read as an
+object, and four columns that are non-null in fact but nullable in the catalogue.
+`src/lib/rows.ts` holds those reconciliations as tested functions; see its header
+for which kind each one is.
+
+Regenerate the types with `npm run db:types` after every migration, from the
+hosted project, or `npm run db:types -- local` from a `supabase start` stack. The
+generated file is committed, because the build needs it and CI has no database;
+`scripts/db_types.sh` replaces it only when the CLI actually produced types,
+which a plain redirect does not — the CLI reports "is the docker daemon running?"
+on stdout, so `> database.types.ts` writes the error message into the file the
+app is typed against and the next build goes quietly back to `any`.
 
 **`npm run build` will not build without `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_ANON_KEY`,** and that is deliberate. `src/lib/supabase.ts` throws
@@ -239,10 +256,17 @@ Migrations live in `supabase/migrations/`, seed data in `supabase/seed.sql`.
 ```bash
 npm run db:test:rls        # row level security regression test (70 checks)
 npm run test:e2e           # full stack through the real auth + REST API (20 checks)
+npm run db:types           # regenerate src/lib/database.types.ts from the schema
 python3 scripts/run_sql.py <file.sql> [project_ref]   # run any SQL file
 ```
 
-Both talk to the hosted project and clean up after themselves.
+The first two talk to the hosted project and clean up after themselves.
+
+`npm run db:types` reads the schema through the CLI's own access token, so it
+needs the same keychain entry the next paragraph describes — which is why its
+output is committed rather than generated during the build. A migration that is
+not followed by a `db:types` run leaves the application typed against the
+previous schema, and `tsc` cannot tell: the types still describe *a* database.
 
 `scripts/run_sql.py` talks to the Supabase Management API and reads the CLI's
 access token from the macOS keychain, so no secret is written to disk. That is

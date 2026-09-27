@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { changeDetail } from '../lib/rows'
 import type { AssignmentRow, SectionRow, SubmissionBundle, TimeSlotRow } from '../lib/snapshot'
 import type { HistoryRow, SeedPlan } from '../lib/seedPlan'
 import { WATCH_LIMIT, type WatchEntry } from '../lib/liveSync'
@@ -38,7 +39,7 @@ export const useScenario = (id?: string) =>
     queryFn: async () => {
       const { data, error } = await supabase.from('scenarios').select('*').eq('id', id!).single()
       if (error) throw new Error(error.message)
-      return data as Scenario
+      return data
     },
   })
 
@@ -48,7 +49,7 @@ export function useSaveScenario() {
     mutationFn: async (s: Partial<Scenario> & { academic_year_id: string; name: string }) => {
       const { data, error } = await supabase.from('scenarios').upsert(s).select().single()
       if (error) throw new Error(error.message)
-      return data as Scenario
+      return data
     },
     onSuccess: (s) => {
       void qc.invalidateQueries({ queryKey: ['scenarios'] })
@@ -183,9 +184,7 @@ export function useApplySeedPlan() {
       if (error) throw new Error(error.message)
 
       const idByKey = new Map(
-        (data as { id: string; term_id: string; course_id: string; section_letter: string }[]).map(
-          (r) => [`${r.term_id}|${r.course_id}|${r.section_letter}`, r.id],
-        ),
+        data.map((r) => [`${r.term_id}|${r.course_id}|${r.section_letter}`, r.id]),
       )
       const links = plan.sections.flatMap((s) => {
         const id = idByKey.get(`${s.term_id}|${s.course_id}|${s.section_letter}`)
@@ -318,7 +317,7 @@ export function useSaveSection(scenarioId: string) {
     mutationFn: async (s: SectionDraft) => {
       const { data, error } = await supabase.from('sections').upsert(s).select().single()
       if (error) throw new Error(error.message)
-      return data as SectionRow
+      return data
     },
     onSuccess: () => invalidateBoard(qc, scenarioId),
   })
@@ -532,7 +531,7 @@ export const useScenarioChanges = (scenarioId?: string, limit = 200) =>
     enabled: !!scenarioId,
     queryKey: ['scenario_changes', scenarioId, limit],
     queryFn: async () =>
-      rows<ScenarioChange>(
+      rows(
         await supabase
           .from('scenario_changes')
           .select('*')
@@ -540,7 +539,7 @@ export const useScenarioChanges = (scenarioId?: string, limit = 200) =>
           .order('occurred_at', { ascending: false })
           .order('id', { ascending: false })
           .limit(limit),
-      ),
+      ).map((c): ScenarioChange => ({ ...c, detail: changeDetail(c.detail) })),
   })
 
 /**
@@ -558,13 +557,13 @@ export function useUndoChanges(scenarioId: string) {
     mutationFn: async (ids: number[]): Promise<{ count: number; summary: string | null }> => {
       if (ids.length === 0) return { count: 0, summary: null }
       if (ids.length === 1) {
-        const { data, error } = await supabase.rpc('undo_change', { p_change_id: ids[0] })
+        const { data, error } = await supabase.rpc('undo_change', { p_change_id: ids[0]! })
         if (error) throw new Error(error.message)
-        return { count: 1, summary: (data as string | null) ?? null }
+        return { count: 1, summary: data }
       }
       const { data, error } = await supabase.rpc('undo_changes', { p_ids: ids })
       if (error) throw new Error(error.message)
-      return { count: (data as number | null) ?? 0, summary: null }
+      return { count: data, summary: null }
     },
     onSuccess: () => invalidateBoard(qc, scenarioId),
   })

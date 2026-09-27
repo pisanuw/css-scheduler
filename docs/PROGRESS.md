@@ -18,6 +18,7 @@ this file is the state of play.
 | Dependencies | `npm audit` clean; Node pinned to 22 |
 | Keyboard | nine shortcuts on the board, with a `?` sheet rendered from the same table |
 | Lint | `npm run lint` runs: ESLint 10, type-aware, fails on one warning. **Every `react-hooks` v7 rule is now an error**, nothing grandfathered and nothing suppressed — `refs` was the last one off |
+| Types | **`src/lib/database.types.ts` is generated and committed** and the client is `createClient<Database>`, so rows arrive as their row types rather than `any`; `no-unsafe-assignment` is an **error**. Regenerate with `npm run db:types` after every migration — nothing in the build can tell that you did not |
 | Deploy | **Netlify builds from git pushes.** The sixth run's claim that it does not was wrong — see the seventh-run entry. `deploy_source` says `api` either way; `commit_ref` and `manual_deploy` are what discriminate |
 | Sandbox | `npm ci` is **unreliable**: allowed in the sixth and seventh runs, refused in the eighth (*Git Destructive*). `npm install --no-audit --no-fund` has worked every time and is what the hook should run. No hook can be committed from here (the classifier blocks writing `.claude/`, correctly, as self-modification). **A maintainer still needs to add the SessionStart hook.** |
 | Live data | 76 instructors, 128 courses, 3 profiles, 1 preference cycle, 2 academic years, 6 terms, 42 time slots, 37 rooms, 199 history rows — and **no scenarios, sections, assignments or submissions at all**. What the two real users currently meet is every page's empty state. |
@@ -28,6 +29,134 @@ this file is the state of play.
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-27 (ninth run) — the types were generated, and the rule that was off found seven real things
+
+Picked up the note the README had carried for five runs:
+`@typescript-eslint/no-unsafe-assignment` was off only because
+`src/lib/database.types.ts` had never been generated, and `npm run db:types` was
+the fix "and it needs a linked Supabase CLI". The file is generated and
+committed, the client is `createClient<Database>`, and the rule is an error.
+
+**The blocker was the wrong shape.** The CLI is *not* linked on this machine —
+`supabase projects list` says `linked: false` for all four projects and
+`supabase/.temp` holds no ref — and Docker is not running either, so the old
+`db:types` (`supabase gen types typescript --local`) could not have worked here
+at all. It never needed a link: `--project-id abvnaelzfriusckqqrfc` needs only
+the access token `scripts/run_sql.py` already depends on. That is the default
+now, and `db:types` works without `supabase link`.
+
+**The redirect was a trap, and worth replacing on its own.** The CLI reports its
+failures as JSON on *stdout*. So `supabase gen types … > src/lib/database.types.ts`
+on a machine with no Docker truncates the file, writes `{"_tag":"Error",…}` into
+it, and exits 1 — after which nothing fails: a junk module still imports,
+`Database` becomes `any`, every row in the app silently goes back to `any`, and
+the lint rule that is supposed to notice has nothing to say because there is no
+longer a type to be unsafe about. `scripts/db_types.sh` generates into a
+temporary file, refuses to install anything without `export type Database` in it,
+prints what the CLI actually said, and leaves the real file alone. Both failure
+paths were run on purpose.
+
+**Then the client got its type parameter, and `tsc` reported seven errors.**
+Every one was a place the code claimed more than the schema can promise. They
+sort into three kinds, which is what `src/lib/rows.ts` is organised around:
+
+- *A `check` constraint is not a type.* `access_log.event` is `text` with
+  `check (event in ('sign_up','sign_in'))` and `AccessLogRow` narrowed it to
+  those two — true today, unprovable by the compiler, checked at the boundary now.
+- *`jsonb` is `Json`.* `scenario_changes.detail` is read as an object by
+  `canUndo` and `undo.ts`; the column would accept an array or a number.
+- *View columns are always nullable.* Postgres records no not-null constraint for
+  a view, so all eight columns of `instructor_load_targets` and all six of
+  `access_summary` generate as nullable even though the tables they select from
+  are not. `courses.code` is the same problem from a different cause: a generated
+  column carries no not-null constraint of its own, so the one column that
+  provably cannot be null reads as `string | null`.
+
+The view cases are the ones with a judgement in them. A cast compiles and is what
+the old code did; instead each is a function that checks and returns `null`, and
+the caller drops the row. **Checked against the live project before believing it:**
+152 rows in `instructor_load_targets`, 3 in `access_summary`, 128 courses —
+nothing dropped, no null `released_courses`, no null `code`, no `event` outside
+the two, no `tier` outside the four. The checks cost nothing today, and the only
+way to make one fire is to change a view, which is exactly when someone should
+hear about it.
+
+The seventh error was `ids[0]` under `noUncheckedIndexedAccess`, reachable only
+because `rpc('undo_change')` has a typed argument now. Nine casts came out as
+dead weight on the way past — `data as Scenario` twice, `as SectionRow`,
+`as PreferenceSubmission`, `as PreferenceCycle`, the two on the undo RPCs' return
+values, and the four-property inline type on the seed-plan insert.
+
+**Merged with the eighth run's four parts, which landed while this was in
+progress** — fifteen commits, and the only conflict was this file. The
+interesting part is what did *not* conflict: `useScenarioFeed`, `liveSync.ts` and
+`useLiveScenario.ts` arrived from upstream with no knowledge of the generated
+types and needed **no change at all**. `rows<WatchEntry>` over
+`select('id, action, summary, actor_email')` type-checks, which means
+`WatchEntry.action` is now *verified* against the `change_action` enum rather
+than asserted alongside it. That is the first evidence that this change pays
+rent on code written without it.
+
+One correction to the sixth run's entry, since it describes current state rather
+than history: "the two rules still off are `react-refresh/only-export-components`
+… and nothing else" was not right even then. Three are off — that one plus
+`require-await` and `prefer-promise-reject-errors`, both scoped to test files —
+and two are narrowed rather than off. The README says so now.
+
+**Learned.** *"It needs a linked CLI" read as "wait for the maintainer's
+machine", and the real requirement was a token this repo already depends on
+twice.* A blocker written down once is a note about one afternoon; written down
+five times it becomes a fact about the project. Worth asking of any blocker that
+has survived a few runs: is that still the requirement, or just the first thing
+that was tried?
+
+Second: *a generated file's generator belongs to the build and deserves the same
+scrutiny as the build.* The rule was off for a real reason, the fix was one
+command, and that command would have quietly destroyed the file it was meant to
+produce on every machine this project's checks run on except one.
+
+**Verified.** 581 tests (16 new in `src/lib/rows.test.ts`, upstream's 565 all
+still passing), typecheck, `lint --max-warnings 0` with `no-unsafe-assignment`
+now an **error** and one inline disable for `expect.any` in `swClient.test.ts`,
+and `build:check`. `npm run db:types` run three times, reporting the committed
+file already current — so what is checked in is byte for byte what the CLI
+produces. The live-data counts above were read-only through the Management API.
+
+*Not verified here:* every browser check (`check:routes`, `check:mobile`,
+`check:drag`, `check:keys`, `check:pwa`) skips on this machine — Playwright is not
+installed — and `db:test:rls:local` cannot run either, because only libpq's client
+binaries are present, with no PostgreSQL server. The boundary changes are covered
+by `tsc` and the unit tests, but nothing here has watched the access log or the
+load table render since.
+
+**Next run should pick up — in this order.**
+
+1. **`npm install --no-audit --no-fund` first**, and expect detached HEAD.
+2. **Run the browser checks and `npm run test:e2e`** before deploying this.
+   `test:e2e` is the one that would drive the new boundary against real rows
+   through the real REST layer; the read-only counts above argue that it will
+   pass, they are not evidence that it does.
+3. **Make the board usable at 67 sections** — the eighth run's top item, with a
+   measurement behind it rather than an opinion. Unchanged by this run.
+4. **The two migration histories are not the same shape.** The hosted project
+   records twelve applied migrations; `supabase/migrations/` holds nine
+   consolidated files. The generated types come from the hosted one and the
+   schemas are believed identical, but nothing has proved it —
+   `supabase gen types --db-url` against a `scripts/local_db.sh` cluster, then a
+   diff, would, on a machine with a PostgreSQL server. Worth doing once, and
+   worth a line in the README either way.
+5. **`courses.code` could stop being a special case.** `alter table courses alter
+   column code set not null` on a stored generated column over two not-null
+   columns is a one-line migration, after which `courseFrom`'s recomputation is
+   dead code. Left undone deliberately: it is a schema change, and this run was
+   asked for a types fix.
+6. **The watcher's cost, with a stopwatch** — carried five times now.
+7. **The SessionStart hook** — maintainer only.
+8. **Re-run the database sweep whenever the schema next moves.** It still has not
+   moved; `npm run db:types` is now part of what "moving it" means.
 
 ---
 
