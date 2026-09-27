@@ -20,11 +20,109 @@ this file is the state of play.
 | Lint | `npm run lint` runs: ESLint 10, type-aware, fails on one warning. **Every `react-hooks` v7 rule is now an error**, nothing grandfathered and nothing suppressed — `refs` was the last one off |
 | Deploy | **Netlify builds from git pushes.** The sixth run's claim that it does not was wrong — see the seventh-run entry. `deploy_source` says `api` either way; `commit_ref` and `manual_deploy` are what discriminate |
 | Sandbox | `npm ci` is **unreliable**: allowed in the sixth and seventh runs, refused in the eighth (*Git Destructive*). `npm install --no-audit --no-fund` has worked every time and is what the hook should run. No hook can be committed from here (the classifier blocks writing `.claude/`, correctly, as self-modification). **A maintainer still needs to add the SessionStart hook.** |
-| Live data | 76 instructors, 128 courses, 3 profiles, 1 preference cycle — and **no scenarios, sections, assignments or submissions at all**. What the two real users currently meet is every page's empty state. Read 2026-09-27, eighth run. |
+| Live data | 76 instructors, 128 courses, 3 profiles, 1 preference cycle, 2 academic years, 6 terms, 42 time slots, 37 rooms, 199 history rows — and **no scenarios, sections, assignments or submissions at all**. What the two real users currently meet is every page's empty state. |
+| Cold start | **Measured, and sound.** All 240 real rows seed as 240 sections with nothing skipped, no off-grid times and every room resolved; `seedPlan.real.test.ts` holds it. The empty states are one component and checked at 375px. |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-27 (eighth run, continued) — the cold start, walked rather than assumed
+
+Picked up item 2 of the handoff written an hour earlier in this same session.
+Two commits, both deployed and verified.
+
+**The cold start's data half is sound, and that is now a fact rather than a
+hope.** The worry was that a coordinator's first tap — *New scenario → start
+from the year as it was taught* — would produce a board full of holes and leave
+them typing two hundred sections into a phone. It does not. All 240 rows of
+`scripts/data/history_sections.csv` come through `planFromHistory` as **240
+sections: nothing skipped, no off-grid times, every room resolved**, the 41
+"to be arranged" rows kept as arranged rather than dropped, letters A–G
+preserved with one letter per course per quarter. `seedPlan.real.test.ts` now
+holds all of that, including the dialog's own sentence — "240 sections · 199
+assignments · 41 to be arranged" — because that is the only description of the
+plan the coordinator sees before committing to it.
+
+It also writes down a number this repo had not: `teaching_history` holds **199**
+rows live rather than 240 because the seed SQL excludes the arranged ones.
+
+**One test exists because of a mistake made while measuring, and it is the most
+valuable one in the file.** The first probe reported `roomsUnresolved: 197` and
+looked like a serious bug. It was not: the probe had passed `rooms.label`, which
+holds `'050'`. `useRooms` joins `buildings` and composes `'UW1 050'` from `code`
+and `room_number`, and the seed derives the room list from those same labels by
+splitting on the space. A room list built from the number alone matches
+**nothing, on every row, silently** — the year would land with no rooms and the
+room-clash check would have nothing to work with. A test now feeds bare numbers
+in and asserts exactly that failure. *A measurement that looks like a bug gets
+checked against the code that builds its inputs before it is believed* — the
+seventh run learned the same lesson about a lint finding.
+
+**Also measured, and needing nothing: the engines at real size.** A real year is
+199 sections and 69 instructors, while every scene to date has used five.
+`detectConflicts` 1.4 ms, `buildSnapshot` 0.5 ms, `buildReport` 0.6 ms,
+`loadTallies` 0.1 ms, `studentClashes` under 0.1 ms. No work needed; recorded so
+nobody spends a run optimising them.
+
+**The second commit: the empty states, which are the cold start.** With no
+scenario in the database a first visit is the same card on five pages in a row,
+and not one of them had ever been measured at 375px. Three things had drifted,
+and the third was a bug: the styling (`text-slate-500` on cycles,
+`text-slate-600` elsewhere); the report's dropped the page heading, leaving a
+floating sentence with no title; and the way out was sometimes a real button and
+sometimes **an underlined link inside the prose — about twenty pixels of tap
+target, and the only thing to tap** on the report, the comparison and the
+student check.
+
+`EmptyState` takes its action as *data*, not as children, so an inline link
+cannot be passed to it: it renders a 44px control or nothing. Nothing is a real
+answer — a student looking at an unpublished schedule has nowhere to be sent and
+is told what will appear here instead of reaching a dead end. Cycles gained a
+way out it never had. The harness now has a `MemoryRouter` around it, because a
+`<Link>` outside a router throws; nothing navigates, the point is that scenes
+hold real links rather than fakes that would let a broken one through.
+
+**Verified.** 544 tests (11 new), typecheck, `lint --max-warnings 0`, build,
+`check:drag`, `check:keys`, and `check:mobile` over **35 scenes** at 375px — the
+new `empty-states` scene carries all four shapes, including the longest label an
+action can hold and the disabled one. The new assertions were checked for bite
+rather than trusted: removing one block from the grid turns 32 real sections
+into off-grid times and fails three tests.
+
+**Deployed and verified, twice.** `3dbfdbf` (the test) and `4ccc11a` (the
+component) — deploy `6ab91ee0e24ac300081dee33`, commit_ref `4ccc11a…`,
+`manual_deploy: false`, published `13:49:48Z`, 25 new files. All **38 files byte
+for byte** by `cmp` against a local `dist/`; served entry `index-bIc9_Vbw.js`
+matches the local one. `check:deployed` clean, 17 precached files. Three
+git-triggered builds in a row now.
+
+**Next run should pick up — in this order.**
+
+1. **`npm install --no-audit --no-fund` first** (not `npm ci`), and expect
+   detached HEAD.
+2. **The rest of the cold start is the half a sandbox cannot reach.** The data
+   path and the empty states are done; what is untested is a real coordinator
+   signing in and tapping through *year → scenario → seed → board* against the
+   live database. `test:e2e` needs the maintainer's keychain token, so this is
+   either a maintainer item or a request for one screenshot of the New scenario
+   dialog on a phone. Worth asking for rather than simulating again.
+3. **The watcher's cost, with a stopwatch** — carried over twice now.
+   `Compare` polls two feeds, so six requests a minute there, and four pages poll
+   where one did. `useScenarioFeed` already sets `refetchOnWindowFocus: true`;
+   the question is how much of the benefit focus alone carries. Do not shorten
+   the 20s interval; the flicker gate would suffer.
+4. **A board with 199 sections has never been looked at on a phone.** The
+   engines are fast enough, but the *page* has only ever been seen with five
+   cards in a quarter; the real Autumn is 67. Worth one scene at real size
+   before the coordinator finds out for us.
+5. **The SessionStart hook still needs the maintainer** — `npm install
+   --no-audit --no-fund`, guarded by `[ "$CLAUDE_CODE_REMOTE" = "true" ]`.
+6. **A real paste through the time-schedule import is off the list** (Shibboleth).
+7. **Re-run the database sweep whenever the schema next moves.** No migration in
+   this session at all.
 
 ---
 
