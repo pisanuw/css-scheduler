@@ -16,14 +16,139 @@ this file is the state of play.
 | Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA, the Supabase trim and offline awareness done |
 | Dependencies | `npm audit` clean; Node pinned to 22 |
 | Keyboard | nine shortcuts on the board, with a `?` sheet rendered from the same table |
-| Lint | `npm run lint` runs: ESLint 10, type-aware, fails on one warning. `set-state-in-effect` is an **error** with nothing grandfathered — all five sites cleared |
-| Sandbox | **`npm ci` / `npm install` are refused by the permission classifier as of the 2026-09-27 fifth run.** No dependencies means no `npm test` / `typecheck` / `build`, which means no code change can meet the verification bar. See that entry for the fix. |
+| Lint | `npm run lint` runs: ESLint 10, type-aware, fails on one warning. **Every `react-hooks` v7 rule is now an error**, nothing grandfathered and nothing suppressed — `refs` was the last one off |
+| Sandbox | `npm ci` **worked** in the 2026-09-27 sixth run, so the fifth run's refusal was not permanent — but it is not reliable either, and no hook can be committed from here (the classifier blocks writing `.claude/`, correctly, as self-modification). **A maintainer still needs to add the SessionStart hook.** See the sixth-run entry. |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
 
 ---
+
+## 2026-09-27 (sixth run today) — the last lint rule is on, and the false positives were half real
+
+`npm ci` **worked this run**, unprompted and with no settings file in the repo,
+so the fifth run's classifier refusal was transient rather than a permanent
+wall. That was item 1 on the handoff and it cleared, so there was a real run to
+have. Detached HEAD again, as predicted; `git branch -f main <commit> && git
+checkout main` again the fix. Expect both every run.
+
+**Item 2 done: `react-hooks/refs` is an error, with nothing suppressed.** The
+plan on the handoff was to scope the rule off to `LoadPanel.tsx` and take the
+gate everywhere else. That turned out to be the wrong trade, because the ten
+findings were fixable — and the previous run's diagnosis of them was wrong in a
+way worth recording.
+
+The comment said the rule "sees a property called `ref`" on the object
+`useRowDrag` returns, and that there was no ref anywhere near it. Renaming the
+key from `ref` to `setNodeRef` was the obvious test of that claim, and **it
+changed nothing: still ten findings, still including `drag.className`, a
+string.** The rule does not key on the name. It taints the whole object once it
+holds a callback ref, and then reports every property read off it. Which means
+the finding was pointing at something real after all — not a wrong ref access,
+but a bundle that put dnd-kit's node-ref callback and the row's plain props on
+one object and made them indistinguishable.
+
+So `useRowDrag` returns `[setNodeRef, props]` now. Both call sites read
+`<li ref={dragRef} {...dragProps}>`, which is shorter than the five-attribute
+spread it replaces, and all ten findings go with it. `SectionCard.tsx` never
+had the problem because it calls `useDraggable` in the component and passes
+`setNodeRef` straight to `ref` — the taint needs the wrapper to travel.
+
+`eslint-plugin-react-hooks` v7 is now fully on: `refs`, `set-state-in-effect`
+and `exhaustive-deps` all errors, nothing grandfathered, no file-scoped
+exception, no inline disable. The two rules still off are
+`react-refresh/only-export-components` (a different plugin, off for the reason
+in the config) and nothing else.
+
+**Learned — the general point.** *A lint finding recorded as a false positive
+deserves one cheap experiment against the stated cause before it is believed.*
+The cause here was written down confidently and was wrong, and the experiment
+that disproved it was a two-line rename that took a minute. Ten "false
+positives" were one design smell; the rule was right and the comment was the
+thing that had drifted.
+
+**Verified.** 510 tests, typecheck, `lint --max-warnings 0` with the new rule
+on, build, `check:drag` — which exercises exactly this code, "dragging a name
+from the load panel assigns it", with a real mouse and a real finger, and
+asserts a flick still scrolls rather than dragging (that path depends on the
+`touchAction` style the refactor moved) — and `check:mobile`, 33 scenes clean at
+375px including `load-panel`.
+
+**Deployed and verified.** Commit `953206b`, Netlify deploy
+`6ab8d34cacb1816cd7aba708`, published `08:27Z`. All **37 files byte for byte**
+by `cmp` against a local `dist/` built with the `sb_publishable_…` key,
+including the new `Board-DChZRRu5.js` chunk that carries the change.
+`check:deployed` clean, 16 precached files. Worth knowing: this deploy's
+`commit_ref` is `null` and its title is "Deploy triggered by upload" — the MCP
+deploy uploads the working tree and builds it in Netlify's build system, so the
+deploy record does **not** name the commit. The byte comparison is the only
+evidence that what shipped is what `main` says, which is precisely why the
+standing instruction asks for it.
+
+Also learned about the pipeline: **Netlify is not building from git pushes on
+this project.** The deploy that was live at session start was `deploy_source:
+api` at the previous commit, not a git-triggered build. A push alone ships
+nothing; the deploy step is not optional.
+
+**Two items are blocked, and neither is blocked on effort.**
+
+- **The SessionStart hook cannot be committed from this sandbox.** Writing
+  `.claude/hooks/session-start.sh` and `.claude/settings.json` was denied by the
+  auto-mode classifier as *Self-Modification* — an agent editing the config that
+  governs the agent. That is a reasonable guardrail and was not worked around.
+  So the fifth run's request stands and only a human can satisfy it: add a
+  `SessionStart` hook running `npm install --no-audit --no-fund`, guarded by
+  `[ "$CLAUDE_CODE_REMOTE" = "true" ]` so local checkouts are untouched. A hook
+  runs outside the per-command classifier, which is the whole point — `npm ci`
+  happened to be allowed this run, but nothing in the repo makes that reliable,
+  and the fifth run shows what a refusal costs: the entire window.
+- **Item 4, a real paste through the time-schedule import, cannot be sourced
+  from here.** `https://www.washington.edu/students/timeschd/B/AUT2026/css.html`
+  returns 200 and a **Shibboleth authentication redirect** — the published time
+  schedule is behind UW NetID now. `WIN2027` is a 404, so the current quarter is
+  not posted yet either. This is not a small obstacle to route around: it is why
+  `ImportSheet` takes a paste rather than a URL in the first place, and it means
+  the parser can only ever be checked against real current data by a human who
+  is signed in pasting it. `timeSchedule.real.test.ts` remains a round trip over
+  the three archived quarters, honest about what that does and does not prove.
+  **Ask the maintainer for one paste of a current listing**; without it this item
+  should come off the list rather than be re-attempted each run.
+
+**Next run should pick up — in this order.**
+
+1. **`npm ci` first, before planning anything**, and expect detached HEAD.
+2. **Check whether a `.claude/` directory has appeared.** If the maintainer
+   added the hook, nothing here needs doing again; if not, this stays a
+   maintainer item and should not be retried from the sandbox.
+3. **Two coordinators on one scenario do not see each other's edits.** This
+   started as a note about undo and that was wrong — undo is not local state,
+   it is `undo_change` in the database, and `myLastUndoableIds` already scopes
+   ⌘Z to the caller's own changes for exactly this reason, argued in
+   `docs/DESIGN.md` under *Undo*. That case is designed and handled. The real
+   gap is one layer down, and it was checked rather than assumed:
+   `main.tsx` sets `refetchOnWindowFocus: false`, the board's queries carry a
+   five-minute `staleTime`, there is no polling, and realtime is deliberately
+   aliased out of the bundle by `vite-plugins/supabaseTrim.ts`. So a board only
+   refetches in response to *its own* mutations. A second coordinator's
+   assignment is invisible until this one happens to write something — and the
+   conflict panel is computed from that stale snapshot, so it can report a slot
+   clear that somebody else filled minutes ago. **The wrong answer is to switch
+   realtime back on**; the trim is worth ~40 kB on a phone and the design argues
+   for it. Cheaper options worth weighing first: refetch on focus for the board
+   alone, a short `refetchInterval` while the board is the visible page, or a
+   version column on the scenario that a write checks and a stale board is told
+   about. This wants the decision written into `docs/DESIGN.md` before any code.
+   What is *not* yet known, and should be established first: whether the
+   database already refuses a conflicting double-assignment, or whether
+   last-write-wins silently. That changes which option is enough.
+4. **An `aria-busy` or equivalent on a paused write** — still only if the
+   offline banner turns out not to be enough in practice. Unchanged, and still
+   speculative; consider dropping it.
+5. **A re-run of the database sweep whenever the schema next moves.** It was
+   clean in the fifth run and the schema has not moved since, so it was not
+   repeated here. The query is `pg_class.relrowsecurity` + `reloptions` over
+   `public`, joined to `pg_policy`.
 
 ## 2026-09-27 (fifth run today) — blocked: no dependencies can be installed in this sandbox
 
