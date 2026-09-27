@@ -12,44 +12,9 @@
  * together, and it catches a token scanner that works on a tidy example and
  * falls over on `* *`, `to be arranged`, or a cap written `48E`.
  */
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { parseDayPattern, parseTimeSchedule, type ParsedSection } from './timeSchedule'
-
-const CSV = new URL('../../scripts/data/history_sections.csv', import.meta.url)
-
-/** Quoted fields matter here: instructor names and the meetings column use them. */
-function readCsv(src: string): Record<string, string>[] {
-  const rows: string[][] = []
-  let row: string[] = []
-  let cell = ''
-  let quoted = false
-  for (let i = 0; i < src.length; i++) {
-    const c = src[i]!
-    if (quoted) {
-      if (c === '"' && src[i + 1] === '"') {
-        cell += '"'
-        i++
-      } else if (c === '"') quoted = false
-      else cell += c
-    } else if (c === '"') quoted = true
-    else if (c === ',') {
-      row.push(cell)
-      cell = ''
-    } else if (c === '\n') {
-      row.push(cell)
-      rows.push(row)
-      row = []
-      cell = ''
-    } else if (c !== '\r') cell += c
-  }
-  if (cell || row.length > 0) {
-    row.push(cell)
-    rows.push(row)
-  }
-  const [head, ...body] = rows.filter((r) => r.length > 5)
-  return body.map((r) => Object.fromEntries(head!.map((h, i) => [h, r[i] ?? ''])))
-}
+import { realHistoryRecords } from './historyCsv'
 
 /** One published-schedule line, padded into columns the way UW prints them. */
 function publishedLine(r: Record<string, string>): string {
@@ -62,7 +27,7 @@ function publishedLine(r: Record<string, string>): string {
   )
 }
 
-const records = readCsv(readFileSync(CSV, 'utf8'))
+const records = realHistoryRecords()
 
 /** Grouped by quarter, because that is the unit a coordinator pastes. */
 const quarters = [...new Set(records.map((r) => r.quarter!))].map((quarter) => {
