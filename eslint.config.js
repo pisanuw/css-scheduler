@@ -119,26 +119,26 @@ export default tseslint.config(
     extends: [reactHooks.configs.flat.recommended],
     rules: {
       /*
-       * v7 ships the React Compiler's rules alongside the classic two. Most are
-       * worth having. These two are not, and it is worth saying exactly why
-       * rather than leaving a bare `off`:
+       * v7 ships the React Compiler's rules alongside the classic two, and as
+       * of this line every one of them is on.
        *
-       * `refs` — eleven findings, ten of them the same false positive.
-       * `useRowDrag` in `LoadPanel.tsx` returns an object whose `ref` key holds
-       * dnd-kit's `setNodeRef` callback. The rule sees a property called `ref`
-       * read during render and says "cannot access refs during render"; there
-       * is no ref object anywhere near it.
+       * `refs` shipped off with eleven findings. The eleventh, in
+       * `useShortcuts.ts`, was real and was fixed first: writing
+       * `latest.current` in the render body mutates the ref even on a render
+       * React throws away, so the listener could read state from a render that
+       * never committed. It is written in an effect now.
        *
-       * The eleventh, in `useShortcuts.ts`, was the real one, and it has been
-       * fixed rather than accepted — an earlier version of this comment called
-       * it deliberate and safe, which was wrong. Writing `latest.current` in the
-       * render body mutates the ref even on a render React throws away, so the
-       * listener could read state from a render that never committed. It is
-       * written in an effect now. Turning the rule on to catch the next one of
-       * those still costs ten false positives in `LoadPanel`, so it stays off
-       * and this paragraph is the record.
+       * The other ten were all one cause in `LoadPanel.tsx`, and calling them
+       * false positives was half right. `useRowDrag` returned dnd-kit's
+       * `setNodeRef` callback on the same object as the row's plain props, and
+       * the rule taints an object that holds a callback ref — so reading
+       * `className`, a string, was reported as a ref access. Renaming the key
+       * away from `ref` changes nothing; the taint follows the value, not the
+       * name. Returning the ref separately from the props clears all ten, and
+       * is better code besides. The rule is an error with nothing suppressed,
+       * and the next `latest.current` written during render will be caught.
        */
-      'react-hooks/refs': 'off',
+      'react-hooks/refs': 'error',
       /*
        * `set-state-in-effect` — on, and with nothing grandfathered. It shipped
        * off, with five named findings recorded as debt rather than dismissed,

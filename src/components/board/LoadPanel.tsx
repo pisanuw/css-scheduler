@@ -22,33 +22,34 @@ function statusOf(t: LoadTally): { text: string; className: string } {
   return { text: `${-gap} over`, className: 'text-red-700' }
 }
 
-/** The bits a row needs to become a drag handle, or nothing when dragging is off. */
+/**
+ * The bits a row needs to become a drag handle, or nothing when dragging is
+ * off. The node ref comes back as its own return value rather than as a key on
+ * the props object, and that separation is load-bearing: `react-hooks/refs`
+ * taints a whole object once it holds a callback ref, so bundling them made
+ * reading `className` — a plain string — a reported ref access on every row.
+ * Handing the ref back by itself is also simply truer to what it is.
+ */
 function useRowDrag(instructorId: string, enabled: boolean) {
   const id = dragId({ kind: 'instructor', instructorId })
   const { setNodeRef, listeners, isDragging } = useDraggable({ id, disabled: !enabled })
-  return {
-    ref: setNodeRef,
+  const props = {
     /** A stable handle for the check that drives a real pointer at this. */
     'data-drag-id': id,
-    handlers: enabled ? listeners : undefined,
+    ...(enabled ? listeners : undefined),
     // See the chip on the section card: the touch sensor waits for a long
     // press, so the panel has to keep scrolling until then.
     style: enabled ? { touchAction: 'manipulation' as const } : undefined,
     className: enabled ? `cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-40' : ''}` : '',
   }
+  return [setNodeRef, props] as const
 }
 
 function TallyCard({ t, terms, draggable }: { t: LoadTally; terms: TermInfo[]; draggable: boolean }) {
   const s = statusOf(t)
-  const drag = useRowDrag(t.instructorId, draggable)
+  const [dragRef, dragProps] = useRowDrag(t.instructorId, draggable)
   return (
-    <li
-      ref={drag.ref}
-      data-drag-id={drag['data-drag-id']}
-      {...drag.handlers}
-      style={drag.style}
-      className={`p-3 ${drag.className}`}
-    >
+    <li ref={dragRef} {...dragProps} className={`p-3 ${dragProps.className}`}>
       <div className="flex items-baseline gap-2">
         <span className="min-w-0 flex-1 truncate font-medium text-slate-900">{t.name}</span>
         <span className="text-sm text-slate-700">
@@ -66,15 +67,9 @@ function TallyCard({ t, terms, draggable }: { t: LoadTally; terms: TermInfo[]; d
 
 function TallyRow({ t, terms, draggable }: { t: LoadTally; terms: TermInfo[]; draggable: boolean }) {
   const s = statusOf(t)
-  const drag = useRowDrag(t.instructorId, draggable)
+  const [dragRef, dragProps] = useRowDrag(t.instructorId, draggable)
   return (
-    <tr
-      ref={drag.ref}
-      data-drag-id={drag['data-drag-id']}
-      {...drag.handlers}
-      style={drag.style}
-      className={drag.className}
-    >
+    <tr ref={dragRef} {...dragProps}>
       <th scope="row" className="max-w-[12rem] truncate px-3 py-1.5 text-left font-medium text-slate-800">
         {t.name}
       </th>
