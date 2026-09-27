@@ -56,10 +56,22 @@ npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
                   # clients this build leaves out, the offline rules and the
                   # keyboard shortcuts (483 tests)
 npm run typecheck
+npm run lint         # ESLint: hook dependency lists, dead code, stray `any`
 npm run build        # needs the two Supabase values in the environment
 npm run build:check  # the same build with placeholders, for when you only
                      # want to know that it builds
 ```
+
+`npm run lint` is deliberately small. `tsc` has the types, the four browser
+checks have the behaviour, and 483 unit tests have the rules; what those leave
+is the class of mistake that type-checks and runs and is still wrong. The one
+that earns the config on its own is `react-hooks/exhaustive-deps`, set to an
+error: the board keeps its conflict findings, tallies and drop hints in
+`useMemo`, and a stale dependency list there does not crash — it shows
+yesterday's conflicts beside today's assignment, which is the exact failure
+this app exists to prevent. There are no stylistic rules, because formatting is
+Prettier's argument and not worth having twice, and no standing warnings: the
+script fails on one.
 
 **`npm run build` will not build without `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_ANON_KEY`,** and that is deliberate. `src/lib/supabase.ts` throws

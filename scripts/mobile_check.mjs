@@ -173,12 +173,6 @@ function auditInPage(min) {
   }
 }
 
-/** Rough relative brightness of a computed `rgb(...)`, for the print assertions. */
-function lumOf(css) {
-  const [r, g, b] = (css.match(/[0-9.]+/g) ?? [255, 255, 255]).map(Number)
-  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
-}
-
 const { chromium } = loadPlaywright('mobile check')
 
 if (!existsSync(join(OUT, 'index.html'))) {

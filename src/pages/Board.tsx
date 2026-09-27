@@ -140,14 +140,18 @@ export default function Board() {
    * the change being taken back may be several taps old, and with ⌘Z it is not
    * even the thing the coordinator is looking at.
    */
+  // Pulled out of the mutation object so the dependency below is an identifier
+  // React can actually compare. `[undo.mutate, ...]` looked equivalent and is
+  // not: the linter cannot see that it is stable, and neither can a reader.
+  const undoChanges = undo.mutate
   const runUndo = useCallback(
     (ids: number[]) => {
-      undo.mutate(ids, {
+      undoChanges(ids, {
         onSuccess: ({ count, summary }) => toast.ok(undoneMessage(count, summary)),
         onError: (e) => toast.failed('Could not undo that', e),
       })
     },
-    [undo.mutate, toast],
+    [undoChanges, toast],
   )
 
   const courseOrder = useMemo(() => {

@@ -16,12 +16,79 @@ this file is the state of play.
 | Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA, the Supabase trim and offline awareness done |
 | Dependencies | `npm audit` clean; Node pinned to 22 |
 | Keyboard | nine shortcuts on the board, with a `?` sheet rendered from the same table |
+| Lint | `npm run lint` runs, errors on a lying hook dependency list, and fails on one warning |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
 
 ---
+
+## 2026-09-27 (sixteenth run) — the gate that could not run
+
+**Built.** `npm run lint` runs. It had been in `package.json` for fifteen runs
+with no config and no ESLint installed, so it failed with a migration notice
+that read like a warning — a gate everything passes.
+
+- **`eslint.config.js`**: the recommended sets, `react-hooks` with
+  `exhaustive-deps` as an **error**, and no stylistic rules at all. Formatting
+  is Prettier's argument and not worth having twice.
+- **`npm run lint` fails on a single warning** (`--max-warnings 0`), which is
+  only honest now that there are none left.
+
+**Three real findings, all fixed.**
+
+- *A dependency list the linter could not verify.* `runUndo` on the board
+  depended on `[undo.mutate, toast]`. A member access is not something the rule
+  can prove stable — and neither can a reader. It depends on a destructured
+  `undoChanges` now.
+- *Dead code.* `lumOf` in the mobile check, left behind when the print
+  assertions started comparing colours directly.
+- *An unused binding* in the routing check's dark sweep.
+
+**Learned.**
+
+- *The browser globals in the check scripts are not a mistake.* 26 of the 62
+  errors were `document is not defined` in `scripts/*.mjs` — inside functions
+  that `page.evaluate` serialises and runs in Chromium, where `document` is
+  exactly as real as `fs` is outside. The config gives those files both global
+  sets rather than silencing the rule.
+- *A rule you have decided against belongs in the config, off, with the
+  reason.* `react-refresh/only-export-components` fired fifteen times, all on
+  pages that export their column definitions so the mobile harness can measure
+  the real ones rather than a copy. Fifteen standing warnings nobody acts on is
+  the same lie as a gate that cannot run.
+
+**Checked rather than believed.** The gate was made to fail on purpose twice
+before being trusted: an unused import, and a `useMemo` over the board snapshot
+with an empty dependency list — the exact bug the rule is here for.
+
+**Verified.** 483 tests, typecheck, build, lint, and all four browser checks
+(33 mobile scenes in both themes and on paper, routing, drag, PWA).
+
+**A collision worth recording.** This session and the two-hourly one were both
+working on this repository at once, and both built the time-schedule import —
+the same feature, the same file names, within a few hours. The scheduled run
+got there first and its version is what shipped (`20332dc`); this session's
+duplicate was thrown away rather than merged, and it had nothing the other
+lacked, down to reading `scripts/data/history_sections.csv` as its fixture.
+Before starting anything, `git fetch` and read this file: it is the only thing
+that stops two runs spending a window each on one feature.
+
+**Next run should pick up — in this order.**
+
+1. **An `aria-busy` or equivalent on a paused write.** The offline banner says
+   how many changes are waiting in total; an individual pill on the board still
+   looks exactly like a saved one. Worth doing only if the banner turns out not
+   to be enough in practice.
+2. **A real paste** through the time-schedule import, from the *current* UW
+   listing rather than the three quarters already imported. The parser reports
+   what it cannot read, so the failure mode is a list of lines rather than a
+   wrong board — but nobody has watched it meet a live page yet.
+3. `.env.asc` arrived in `dd09666` with nothing saying which key opens it or
+   what to do with it — worth a line in the README, from whoever added it.
+   Needs the maintainer; nothing in this sandbox can decrypt it.
+
 
 ## 2026-09-27 (sixteenth run) — nine keys, and a list that cannot lie about them
 
