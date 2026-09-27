@@ -14,14 +14,146 @@ this file is the state of play.
 | 4 — Reporting | done (export and print on both the report and the comparison) |
 | 5 — Solver, import, student checks | done |
 | Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA, the Supabase trim and offline awareness done |
+| Concurrency | the board watches `scenario_changes` and refetches when another coordinator writes, naming them. `Report`, `Compare` and `StudentCheck` do **not** yet |
 | Dependencies | `npm audit` clean; Node pinned to 22 |
 | Keyboard | nine shortcuts on the board, with a `?` sheet rendered from the same table |
 | Lint | `npm run lint` runs: ESLint 10, type-aware, fails on one warning. **Every `react-hooks` v7 rule is now an error**, nothing grandfathered and nothing suppressed — `refs` was the last one off |
-| Sandbox | `npm ci` **worked** in the 2026-09-27 sixth run, so the fifth run's refusal was not permanent — but it is not reliable either, and no hook can be committed from here (the classifier blocks writing `.claude/`, correctly, as self-modification). **A maintainer still needs to add the SessionStart hook.** See the sixth-run entry. |
+| Deploy | **Netlify builds from git pushes.** The sixth run's claim that it does not was wrong — see the seventh-run entry. `deploy_source` says `api` either way; `commit_ref` and `manual_deploy` are what discriminate |
+| Sandbox | `npm ci` **worked** in the 2026-09-27 sixth and seventh runs, so the fifth run's refusal was not permanent — but it is not reliable either, and no hook can be committed from here (the classifier blocks writing `.claude/`, correctly, as self-modification). **A maintainer still needs to add the SessionStart hook.** See the sixth-run entry. |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-27 (seventh run today) — the board notices the other coordinator, and Netlify does build from git after all
+
+`npm ci` worked again, unprompted. Detached HEAD again; `git branch -f main
+<commit> && git checkout main` again the fix. Expect both every run. No
+`.claude/` directory has appeared, so the SessionStart hook is still a
+maintainer item and was not retried from here.
+
+**Item 3 done: a stale board is no longer a silent wrong answer.** The handoff
+asked for the decision to be written into `docs/DESIGN.md` before any code, and
+for one fact to be established first — whether the database already refuses a
+conflicting double-assignment. Both were done, and the fact changed the design.
+
+**It does not refuse one.** `section_instructors` carries exactly four
+constraints — a primary key, two foreign keys, and `unique (section_id,
+instructor_id)` — checked against the live database with `pg_constraint`, and
+there is no trigger anywhere that looks at times. Two coordinators assigning two
+different people write two different rows, so **both writes succeed**. There is
+no lost update to detect: every time conflict in this app is a client-side
+reading of `conflicts.ts`, and deliberately so, because the coordinator is
+sometimes right to create one knowingly. Freshness was therefore the whole of
+the gap, and optimistic concurrency would have been solving a problem that does
+not exist while breaking one that works.
+
+**The fix watches the change log, not the board.** `scenario_changes` was
+already there: append-only, trigger-written, one row per board write, carrying a
+`bigserial` id, the actor's address and a readable summary. `useLiveScenario`
+polls its newest six rows — three columns, a few hundred bytes — and invalidates
+the board only once the feed has passed the watermark it holds. That is cheaper
+than refetching the board blindly (the board is every section and assignment in
+the year) and it is *better*, because the feed names the person: the toast reads
+"mashhadi@uw.edu assigned Rob Nash — CSS 342 A — the board has been brought up
+to date." A board that silently rearranged itself under somebody's thumb would
+have been a new problem in place of the old one.
+
+No migration. No new table, view or policy — `scenario_changes` already has its
+read policy and its `select` grant, and `rls_test.sql` already exercises it 22
+times, so the local suite stays complete without being touched.
+
+Rejected, with the reasons now in `docs/DESIGN.md` under *Two coordinators at
+once*: turning realtime back on (~40 kB on a phone for what 300 bytes solves), a
+blind board refetch on a timer, and a version column on the scenario (it would
+reject two coordinators working on two different quarters as readily as the case
+worth rejecting, and add a failure path to every write).
+
+**Four decisions, each with a test.** The first look is silent, with `0`
+distinguished from "not looked yet" so the first real change is still news. The
+watcher pauses while a write of its own is outstanding — a refetch between an
+optimistic insert and its settle returns rows without the pending assignment, so
+the pill the coordinator just placed would vanish and come back. Changes are
+counted, never inferred from the ids, because `scenario_changes.id` is one
+sequence across every scenario; a full window says "at least" rather than
+claiming a total. And the caller is never told about their own tap, compared
+case-insensitively because `actor_email` is `citext`.
+
+**Learned — the general point, and it cost nothing because a test caught it.**
+That last comparison was written as `(e.actor_email?.toLowerCase() ?? null) !==
+(mine ?? null)`, which is the tidy one-liner and is wrong: with no profile
+loaded *and* an entry with no actor, `null !== null` is false, so a
+trigger-written change read as this coordinator's own tap and the notice was
+suppressed — exactly the case that most needs showing. *A nullable field
+compared against a nullable field needs the missing case named, not coalesced.*
+The test asserting "every change is somebody else's when the caller is unknown"
+failed on the first run and is the only reason this is a note rather than a bug
+in production.
+
+**One duplicate removed.** `HistoryPanel` kept its own copy of the action verbs;
+it imports `CHANGE_VERB` now, so the panel and the notice cannot word the same
+log entry two ways.
+
+**Verified.** 526 tests (16 new), typecheck, `lint --max-warnings 0`, build,
+`check:drag` (both mice and fingers, and a flick still scrolls), and
+`check:mobile` over **34 scenes** — one new, `toast-live-sync`, whose text comes
+out of `syncFeed` itself so what is checked at 375px cannot drift from what the
+app says. That scene exists because the longest string the toast stack now
+carries is not the one you would guess: naming a single change spells out an
+instructor *and* a section, and that is what has to wrap inside a 375px strip
+without pushing the dismiss button off the edge.
+
+**Deployed and verified — and the previous run's note about the pipeline was
+wrong.** Commit `dae023e`, deploy `6ab8f04d144ffe0008f8a766`, published
+`10:31:03Z`, 27 new files. All **37 files byte for byte** by `cmp` against a
+local `dist/` built with the `sb_publishable_…` key; `check:deployed` clean, 16
+precached files.
+
+The correction matters because it changes the procedure. The sixth run recorded
+"Netlify is not building from git pushes on this project — a push alone ships
+nothing." **It does.** This deploy was created 22 seconds after `git push`,
+carries `commit_ref: dae023e…`, `branch: main`, `committer: pisanuw` and
+`manual_deploy: false`, and its title is the commit message — no MCP deploy was
+run this session at all. Two things misled the earlier reading: `deploy_source`
+is `"api"` even on a git-triggered build, so it does not discriminate, and the
+earlier session's *own* uploads legitimately carried `commit_ref: null`. Use
+`commit_ref` and `manual_deploy` to tell the two apart, and check whether a git
+build has already landed before uploading one on top of it. Which key the live
+build uses can be read out of the served bundle — grep the entry chunk for
+`sb_publishable_` — so a byte comparison never has to guess.
+
+**Next run should pick up — in this order.**
+
+1. **`npm ci` first**, and expect detached HEAD.
+2. **A second look at the watcher's cost, with a stopwatch rather than an
+   argument.** Twenty seconds was chosen against the gesture (shorter than it
+   takes to read the conflict panel and decide), not measured. Worth checking
+   what an hour on the board actually costs in requests, and whether
+   `refetchOnWindowFocus` on the feed alone would carry most of the benefit at a
+   fraction of that — the interval could then go up. Do not shorten it without a
+   reason; the flicker gate is the part that would suffer.
+3. **The other pages that read a scenario are still stale.** `Report`, `Compare`
+   and `StudentCheck` build the same snapshot through `useScenarioSnapshot` and
+   have no watcher. A coordinator exporting a report while somebody edits the
+   board exports last hour's answer. `useLiveScenario` takes a scenario id and
+   nothing else, so this is three one-line calls — but the *notice* is wrong on
+   a report page ("the board has been brought up to date" when you are looking
+   at a report), so the sentence needs a subject before this is done rather than
+   just wired.
+4. **A real paste through the time-schedule import still needs the maintainer.**
+   Unchanged and not re-attempted: the published UW time schedule is behind a
+   Shibboleth redirect now, so only somebody signed in can supply one. **This
+   should come off the list rather than be retried each run.**
+5. **The SessionStart hook still needs the maintainer** — writing `.claude/` from
+   here is blocked by the auto-mode classifier as self-modification, correctly.
+   `npm install --no-audit --no-fund`, guarded by `[ "$CLAUDE_CODE_REMOTE" =
+   "true" ]`.
+6. **Re-run the database sweep whenever the schema next moves.** It has not moved
+   since the fifth run — this run added no migration — so it was not repeated.
+   The query is `pg_class.relrowsecurity` + `reloptions` over `public`, joined to
+   `pg_policy`.
 
 ---
 
