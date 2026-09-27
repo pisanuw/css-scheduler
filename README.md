@@ -39,6 +39,18 @@ npm run dev
 Google sign-in additionally needs an OAuth client (see **Access** below); until
 that is configured the sign-in button will fail.
 
+**`.env.asc`.** The repository carries one encrypted file, added in `dd09666`
+("fix(auth): Added encrypted .env file"). It is an ASCII-armoured OpenPGP
+message encrypted to RSA key id `A4C59E8DCB190977`; `gpg --list-packets
+.env.asc` reports the same without needing the secret key. It is an encrypted
+`.env`, per that commit message, and why it is committed rather than kept out
+of the repository is not recorded anywhere. It is **not** needed to build,
+test or run this project, and nothing automated reads it — use `.env.example`
+→ `.env.local` as above. If you hold that key, `gpg -d .env.asc` opens it; if
+you do not, ignore the file. Whoever added it should replace this paragraph
+with the key's owner and what is inside: this note records only what the file
+itself discloses.
+
 **Light and dark.** The button in the header cycles through following your
 device, light and dark; a dot under the icon means it is following the device.
 The choice lives in `localStorage` under `css-scheduler:theme` and is applied

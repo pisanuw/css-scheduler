@@ -17,10 +17,81 @@ this file is the state of play.
 | Dependencies | `npm audit` clean; Node pinned to 22 |
 | Keyboard | nine shortcuts on the board, with a `?` sheet rendered from the same table |
 | Lint | `npm run lint` runs: ESLint 10, type-aware, fails on one warning. `set-state-in-effect` is an **error** with nothing grandfathered — all five sites cleared |
+| Sandbox | **`npm ci` / `npm install` are refused by the permission classifier as of the 2026-09-27 fifth run.** No dependencies means no `npm test` / `typecheck` / `build`, which means no code change can meet the verification bar. See that entry for the fix. |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-27 (fifth run today) — blocked: no dependencies can be installed in this sandbox
+
+**Nothing was built this run, and the reason is worth more than the run would
+have been.** `npm ci` and `npm install` were both refused by the sandbox's
+permission classifier — `npm ci` as "Irreversible Local Destruction" (it
+deletes `node_modules` before rebuilding it), `npm install` as a bare "Blocked
+by classifier". `node_modules/` was **absent** at session start, so there was
+nothing to destroy; the container is fresh each run and the previous runs
+evidently had the install allowed.
+
+That makes the verification bar — `npm test`, `npm run typecheck`, `npm run
+build` — unreachable, and with it every code change. So no code was touched.
+This is the documented response to an unmeetable bar, not a run that gave up
+early: a commit that cannot be verified is worse than no commit.
+
+**What the maintainer needs to do.** Allowlist the install in the project's
+`.claude/settings.json` (there is no `.claude/` directory in this repo at all
+right now, which is probably the root cause — nothing tells the classifier that
+`npm ci` is expected here). Something like:
+
+```json
+{ "permissions": { "allow": ["Bash(npm ci)", "Bash(npm install)", "Bash(npm run :*)"] } }
+```
+
+A `SessionStart` hook that runs `npm ci` would be better still — it would put
+the install outside the per-command classifier entirely and every future
+scheduled run would start with a working tree. Until one of those lands, **every
+scheduled run will stall exactly here.**
+
+**What was done instead**, both needing no build:
+
+- **A database security sweep, first-hand, and it is clean.** All 22 tables in
+  `public` have RLS enabled and at least one policy; all three views
+  (`access_summary`, `instructor_load_targets`, `section_meetings`) carry
+  `security_invoker=on`. The Supabase security advisor returns exactly the three
+  warnings `docs/DESIGN.md` already accepts and argues for — the six
+  `SECURITY DEFINER` functions, `citext` in `public`, and leaked-password
+  protection off on a Google-OAuth-only project. No drift, nothing new, no
+  untracked table. Worth re-running each time the schema moves; the query is
+  `pg_class.relrowsecurity` + `reloptions` over `public`, joined to
+  `pg_policy`.
+- **Item 4 off the handoff: `.env.asc` is documented in the README.** It could
+  be answered without the maintainer after all. `gpg --list-packets` reads the
+  public packet header without the secret key, so the file names its own
+  recipient: an ASCII-armoured OpenPGP message encrypted to RSA key id
+  `A4C59E8DCB190977`, AES-256/OCB. The README now says that, says it is not
+  needed to build or run anything, and asks whoever added it to fill in the
+  owner. *The general point: "needs the maintainer" deserves one cheap check
+  first — the artefact often describes itself.*
+
+**Next run should pick up — in this order.**
+
+1. **Check `npm ci` works before planning anything.** If it is still refused,
+   do not start a code item; write the blocker forward and stop. The two
+   docs-only items on this list are the fallback.
+2. **`react-hooks/refs`** — the last rule still off, for ten `LoadPanel` false
+   positives against dnd-kit's `setNodeRef`. Scope the rule off to that one file
+   and see whether it becomes a gate everywhere else. This was item 1 for this
+   run and is untouched.
+3. **An `aria-busy` or equivalent on a paused write** — only if the offline
+   banner turns out not to be enough in practice.
+4. **A real paste** through the time-schedule import, from the *current* UW
+   listing rather than the three quarters already imported.
+5. **`git fetch origin main` first**, and note that this session again started
+   in **detached HEAD** at `origin/main` with local `main` stale — the fix from
+   the previous entry (`git branch -f main <commit> && git checkout main`)
+   worked. It is not a one-off; expect it every run.
 
 ---
 
