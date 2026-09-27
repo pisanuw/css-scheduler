@@ -119,7 +119,7 @@ export default function AccessLog() {
   if (error) {
     return (
       <p className="rounded-lg bg-surface p-6 text-sm text-red-700 ring-1 ring-slate-200">
-        {(error as Error).message}
+        {error.message}
       </p>
     )
   }

@@ -160,8 +160,8 @@ export function useSaveSubmission() {
       return saved as PreferenceSubmission
     },
     onSuccess: (_d, vars) => {
-      qc.invalidateQueries({ queryKey: ['submission', vars.cycleId] })
-      qc.invalidateQueries({ queryKey: ['responses', vars.cycleId] })
+      void qc.invalidateQueries({ queryKey: ['submission', vars.cycleId] })
+      void qc.invalidateQueries({ queryKey: ['responses', vars.cycleId] })
     },
   })
 }

@@ -1,0 +1,245 @@
+import js from '@eslint/js'
+import tseslint from 'typescript-eslint'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import globals from 'globals'
+
+/*
+ * `npm run lint` existed as a script for a long time with no config behind it,
+ * which is worse than no gate at all: it reads like a check that runs.
+ *
+ * The rules are chosen to catch what this project has actually got wrong, not
+ * to enforce a house style. Formatting is left alone entirely — nothing here
+ * reflows code, so lint and build never disagree about a file.
+ *
+ * `tsc` already owns unused locals, unused parameters, fallthrough cases and
+ * unchecked index access (see `tsconfig.json`), so those are not duplicated
+ * here beyond what a preset brings for free.
+ */
+export default tseslint.config(
+  {
+    /*
+     * Build output and generated files. `src/lib/database.types.ts` is written
+     * by `supabase gen types`; linting it would mean either editing a generated
+     * file or carrying suppressions that regeneration drops on the floor.
+     */
+    ignores: [
+      'dist/',
+      'dist-*/',
+      'harness/dist/',
+      'node_modules/',
+      'public/',
+      'supabase/',
+      'past-course-schedules/',
+      'src/lib/database.types.ts',
+    ],
+  },
+
+  // Everything: the baseline JavaScript rules.
+  js.configs.recommended,
+  {
+    // The same `_`-means-deliberate convention the TypeScript rule below uses,
+    // so the two halves of the codebase do not disagree about it.
+    rules: {
+      'no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
+    },
+  },
+
+  /*
+   * The application, the harness and the Vite plugins — every TypeScript file
+   * `tsconfig.json` includes. Type-aware, because the rules worth having here
+   * (a promise nobody awaited, a condition that is always true) cannot be
+   * decided from syntax alone.
+   */
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [tseslint.configs.recommendedTypeChecked],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+      globals: { ...globals.browser },
+    },
+    rules: {
+      /*
+       * A `void` prefix is how this codebase says "deliberately not awaited",
+       * which is the common case in an event handler.
+       */
+      '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: true }],
+      // `_` marks a binding kept for its position rather than its value.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'all', caughtErrorsIgnorePattern: '^_' },
+      ],
+      /*
+       * An `async` function passed to `onClick` or `onSubmit` is how every
+       * handler in this app is written, and React ignores what a handler
+       * returns. The rest of the rule is kept, because a promise passed
+       * somewhere a `void` is expected in ordinary code — a `forEach` callback,
+       * say — really is a bug.
+       */
+      '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
+      /*
+       * Off, and the reason is a gap rather than a preference: no
+       * `src/lib/database.types.ts` has ever been generated, so
+       * `supabase.from(...)` is typed with `any` rows and every `const { data }
+       * = await ...` is an unsafe assignment. The codebase's answer is a cast
+       * at the boundary (`data as Scenario`), which is visible and checked by
+       * everything downstream of it.
+       *
+       * The real fix is `npm run db:types`, which needs a linked Supabase CLI
+       * this sandbox does not have. Until then the rule would report nine
+       * findings nobody can act on. Its sharper relatives —
+       * `no-unsafe-member-access`, `no-unsafe-call`, `no-unsafe-return`,
+       * `no-unsafe-argument` — stay on, and they are the ones that catch an
+       * `any` being *used* rather than merely received.
+       */
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+    },
+  },
+
+  /*
+   * React rules, for the files that render. `react-hooks` is the reason this
+   * config is worth its weight: two of the bugs recorded in
+   * `docs/PROGRESS.md` were a stale closure and an over-wide dependency array,
+   * and both are what these rules are for.
+   */
+  {
+    files: ['src/**/*.{ts,tsx}', 'harness/**/*.tsx'],
+    /*
+     * `configs.recommended` is still the eslintrc shape in v7 (its `plugins`
+     * is an array of names); `configs.flat.recommended` is the same rule set
+     * for flat config. Picking the wrong one fails at startup, loudly, which
+     * is the good kind of mistake.
+     */
+    extends: [reactHooks.configs.flat.recommended],
+    rules: {
+      /*
+       * v7 ships the React Compiler's rules alongside the classic two. Most are
+       * worth having. These two are not, and it is worth saying exactly why
+       * rather than leaving a bare `off`:
+       *
+       * `refs` — eleven findings, ten of them the same false positive.
+       * `useRowDrag` in `LoadPanel.tsx` returns an object whose `ref` key holds
+       * dnd-kit's `setNodeRef` callback. The rule sees a property called `ref`
+       * read during render and says "cannot access refs during render"; there
+       * is no ref object anywhere near it. The eleventh, `useShortcuts.ts`,
+       * is a real write-during-render, deliberate, and documented at length in
+       * that file — the listener is attached once and reads the latest state
+       * through the ref, which is the point.
+       */
+      'react-hooks/refs': 'off',
+      /*
+       * `set-state-in-effect` — five findings, all genuine debt rather than
+       * noise, and all of the "you might not need an effect" shape: state
+       * derived in an effect that could be computed during render or seeded
+       * from a key. Turned off rather than left failing because clearing it
+       * means reworking five components' state flow, one of which is
+       * `auth.tsx`, whose loading window has already caused one real bug. That
+       * is its own piece of work, recorded in `docs/PROGRESS.md`, not something
+       * to do under a lint gate. The sites are `Layout.tsx:39`,
+       * `auth.tsx:52`, `Board.tsx:133`, `Compare.tsx:141`,
+       * `MyPreferences.tsx:72`.
+       */
+      'react-hooks/set-state-in-effect': 'off',
+      /*
+       * Promoted from the warning it ships as. This is the rule with the best
+       * record on this codebase — a stale `openNew` closure and a `keydown`
+       * listener rebuilt on every keystroke are both in `docs/PROGRESS.md` —
+       * and it has no findings left to grandfather, so there is nothing to pay
+       * for making it a gate. A missing dependency is a bug that shows up as
+       * the board acting on a quarter the coordinator has already left, which
+       * is the kind nobody reports because it reads as their own mistake.
+       */
+      'react-hooks/exhaustive-deps': 'error',
+    },
+  },
+
+  /*
+   * `react-refresh` only has something to say about modules Vite hot-reloads,
+   * so it is scoped to the app rather than the harness or the tests.
+   */
+  {
+    files: ['src/**/*.tsx'],
+    plugins: { 'react-refresh': reactRefresh },
+    rules: {
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+    },
+  },
+
+  /*
+   * The service worker is neither a window nor a Node process. Without this it
+   * is a file full of undefined globals.
+   */
+  {
+    files: ['src/sw.ts'],
+    languageOptions: { globals: { ...globals.serviceworker } },
+  },
+
+  /*
+   * Vitest's globals are enabled in `tsconfig.json` via `vitest/globals`; the
+   * linter needs telling separately.
+   */
+  {
+    files: ['**/*.test.ts', '**/*.test.tsx'],
+    languageOptions: { globals: { ...globals.node } },
+    rules: {
+      /*
+       * An `async` test body with nothing to await is how a test that only
+       * builds a promise reads best, and `vitest` is happy either way.
+       */
+      '@typescript-eslint/require-await': 'off',
+      /*
+       * A test double exists partly to reject with the wrong sort of thing.
+       * `swClient.test.ts` rejects with whatever it was configured with, which
+       * is how `messageOf` and `isOfflineError` get tested against a Postgrest
+       * error object rather than only against `Error`.
+       */
+      '@typescript-eslint/prefer-promise-reject-errors': 'off',
+    },
+  },
+
+  /*
+   * The check scripts: Node, run by hand or by `npm run check:*`, and outside
+   * `tsconfig.json` on purpose. Plain rules only — there is no type
+   * information to lint against, and adding them to the program would mean
+   * type-checking Playwright's selectors as application code.
+   */
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      /*
+       * Both, and not by accident. These files are Node programs that also
+       * contain browser code: the callback passed to `page.evaluate()` is
+       * serialised and run inside Chromium, so `document`, `window` and
+       * `getComputedStyle` are genuinely defined where they appear — 55 of the
+       * first run's findings were this, and every one of them was the linter
+       * not knowing which side of the bridge a function body lands on.
+       *
+       * The cost is that a real typo in the Node half goes unreported if it
+       * happens to name a browser global. Worth it: the alternative is 55
+       * false positives, and a gate nobody trusts is the thing this config
+       * exists to stop being.
+       */
+      globals: { ...globals.node, ...globals.browser },
+      sourceType: 'module',
+      ecmaVersion: 'latest',
+    },
+  },
+
+  // The Vite configs are Node, not browser.
+  {
+    files: ['vite.config.ts', 'harness/vite.config.ts', 'vite-plugins/**/*.ts'],
+    languageOptions: { globals: { ...globals.node } },
+  },
+
+  // This file.
+  {
+    files: ['eslint.config.js'],
+    languageOptions: { globals: { ...globals.node } },
+  },
+)

@@ -422,6 +422,14 @@ function Pasted({ text, children }: { text: string; children: JSX.Element }) {
   useEffect(() => {
     const field = document.querySelector("textarea");
     if (!field) return;
+    /*
+     * `unbound-method` is right that a setter pulled off a prototype has lost
+     * its receiver, and wrong that it matters here: detaching it is the whole
+     * technique, and the next line supplies the receiver explicitly with
+     * `.call`. Disabled at the one line rather than for the file, so the rule
+     * still guards the rest of the harness.
+     */
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const setter = Object.getOwnPropertyDescriptor(
       HTMLTextAreaElement.prototype,
       "value",

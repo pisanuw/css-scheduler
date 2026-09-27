@@ -50,8 +50,8 @@ export function useSaveScenario() {
       return data as Scenario
     },
     onSuccess: (s) => {
-      qc.invalidateQueries({ queryKey: ['scenarios'] })
-      qc.invalidateQueries({ queryKey: ['scenario', s.id] })
+      void qc.invalidateQueries({ queryKey: ['scenarios'] })
+      void qc.invalidateQueries({ queryKey: ['scenario', s.id] })
     },
   })
 }
@@ -77,8 +77,8 @@ export function useMakeOfficial() {
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['scenarios'] })
-      qc.invalidateQueries({ queryKey: ['scenario'] })
+      void qc.invalidateQueries({ queryKey: ['scenarios'] })
+      void qc.invalidateQueries({ queryKey: ['scenario'] })
     },
   })
 }
@@ -197,8 +197,8 @@ export function useApplySeedPlan() {
       return { sections: payload.length, assignments: links.length }
     },
     onSuccess: (_r, { scenarioId }) => {
-      qc.invalidateQueries({ queryKey: ['board', scenarioId] })
-      qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
+      void qc.invalidateQueries({ queryKey: ['board', scenarioId] })
+      void qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
     },
   })
 }
@@ -305,8 +305,8 @@ export const useTeachingHistoryPairs = () =>
 
 /** Any board write also writes a change-log entry, by trigger. */
 function invalidateBoard(qc: QueryClient, scenarioId: string) {
-  qc.invalidateQueries({ queryKey: ['board', scenarioId] })
-  qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
+  void qc.invalidateQueries({ queryKey: ['board', scenarioId] })
+  void qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
 }
 
 export type SectionDraft = Omit<SectionRow, 'id'> & { id?: string }
@@ -367,8 +367,8 @@ export function useAssign(scenarioId: string) {
       if (ctx?.previous) qc.setQueryData(key, ctx.previous)
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: key })
-      qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
+      void qc.invalidateQueries({ queryKey: key })
+      void qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
     },
   })
 }
@@ -455,8 +455,8 @@ export function useMoveAssignment(scenarioId: string) {
       if (ctx?.previous) qc.setQueryData(key, ctx.previous)
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: key })
-      qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
+      void qc.invalidateQueries({ queryKey: key })
+      void qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
     },
   })
 }
@@ -490,8 +490,8 @@ export function useUnassign(scenarioId: string) {
       if (ctx?.previous) qc.setQueryData(key, ctx.previous)
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: key })
-      qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
+      void qc.invalidateQueries({ queryKey: key })
+      void qc.invalidateQueries({ queryKey: ['scenario_changes', scenarioId] })
     },
   })
 }

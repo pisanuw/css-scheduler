@@ -466,7 +466,7 @@ const DESTINATIONS = [
   await signIn(page, base, USERS.coordinator)
 
   const DAYLIGHT = ['rgb(255, 255, 255)', 'rgb(248, 250, 252)', 'rgb(248, 248, 250)']
-  for (const [label, path] of DESTINATIONS) {
+  for (const [, path] of DESTINATIONS) {
     await page.goto(`${base}${path}`, { waitUntil: 'networkidle' })
     await page.waitForTimeout(250) // `transition-colors` has to land first.
     const lit = await page.evaluate((daylight) => {

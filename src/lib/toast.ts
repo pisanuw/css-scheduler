@@ -6,7 +6,7 @@
  * own — are rules, and rules are worth testing without a browser.
  */
 
-import { isOfflineError, offlineFailureText } from './online'
+import { isOfflineError, messageOf, offlineFailureText } from './online'
 
 export type ToastTone = 'info' | 'success' | 'error'
 
@@ -123,6 +123,6 @@ export function clearToasts(state: ToastState): ToastState {
  */
 export function failureText(prefix: string, e: unknown): string {
   if (isOfflineError(e)) return offlineFailureText(prefix)
-  const detail = e instanceof Error ? e.message : String(e ?? '')
+  const detail = messageOf(e)
   return detail ? `${prefix}: ${detail}` : prefix
 }

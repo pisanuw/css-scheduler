@@ -16,10 +16,144 @@ this file is the state of play.
 | Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA, the Supabase trim and offline awareness done |
 | Dependencies | `npm audit` clean; Node pinned to 22 |
 | Keyboard | nine shortcuts on the board, with a `?` sheet rendered from the same table |
+| Lint | `npm run lint` runs: ESLint 10, type-aware, 119 files, 0 errors |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-27 (seventeenth run) — the gate that was lying about existing
+
+**Built.** `npm run lint` now runs. It had been a script with no config behind it
+for long enough that nobody remembered, which is worse than having no gate: it
+reads like a check that runs.
+
+- `eslint.config.js` — ESLint 10 flat config. Type-aware
+  (`recommendedTypeChecked`, `projectService`), `eslint-plugin-react-hooks` 7,
+  `react-refresh` scoped to the app. 119 files: `src/`, `harness/`, `scripts/`,
+  `vite-plugins/`, both Vite configs and itself.
+- `src/vite-env.d.ts` — the two `VITE_*` values declared, so
+  `import.meta.env.VITE_SUPABASE_URL` is `string | undefined` instead of `any`.
+
+No rule in the config reflows a line. Formatting is left alone entirely, so lint
+and the build can never disagree about a file.
+
+**The first run reported 153 problems. What they turned out to be.**
+
+*Two real bugs, both in `src/lib/auth.tsx`, both found by
+`no-floating-promises`.* Neither `.then` had a rejection handler. `getSession()`
+rejecting was survivable — `session` starts null, so the reader lands on the
+sign-in page — but it was an unhandled promise and now says so deliberately. The
+profile select was not survivable: a rejection meant a reader kept a session,
+never got a profile, and `loading` stayed true **for ever**. The comment directly
+above it already argued that leaving somebody on "Loading…" for ever is
+unacceptable, and the code did exactly that on any rejected select — which on a
+phone means walking into a lift. It is the second argument to `then` rather than
+a chained `.catch`, because a Postgrest builder is a bare `PromiseLike` and has
+no `catch`. **That is also why the linter never flagged that one** — it only
+found the `getSession()` call above it. The bug came out of reading the file the
+finding pointed at, not out of the finding.
+
+*One real bug from `no-base-to-string`, and it was user-facing.* `failureText`
+did `e instanceof Error ? e.message : String(e ?? '')`. A Postgrest error is a
+plain object with `message` and `code`, not an `Error`, so any failure arriving
+unwrapped rendered as **"Could not save the section: [object Object]"** under the
+coordinator's thumb. There is now one `messageOf(e)` in `src/lib/online.ts` that
+both `failureText` and `isOfflineError` share — so they cannot drift — and it
+returns `''` rather than a guess when there is nothing readable, which
+`failureText` already renders as the prefix alone.
+
+*One stale-dependency warning, in `Board.tsx`.* `runUndo` listed `undo.mutate`,
+which was correct and unverifiable, so the rule asked for the whole `undo`
+object — which would rebuild `runUndo` and the shortcut dispatch twice per undo.
+`const undoMutate = undo.mutate` says the same thing in a form the rule can
+check.
+
+*Eighteen dead type assertions.* Mostly `(e as Error).message` in mutation
+handlers, where react-query already types the error as `Error`. One of them,
+`navigator.serviceWorker as unknown as ContainerLike`, was dead because a real
+`ServiceWorkerContainer` satisfies `ContainerLike` structurally — removing it
+left the import unused, so that went too.
+
+*One dead function.* `lumOf` in `scripts/mobile_check.mjs`, never called, a
+Node-scope duplicate of the `luminance` helper that already exists inside the
+browser-side code and is used there. Checked before deleting, because the
+previous run's log records deleting dead code that was doing something.
+
+*Fifty-five false positives from one cause.* `scripts/*.mjs` are Node programs
+that also contain browser code: the callback passed to `page.evaluate()` is
+serialised and run inside Chromium, so `document` and `getComputedStyle` are
+genuinely defined where they appear. Both global sets are now declared for those
+files.
+
+**Learned.**
+
+- *The linter's value was not in its findings but in where it pointed.* The
+  worst bug of the three — "Loading…" for ever on a lost signal — was in a
+  promise the linter could not see, three lines below one it could. A finding is
+  a reason to read a file.
+- *`String()` on an `unknown` is a user-facing decision, not a formality.* Every
+  failing write in this app funnels through one function, so "[object Object]"
+  had exactly one place to come from and one place to fix. The narrowing has to
+  name its primitives one at a time, too: what is left after ruling out
+  `Error`, string, null and object still includes a function, and a function
+  stringifies its own source into the toast.
+- *A rule turned off without a reason is a rule nobody can argue with later.*
+  Five are off and a sixth is narrowed; each carries the specific reason.
+  `no-unsafe-assignment` is the one to revisit — it is off only because no
+  `database.types.ts` has ever been generated, so Supabase rows arrive as `any`
+  and are cast at the boundary. Its sharper relatives (`no-unsafe-call`,
+  `no-unsafe-member-access`, `no-unsafe-return`, `no-unsafe-argument`) stay on,
+  and those are the ones that catch an `any` being *used*.
+- *react-hooks 7 ships the React Compiler's rules next to the classic two, and
+  they are not all for a codebase this age.* `refs` gave eleven findings, ten of
+  them the same false positive: `useRowDrag` returns an object whose `ref` key
+  holds dnd-kit's `setNodeRef`, and the rule sees a property called `ref` read
+  during render. `set-state-in-effect` gave five, all genuine "you might not
+  need an effect" debt — real work, on five components' state flow, and not
+  something to do under a lint gate. Both off, both sites listed in the config.
+- *A gate is worth what it catches, so it was tested.* A throwaway component
+  with a conditional hook, a missing dependency and an unhandled promise: all
+  three reported, exit 1. Then deleted.
+- *`exhaustive-deps` was promoted from warning to error*, because it had reached
+  zero findings and so cost nothing, and because it has the best record on this
+  codebase — a stale `openNew` closure and a listener rebuilt on every keystroke
+  are both in this log.
+
+**Verified.** `npm run lint` 0 errors, 14 warnings (all
+`react-refresh/only-export-components`, all real, all about hot reload during
+`npm run dev` rather than the app). 492 tests (483 before, 9 new — `messageOf`
+and the two `failureText` cases). Typecheck and build green. All 33 mobile scenes
+clean at 375px, and `check:drag`, `check:keys`, `check:routes` and `check:pwa`
+all clean — worth running in full this time because `auth.tsx`'s behaviour
+changed and because two of the check scripts were themselves edited.
+
+No migration: nothing in the database changed, so the RLS suite was not re-run.
+
+**Watch out for.**
+
+- **The verification bar is now four commands, not three.** `npm test`,
+  `npm run typecheck`, `npm run build` and `npm run lint`. Lint is deliberately
+  not wired into `build` — Netlify runs the build, and a lint failure should not
+  be able to take the site's deploy down.
+- **`react-hooks/set-state-in-effect` is off with five named sites.** That is
+  recorded debt, not a dismissal. `auth.tsx:52` is one of them, and its loading
+  window has already caused one real bug.
+
+**Next run should pick up — in this order.**
+
+1. **The five `set-state-in-effect` sites**, starting with `auth.tsx`. Derive
+   state during render or seed it from a key instead. Each is small on its own;
+   doing them together is a day. Turn the rule back on as each one clears.
+2. **An `aria-busy` or equivalent on a paused write.** The offline banner says
+   how many changes are waiting in total; an individual pill on the board still
+   looks exactly like a saved one. Worth doing only if the banner turns out not
+   to be enough in practice.
+3. `.env.asc` arrived in `dd09666` with nothing saying which key opens it or what
+   to do with it — worth a line in the README, from whoever added it. Needs the
+   maintainer; nothing in this sandbox can decrypt it.
 
 ---
 

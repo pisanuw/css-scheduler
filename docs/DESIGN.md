@@ -901,7 +901,8 @@ it: a 2.5 kB entry holding a module-preload polyfill, every page chunk still
 present because those are dynamic imports, and a build that prints its usual
 table and reports success.
 
-`npm run build` is one of this project's three verification gates. Under Vite 5
+`npm run build` is one of this project's four verification gates (`npm test`,
+`npm run typecheck`, `npm run lint`, `npm run build`). Under Vite 5
 an env-less build produced a working bundle that failed loudly in the browser,
 which is why `scripts/route_check.mjs` has a message about it. Under Vite 8 the
 same command passes on a bundle with no application in it — the same class of

@@ -128,8 +128,8 @@ export const useReleases = (instructorId?: string) =>
   })
 
 function invalidateLoad(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: ['load_targets'] })
-  qc.invalidateQueries({ queryKey: ['teaching_releases'] })
+  void qc.invalidateQueries({ queryKey: ['load_targets'] })
+  void qc.invalidateQueries({ queryKey: ['teaching_releases'] })
 }
 
 export function useAddRelease() {

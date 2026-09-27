@@ -111,14 +111,14 @@ export function pwa(options: PwaOptions): Plugin {
 
       const revision = createHash('sha256')
         .update(precache.join('\n'))
-        .update(code!)
+        .update(code)
         .digest('hex')
         .slice(0, 12)
 
       this.emitFile({
         type: 'asset',
         fileName: 'sw.js',
-        source: code!.replace('__REVISION_PLACEHOLDER__', revision),
+        source: code.replace('__REVISION_PLACEHOLDER__', revision),
       })
       this.info(`service worker: ${precache.length} files precached, revision ${revision}`)
     },

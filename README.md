@@ -54,12 +54,34 @@ npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
                   # the focus trap, the theme rules, the route table, chunk
                   # recovery, the service worker's rules and the Supabase
                   # clients this build leaves out, the offline rules and the
-                  # keyboard shortcuts (483 tests)
+                  # keyboard shortcuts (492 tests)
 npm run typecheck
+npm run lint      # ESLint over all 119 source files
 npm run build        # needs the two Supabase values in the environment
 npm run build:check  # the same build with placeholders, for when you only
                      # want to know that it builds
 ```
+
+**What `npm run lint` is for.** Not formatting — no rule in
+`eslint.config.js` reflows a line, so lint and the build never disagree about a
+file. It is there for the mistakes a type checker cannot see: a promise nobody
+handled, a React dependency array that has gone stale, a hook behind an `if`.
+It is type-aware, so it reads the same program `tsc` does.
+
+Two things about it worth knowing. `react-hooks/exhaustive-deps` is an **error**
+here rather than the warning it ships as, because a stale closure on the board
+shows up as the scheduler acting on the quarter you just left, and nobody
+reports that as a bug. And the config turns five rules off — two of them only in
+the tests — and narrows a sixth, each with the reason written next to it,
+because a rule switched off without one becomes a rule nobody can argue with
+later. The one to revisit is `@typescript-eslint/no-unsafe-assignment`: it is
+off only because no `src/lib/database.types.ts` has ever been generated, so
+Supabase rows arrive as `any`. `npm run db:types` is the fix, and it needs a
+linked Supabase CLI.
+
+The 14 `react-refresh/only-export-components` warnings are real and deliberately
+left: they say hot reload will do a full refresh for those files during
+`npm run dev`, which is a development convenience, not a defect in the app.
 
 **`npm run build` will not build without `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_ANON_KEY`,** and that is deliberate. `src/lib/supabase.ts` throws

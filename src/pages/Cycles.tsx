@@ -59,7 +59,7 @@ export default function Cycles() {
           setEditing(null)
           toast.ok(editing.id ? `${saved.name} saved.` : `${saved.name} created.`)
         },
-        onError: (e) => setError((e as Error).message),
+        onError: (e) => setError(e.message),
       },
     )
   }

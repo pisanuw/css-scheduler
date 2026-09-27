@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { useToast } from '../components/Toast'
 import { registerServiceWorker } from '../lib/swClient'
-import type { ContainerLike } from '../lib/swClient'
 
 /**
  * Registers the service worker, and turns a waiting update into the app's one
@@ -26,7 +25,7 @@ export function useServiceWorker(): void {
     let cancelled = false
 
     void registerServiceWorker({
-      container: navigator.serviceWorker as unknown as ContainerLike,
+      container: navigator.serviceWorker,
       onUpdateReady: (apply) => {
         toast.offer('A new version of the scheduler is ready.', 'Reload', apply)
       },

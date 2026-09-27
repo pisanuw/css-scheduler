@@ -70,7 +70,7 @@ function ReleaseDialog({
           toast.ok(`Release recorded for ${instructor.full_name}.`)
         },
         onError: (e) => {
-          setError((e as Error).message)
+          setError(e.message)
           toast.failed('Could not record the release', e)
         },
       },
@@ -303,7 +303,7 @@ export default function Instructors() {
     [loadBy, isCoordinator],
   )
 
-  if (error) return <p className="text-red-700">{(error as Error).message}</p>
+  if (error) return <p className="text-red-700">{error.message}</p>
 
   return (
     <section>

@@ -106,7 +106,7 @@ export function myLastUndoableIds(
     detailString(last, 'instructor_id') === detailString(before, 'instructor_id') &&
     detailString(last, 'section_id') !== detailString(before, 'section_id') &&
     new Date(last.occurred_at).getTime() - new Date(before.occurred_at).getTime() <= MOVE_WINDOW_MS
-  return isMove ? [last.id, before!.id] : [last.id]
+  return isMove ? [last.id, before.id] : [last.id]
 }
 
 /** What the toast says once a reversal has gone through. */

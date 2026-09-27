@@ -103,11 +103,11 @@ export default function Scenarios() {
                       sections === 1 ? '' : 's'
                     } and ${assignments} assignment${assignments === 1 ? '' : 's'} copied.`,
                   )
-                  navigate(`/board/${saved.id}`)
+                  void navigate(`/board/${saved.id}`)
                 },
                 onError: (e) =>
                   setError(
-                    `The scenario was created but copying the schedule failed: ${(e as Error).message}`,
+                    `The scenario was created but copying the schedule failed: ${e.message}`,
                   ),
               },
             )
@@ -116,7 +116,7 @@ export default function Scenarios() {
           closeDialog()
           toast.ok(editing.id ? `${saved.name} renamed.` : `${saved.name} created.`)
         },
-        onError: (e) => setError((e as Error).message),
+        onError: (e) => setError(e.message),
       },
     )
   }

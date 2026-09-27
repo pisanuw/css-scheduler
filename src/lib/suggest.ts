@@ -124,7 +124,7 @@ export function suggestAssignments(snap: ScheduleSnapshot): SuggestionResult {
     working = {
       ...working,
       sections: working.sections.map((s) =>
-        s.id === best!.section.id ? { ...s, instructorIds: [pick.instructorId] } : s,
+        s.id === best.section.id ? { ...s, instructorIds: [pick.instructorId] } : s,
       ),
     }
   }

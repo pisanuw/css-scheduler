@@ -41,7 +41,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loading = session ? profileFor !== session.user.id : false
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    /*
+     * A rejection here is treated as "nobody is signed in", which is what the
+     * null session already means everywhere below. It needs saying explicitly
+     * all the same: without the rejection handler this was an unhandled
+     * promise, and the only reason it was survivable is that `session` starts
+     * null and the reader lands on the sign-in page.
+     */
+    supabase.auth
+      .getSession()
+      .then(({ data }) => setSession(data.session))
+      .catch(() => setSession(null))
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
     return () => sub.subscription.unsubscribe()
   }, [])
@@ -61,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .single()
       .then(({ data }) => {
         if (cancelled) return
-        setProfile((data as Profile) ?? null)
+        setProfile((data) ?? null)
         /*
          * Marked resolved even when nothing came back. A signed-in reader
          * with no profile row gets the app with no coordinator pages, which
@@ -69,7 +79,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
          * is neither.
          */
         setProfileFor(userId)
-      })
+      },
+      /*
+       * Same reasoning as the resolved-but-empty case above, and this is the
+       * one that actually bites: on a phone that has just lost signal the
+       * select rejects rather than returning nothing. Without a rejection
+       * handler the reader keeps a session, never gets a profile, and
+       * `loading` stays true for ever — the exact "Loading… for ever" the
+       * comment above refuses to ship. They get the app with no coordinator
+       * pages instead, and the next auth change retries.
+       *
+       * It has to be `then`'s second argument rather than a chained `.catch`:
+       * a Postgrest builder is a bare `PromiseLike` and has no `catch`. That
+       * is also why the linter could not see this one, and why it was worth
+       * reading the file rather than only the findings.
+       */
+      () => {
+        if (cancelled) return
+        setProfile(null)
+        setProfileFor(userId)
+      },
+    )
     return () => {
       cancelled = true
     }

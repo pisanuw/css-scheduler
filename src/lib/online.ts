@@ -152,9 +152,42 @@ const OFFLINE_MESSAGES = [
  * send somebody to check their signal over a broken policy.
  */
 export function isOfflineError(e: unknown): boolean {
-  const text = (e instanceof Error ? e.message : String(e ?? '')).toLowerCase()
+  const text = messageOf(e).toLowerCase()
   if (!text) return false
   return OFFLINE_MESSAGES.some((m) => text.includes(m))
+}
+
+/**
+ * The words out of whatever a write threw.
+ *
+ * `String(e)` is not good enough, and the case it gets wrong is the common
+ * one: a Postgrest error is a plain object with `message` and `code`, not an
+ * `Error`, so stringifying it yields `[object Object]`. That went straight into
+ * the message under the coordinator's thumb — "Could not save the section:
+ * [object Object]" — which is worse than saying nothing, because it looks like
+ * the scheduler broke rather than the save.
+ *
+ * An object with no usable message returns the empty string rather than a
+ * guess. Both callers treat empty as "no detail to add": `isOfflineError` says
+ * no, and `failureText` shows the prefix on its own, which is honest.
+ */
+export function messageOf(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (typeof e === 'string') return e
+  if (e == null) return ''
+  if (typeof e === 'object') {
+    const message = (e as { message?: unknown }).message
+    return typeof message === 'string' ? message : ''
+  }
+  /*
+   * A number or a boolean is an odd thing to throw, and printing it beats
+   * hiding it. Named one by one rather than as an `else`, because what is left
+   * over also includes a function and a symbol, and neither of those
+   * stringifies into anything a coordinator should be shown — a function would
+   * print its own source into the toast.
+   */
+  if (typeof e === 'number' || typeof e === 'boolean' || typeof e === 'bigint') return String(e)
+  return ''
 }
 
 /**

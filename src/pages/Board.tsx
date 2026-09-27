@@ -113,6 +113,16 @@ export default function Board() {
   const bulkAssign = useBulkAssign(resolvedId ?? '')
   const move = useMoveAssignment(resolvedId ?? '')
   const undo = useUndoChanges(resolvedId ?? '')
+  /*
+   * Pulled out so `runUndo` can depend on the one part of `undo` that does not
+   * change. react-query guarantees `mutate` is stable; `isPending` is not, and
+   * depending on the whole object would rebuild `runUndo` — and everything
+   * memoised on it, including the shortcut dispatch — twice per undo. Written
+   * as `undo.mutate` in the dependency list it was correct and unverifiable,
+   * so `exhaustive-deps` asked for the object instead. This says the same
+   * thing in a form the rule can check.
+   */
+  const undoMutate = undo.mutate
   const applyImport = useApplySeedPlan()
   const { profile } = useAuth()
   const toast = useToast()
@@ -142,12 +152,12 @@ export default function Board() {
    */
   const runUndo = useCallback(
     (ids: number[]) => {
-      undo.mutate(ids, {
+      undoMutate(ids, {
         onSuccess: ({ count, summary }) => toast.ok(undoneMessage(count, summary)),
         onError: (e) => toast.failed('Could not undo that', e),
       })
     },
-    [undo.mutate, toast],
+    [undoMutate, toast],
   )
 
   const courseOrder = useMemo(() => {
@@ -478,7 +488,7 @@ export default function Board() {
         toast.ok(wasNew ? 'Section added.' : 'Section saved.')
       },
       onError: (e) => {
-        const msg = (e as Error).message
+        const msg = e.message
         if (/duplicate key|already exists/i.test(msg)) {
           const free = nextLetter(board.data?.sections ?? [], editing.course_id, editing.term_id)
           setEditorError(
@@ -500,7 +510,7 @@ export default function Board() {
         setEditing(null)
         toast.ok('Section deleted.')
       },
-      onError: (e) => setEditorError((e as Error).message),
+      onError: (e) => setEditorError(e.message),
     })
   }
 
@@ -746,7 +756,7 @@ export default function Board() {
           onClose={() => setImporting(false)}
           onApply={(plan) =>
             applyImport.mutate(
-              { scenarioId: resolvedId!, plan },
+              { scenarioId: resolvedId, plan },
               {
                 onSuccess: ({ sections, assignments }) => {
                   setImporting(false)

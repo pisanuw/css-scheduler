@@ -136,6 +136,19 @@ describe('failureText', () => {
     expect(failureText('Could not archive', 'timed out')).toBe('Could not archive: timed out')
   })
 
+  it('quotes a postgrest error rather than showing the coordinator [object Object]', () => {
+    const postgrest = { message: 'new row violates row-level security policy', code: '42501' }
+    expect(failureText('Could not save the section', postgrest)).toBe(
+      'Could not save the section: new row violates row-level security policy',
+    )
+  })
+
+  it('shows the prefix alone when the cause has nothing readable in it', () => {
+    expect(failureText('Could not save the section', { code: '42501' })).toBe(
+      'Could not save the section',
+    )
+  })
+
   it('explains a dead connection instead of quoting the browser at the coordinator', () => {
     // The case a phone hits most: the request never left. "Could not assign:
     // TypeError: Failed to fetch" reads as a bug in the scheduler.

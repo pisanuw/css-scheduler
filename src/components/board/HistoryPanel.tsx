@@ -65,7 +65,7 @@ export function groupChanges(changes: ScenarioChange[]): Group[] {
       last.reversal === reversal &&
       Math.abs(new Date(last.at).getTime() - new Date(c.occurred_at).getTime()) < 60_000
     if (within) {
-      last!.entries.push(c)
+      last.entries.push(c)
     } else {
       out.push({
         key: String(c.id),

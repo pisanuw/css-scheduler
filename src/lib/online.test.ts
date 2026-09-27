@@ -4,6 +4,7 @@ import {
   bannerFor,
   initialConnection,
   isOfflineError,
+  messageOf,
   nextConnection,
   offlineFailureText,
   RESTORED_MS,
@@ -128,6 +129,13 @@ describe('isOfflineError', () => {
     }
   })
 
+  it('sees a dead connection reported as a plain object, not an Error', () => {
+    // Shares `messageOf` with `failureText`, so this follows from that rather
+    // than being a second implementation that could disagree with it.
+    expect(isOfflineError({ message: 'Failed to fetch' })).toBe(true)
+    expect(isOfflineError({ code: 'PGRST301' })).toBe(false)
+  })
+
   it('survives the trip through postgrest and back out as a plain string', () => {
     // What the app actually throws: `new Error(error.message)`, where
     // `error.message` is whatever postgrest-js put in it.
@@ -146,6 +154,47 @@ describe('isOfflineError', () => {
     }
     expect(isOfflineError(null)).toBe(false)
     expect(isOfflineError(undefined)).toBe(false)
+  })
+})
+
+describe('messageOf', () => {
+  it('takes the message off an Error', () => {
+    expect(messageOf(new Error('row level security'))).toBe('row level security')
+  })
+
+  it('reads the message off a postgrest error, which is not an Error at all', () => {
+    // The case that mattered enough to write this function: a Postgrest
+    // failure arrives as a plain object, and `String()` on one of those is
+    // `[object Object]` — which the coordinator used to read in the toast.
+    const postgrest = { message: 'duplicate key value violates unique constraint', code: '23505' }
+    expect(messageOf(postgrest)).toBe('duplicate key value violates unique constraint')
+  })
+
+  it('says nothing rather than [object Object] when an object has no message', () => {
+    expect(messageOf({ code: '23505' })).toBe('')
+    expect(messageOf({})).toBe('')
+    expect(messageOf({ message: 42 })).toBe('')
+    expect(messageOf([])).toBe('')
+  })
+
+  it('passes a string straight through and treats nothing as nothing', () => {
+    expect(messageOf('timed out')).toBe('timed out')
+    expect(messageOf(null)).toBe('')
+    expect(messageOf(undefined)).toBe('')
+    expect(messageOf('')).toBe('')
+  })
+
+  it('prints a primitive rather than hiding it', () => {
+    expect(messageOf(404)).toBe('404')
+    expect(messageOf(false)).toBe('false')
+    expect(messageOf(9007199254740993n)).toBe('9007199254740993')
+  })
+
+  it('says nothing for a thrown function or symbol', () => {
+    // Neither stringifies into anything worth showing: a function would print
+    // its own source into the toast.
+    expect(messageOf(() => 'nope')).toBe('')
+    expect(messageOf(Symbol('nope'))).toBe('')
   })
 })
 
