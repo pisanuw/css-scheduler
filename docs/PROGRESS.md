@@ -22,11 +22,84 @@ this file is the state of play.
 | Sandbox | `npm ci` is **unreliable**: allowed in the sixth and seventh runs, refused in the eighth (*Git Destructive*). `npm install --no-audit --no-fund` has worked every time and is what the hook should run. No hook can be committed from here (the classifier blocks writing `.claude/`, correctly, as self-modification). **A maintainer still needs to add the SessionStart hook.** |
 | Live data | 76 instructors, 128 courses, 3 profiles, 1 preference cycle, 2 academic years, 6 terms, 42 time slots, 37 rooms, 199 history rows — and **no scenarios, sections, assignments or submissions at all**. What the two real users currently meet is every page's empty state. |
 | Cold start | **Done, in production.** The coordinator created "First pass at scenario" (2026-27, draft) on a phone and it seeded **199 sections and 198 assignments** — exactly what `seedPlan.real.test.ts` predicted. The empty states are one component, checked at 375px. |
-| Import | **Checked against a real published quarter at last.** Autumn 2026 (`scripts/data/aut2026_timeschedule.txt`, from the coordinator): 75 sections, nothing ignored, 74 rows ready, no unknown courses. It found two bugs on first contact; both fixed and pinned. |
+| Import | **Checked against a real published quarter, from two sources.** Autumn 2026 as PDF text *and* as the web page (`scripts/data/aut2026_timeschedule{,_web}.txt`): 75 sections each, nothing ignored, 74 rows ready, no unknown courses, and the two agree field for field. Three bugs found on first contact, all fixed and pinned. |
+| Board at real size | The real Autumn is **67 cards — about 34 phone screens** at 375px. Nothing breaks; there is no search or filter, so finding one section means scrolling past sixty-six. `board-real-size` scene holds it. |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-27 (eighth run, fourth part) — the same quarter, copied a second way, broke it again
+
+The coordinator sent the Autumn 2026 **web page** after the PDF. That is not a
+spare copy of the same thing, and the difference is the whole lesson.
+
+**A third bug, from the same note.** The page wraps its course notes elsewhere
+than the PDF. Where the PDF left `OF CSS 112, 132, OR 142.` on one line, the page
+leaves a line that is nothing but `OR 142` — two capitals and three digits,
+directly above CSS 142's sections. It read as a heading for a subject called
+"OR" and took **all four CSS 142 sections and two of CSS 143** with it.
+
+**The fix stopped playing whack-a-mole with English.** Patching the subject
+pattern a second time would have invited a third wrap. The rule that covers
+every shape is the one the published format follows: *a course heading names its
+course.* `CSS 101 DIGITAL THINKING` has a title after the number, and every
+published heading does, because the title is a link to the catalogue. A code and
+a number with nothing after them is prose that wrapped there. A heading with no
+title is now no heading, and the sections under it are **reported** as having
+none rather than filed under a conjunction.
+
+Limits written down rather than hidden: a note wrapping to `OR 142 REQUIRED`
+would still fool it (nothing in either listing does), and `resolveImport` is a
+second net, since a phantom course is not in the catalogue and its sections are
+named and dropped where the coordinator can see them.
+
+**Both renderings are committed, and checked against each other.** The equality
+assertion — same 75 sections, field for field, from two sources with different
+whitespace, different line breaks and `&nbsp;` in one of them — is now the
+strongest thing in `timeSchedule.aut2026.test.ts`. *A parser that depends on how
+the page was copied is a parser that will fail on somebody's phone.*
+
+Honest about the web fixture: the text was produced by stripping markup, not
+captured from a real clipboard, so the tabs between table cells are a reading of
+what a browser would do. The line breaks inside the notes are the page's own,
+and they are the part that mattered.
+
+**The board at real size, at last — and it is too long.** The coordinator's live
+scenario has 67 sections in Autumn; every board scene to date used four or five.
+The new `board-real-size` scene parses the committed listing and renders a card
+per section. It **passes**: nothing overflows, no horizontal scroll, every target
+44px, contrast clean in both themes. What passing does not cover is the length:
+**13,630px at 375px wide, about 34 phone screens.** The board renders every
+section in the quarter sorted by course, with no search and no filter, so finding
+one section means scrolling past sixty-six. Nothing is broken; it is simply not
+usable at that length.
+
+**Still blocked, and only a human can clear it: the SessionStart hook.** Writing
+`.claude/` from this sandbox was refused again (*Self-Modification*), this time
+with the maintainer explicitly asking for it. The content was handed to them in
+chat instead. This is the third run it has been requested and it should stay on
+the list until `.claude/hooks/session-start.sh` appears in the repo.
+
+**Verified.** 565 tests (5 new), typecheck, `lint --max-warnings 0`, build,
+`check:mobile` over **36 scenes** at 375px. Bite checked: with the previous
+pattern restored, four of the new tests fail. Deployed `39477ce`, all **38 files
+byte for byte**, served entry `index-BHXUVnwa.js`, `check:deployed` clean.
+
+**Next run should pick up — in this order.**
+
+1. **`npm install --no-audit --no-fund` first**, and expect detached HEAD.
+2. **Make the board usable at 67 sections.** This is the top item and it now has
+   a measurement behind it rather than an opinion. The cheapest thing that would
+   work is a filter above the list — by course code, by instructor, and
+   "unstaffed only" — since `visible` in `Board.tsx` is already a single derived
+   list and the conflict panel already knows how to filter by severity. Check it
+   against `board-real-size`, which is exactly the case it has to fix.
+3. **The watcher's cost, with a stopwatch** — carried four times now.
+4. **The SessionStart hook** — maintainer only.
+5. **Re-run the database sweep whenever the schema next moves.** It still has not.
 
 ---
 
