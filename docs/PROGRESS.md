@@ -74,6 +74,13 @@ two minutes.
 mobile scenes at 375px, drag, keys, PWA and routing — the last being what covers
 the `Board` and `Compare` changes.
 
+**Deployed and verified.** Commit `895dd02`, deploy `6ab86cbe52316d000869d454`,
+published in 20s. All 32 files byte for byte by `cmp` against a local build — 29
+assets plus `sw.js`, `manifest.webmanifest` and `index.html`. `check:deployed`
+clean, and `route_check.mjs` run against that same `dist/`, which is the deployed
+bytes. `git fetch origin main` immediately before the push, and again before this
+commit: nothing new had arrived either time.
+
 ## 2026-09-27 — two runs, one task, and what came of merging them
 
 **Read this before the two entries below it.** Two scheduled runs fired close
