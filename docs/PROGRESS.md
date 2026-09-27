@@ -84,6 +84,23 @@ and this one was never triaged.
 build, 33 mobile scenes at 375px, drag, keys, PWA, and `check:routes` — which
 now fails against the pre-run `MyPreferences.tsx`, checked.
 
+**Deployed and verified.** Commit `2eaf45b`, Netlify deploy
+`6ab88168a62d650008d00076`, built from `main`. All 37 files byte for byte by
+`cmp` against a local build made with the `sb_publishable_…` key — 34 assets
+plus `sw.js`, `manifest.webmanifest` and `index.html`. `check:deployed` clean
+(16 precached files), and `route_check.mjs` run against that same `dist/`, which
+is literally the deployed bytes — so the drawer and the preferences form were
+checked in a real browser in the bundle the coordinator will load, not in a
+build that resembles it.
+
+*One thing for the next run:* this session started in **detached HEAD** at
+`origin/main`, with the local `main` branch 38 commits stale. `git push -u
+origin main` therefore tried to push that stale branch and was rejected as
+"behind its remote counterpart" — which reads exactly like a concurrent run
+having pushed first, and is not. `git status -sb` says `## HEAD (no branch)`
+when this is the case. The fix is `git branch -f main <commit> && git checkout
+main`, then push.
+
 **Next run should pick up — in this order.**
 
 1. **An `aria-busy` or equivalent on a paused write.** The offline banner says
