@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -117,7 +117,21 @@ export default function Board() {
   const { profile } = useAuth()
   const toast = useToast()
 
-  const [termId, setTermId] = useState<string | null>(null)
+  /**
+   * The quarter, chosen or defaulted.
+   *
+   * Derived during render rather than written into state by an effect, which is
+   * what this was — one of the five sites `eslint.config.js` lists under
+   * `set-state-in-effect`, and one of the two that turned out to be cheap. The
+   * effect version rendered once with no quarter selected at all, so the first
+   * paint after the terms arrived had an empty tab strip and an empty section
+   * list, and then a second render corrected it. This has a quarter from the
+   * moment there is one to have, and `chosenTerm` holds only what the
+   * coordinator actually picked — so the default follows the data if the data
+   * changes and nothing has been picked.
+   */
+  const [chosenTerm, setTermId] = useState<string | null>(null)
+  const termId = chosenTerm ?? terms.data?.[0]?.id ?? null
   const [assigning, setAssigning] = useState<string | null>(null)
   const [editing, setEditing] = useState<SectionFormValue | null>(null)
   const [editorError, setEditorError] = useState<string | null>(null)
@@ -128,10 +142,6 @@ export default function Board() {
   const [dragging, setDragging] = useState<DragSource | null>(null)
   const [overSectionId, setOverSectionId] = useState<string | null>(null)
 
-  // Default to the first quarter once the terms arrive.
-  useEffect(() => {
-    if (!termId && terms.data && terms.data.length > 0) setTermId(terms.data[0]!.id)
-  }, [terms.data, termId])
 
   const locked = scenario.data?.is_locked ?? false
 

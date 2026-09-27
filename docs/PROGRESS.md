@@ -16,13 +16,63 @@ this file is the state of play.
 | Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA, the Supabase trim and offline awareness done |
 | Dependencies | `npm audit` clean; Node pinned to 22 |
 | Keyboard | nine shortcuts on the board, with a `?` sheet rendered from the same table |
-| Lint | `npm run lint` runs: ESLint 10, type-aware, 119 files, fails on one warning |
+| Lint | `npm run lint` runs: ESLint 10, type-aware, 119 files, fails on one warning. Two of the five `set-state-in-effect` sites cleared; three left |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
 
 ---
+
+## 2026-09-27 (later) — a third run at the same item, and the one thing it added
+
+**Read the merge note below first.** A *third* scheduled run picked the lint item
+off the handoff before the merge note existed to warn it. It built its own config,
+found the same nineteen findings, and got as far as a commit before the push was
+rejected. That commit is discarded: the config already on `main` is the better
+piece of work — type-aware, `react-refresh` registered, better-reasoned ignores —
+and there is nothing to be gained by merging two answers to one question. The
+branch was reset to `origin/main` and only what `main` did *not* have was applied
+on top.
+
+Which was three things.
+
+- **`useShortcuts` was writing its ref during render, and the config said that was
+  fine.** It is not. `latest.current = { state, onAction }` in the render body
+  mutates the ref even on a render React throws away — an abandoned concurrent
+  re-render, or StrictMode's second pass — so the key listener could read state
+  from a render that never committed. Now written in an effect with no dependency
+  array; `npm run check:keys` confirms in a real browser that this still wins the
+  race against a key press, because effects flush before the browser processes the
+  next input event. The paragraph in `eslint.config.js` that called it deliberate
+  and safe has been corrected, because a future run would otherwise have trusted
+  it. `react-hooks/refs` stays off: the ten `LoadPanel` false positives are real
+  and this was the eleventh finding, the true one.
+- **Two of the five `set-state-in-effect` sites are cleared**, and they were the
+  two where deriving during render is strictly better rather than merely
+  different. `Board` defaulted the selected quarter in an effect and `Compare`
+  defaulted its two sides, so each rendered once with nothing selected: an empty
+  tab strip and section list for a frame on the board, and the "choose two
+  different scenarios" notice appearing before the defaults landed on the
+  comparison. Both now read `chosen ?? first`, with state holding only what the
+  coordinator actually picked — which also means the default follows the data if
+  the data changes and nothing has been picked.
+- **The config's own record is up to date** about which three sites remain and why
+  each is harder than it looks.
+
+**Learned.** *Concurrent runs are now frequent enough that "fetch first" is not
+advice, it is the first step.* This is the second collision on the same item
+within hours, and the cost both times was a whole run's work thrown away. The
+merge note below says to fetch; it needs to be the thing a run does before it
+reads the handoff, not after. *And the more valuable lesson: a comment asserting
+something is safe is not evidence that it is.* The config said the
+write-during-render was deliberate and documented at length, and the length of the
+documentation was doing the persuading. Checking the actual React semantics took
+two minutes.
+
+**Verified.** Lint clean at `--max-warnings 0`, 492 tests, typecheck, build, 33
+mobile scenes at 375px, drag, keys, PWA and routing — the last being what covers
+the `Board` and `Compare` changes.
 
 ## 2026-09-27 — two runs, one task, and what came of merging them
 
@@ -203,9 +253,11 @@ for a rotated hash before concluding anything about where it lives.
 
 **Next run should pick up — in this order.**
 
-1. **The five `set-state-in-effect` sites**, starting with `auth.tsx`. Derive
-   state during render or seed it from a key instead. Each is small on its own;
-   doing them together is a day. Turn the rule back on as each one clears.
+1. **The three `set-state-in-effect` sites left** — `Layout.tsx`, `auth.tsx`,
+   `MyPreferences.tsx`. `Board` and `Compare` are done (see the entry below).
+   `Layout` and `auth` are worth attempting; `MyPreferences` hydrates an editable
+   form and is the one site where the rule has no good answer, so the honest end
+   state may be the rule on with a single suppression there.
 2. **An `aria-busy` or equivalent on a paused write.** The offline banner says
    how many changes are waiting in total; an individual pill on the board still
    looks exactly like a saved one. Worth doing only if the banner turns out not

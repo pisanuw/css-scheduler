@@ -25,7 +25,26 @@ import {
  */
 export function useShortcuts(state: BoardShortcutState, onAction: (action: ShortcutAction) => void): void {
   const latest = useRef({ state, onAction })
-  latest.current = { state, onAction }
+
+  /*
+   * In an effect, not in the render body — which is what this was, and what the
+   * comment above it called deliberate.
+   *
+   * It is not safe. `latest.current = …` during render mutates the ref even on a
+   * render React then throws away: a concurrent re-render it abandons, or
+   * StrictMode's second pass. The listener would then be reading state from a
+   * render that never committed. `react-hooks/refs` is off in `eslint.config.js`
+   * because of ten false positives in `LoadPanel`, and this eleventh finding was
+   * the real one.
+   *
+   * No dependency array, so it runs after every commit. The window between a
+   * commit and this effect is not one a key press can land in — effects flush
+   * before the browser processes the next input event — and
+   * `npm run check:keys` presses real keys to confirm it.
+   */
+  useEffect(() => {
+    latest.current = { state, onAction }
+  })
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

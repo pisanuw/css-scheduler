@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useScenarioSnapshot } from '../hooks/useScenarioSnapshot'
 import { useScenarios } from '../hooks/scheduling'
@@ -132,15 +132,23 @@ export function Side({ c, other }: { c: ScenarioComparison; other: ScenarioCompa
 
 export default function Compare() {
   const scenarios = useScenarios()
-  const [leftId, setLeftId] = useState<string>('')
-  const [rightId, setRightId] = useState<string>('')
+  const [chosenLeft, setLeftId] = useState<string>('')
+  const [chosenRight, setRightId] = useState<string>('')
 
-  // Default to the two most recently touched drafts.
-  useEffect(() => {
-    const list = (scenarios.data ?? []).filter((s) => s.status !== 'archived')
-    if (!leftId && list[0]) setLeftId(list[0].id)
-    if (!rightId && list[1]) setRightId(list[1].id)
-  }, [scenarios.data, leftId, rightId])
+  /*
+   * The two most recently touched drafts, unless the coordinator picked
+   * otherwise — derived during render rather than written by an effect, the
+   * other cheap one of the five `set-state-in-effect` sites. The effect version
+   * rendered once with neither side chosen, which put two empty selects and the
+   * "choose two different scenarios" notice on screen before the defaults
+   * landed.
+   */
+  const comparable = useMemo(
+    () => (scenarios.data ?? []).filter((s) => s.status !== 'archived'),
+    [scenarios.data],
+  )
+  const leftId = chosenLeft || (comparable[0]?.id ?? '')
+  const rightId = chosenRight || (comparable[1]?.id ?? '')
 
   const left = useScenarioSnapshot(leftId || undefined)
   const right = useScenarioSnapshot(rightId || undefined)

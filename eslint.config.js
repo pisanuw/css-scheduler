@@ -127,10 +127,16 @@ export default tseslint.config(
        * `useRowDrag` in `LoadPanel.tsx` returns an object whose `ref` key holds
        * dnd-kit's `setNodeRef` callback. The rule sees a property called `ref`
        * read during render and says "cannot access refs during render"; there
-       * is no ref object anywhere near it. The eleventh, `useShortcuts.ts`,
-       * is a real write-during-render, deliberate, and documented at length in
-       * that file — the listener is attached once and reads the latest state
-       * through the ref, which is the point.
+       * is no ref object anywhere near it.
+       *
+       * The eleventh, in `useShortcuts.ts`, was the real one, and it has been
+       * fixed rather than accepted — an earlier version of this comment called
+       * it deliberate and safe, which was wrong. Writing `latest.current` in the
+       * render body mutates the ref even on a render React throws away, so the
+       * listener could read state from a render that never committed. It is
+       * written in an effect now. Turning the rule on to catch the next one of
+       * those still costs ten false positives in `LoadPanel`, so it stays off
+       * and this paragraph is the record.
        */
       'react-hooks/refs': 'off',
       /*
@@ -140,10 +146,25 @@ export default tseslint.config(
        * from a key. Turned off rather than left failing because clearing it
        * means reworking five components' state flow, one of which is
        * `auth.tsx`, whose loading window has already caused one real bug. That
-       * is its own piece of work, recorded in `docs/PROGRESS.md`, not something
-       * to do under a lint gate. The sites are `Layout.tsx:39`,
-       * `auth.tsx:52`, `Board.tsx:133`, `Compare.tsx:141`,
-       * `MyPreferences.tsx:72`.
+       * is its own piece of work, not something to do under a lint gate.
+       *
+       * Two of the five have since been cleared, and they were the two where
+       * deriving during render was strictly better rather than merely different:
+       * `Board.tsx` defaulted the selected quarter in an effect and `Compare.tsx`
+       * defaulted its two sides, so each rendered once with nothing selected —
+       * an empty tab strip and section list for a frame, and the "choose two
+       * different scenarios" notice appearing before the defaults landed. Both
+       * now read `chosen ?? first`.
+       *
+       * Three remain, and each is harder than it looks: `Layout.tsx:39` closes
+       * the nav drawer on navigation, where deriving needs the previous pathname
+       * kept somewhere and keying remounts the drawer and loses its focus
+       * management; `auth.tsx:52` clears the profile when the session goes, and
+       * a profile cannot be derived from a session during render because it is a
+       * round trip to `profiles`; `MyPreferences.tsx:72` hydrates an editable
+       * form from the saved submission, where deriving during render would
+       * overwrite every keystroke. The first two are worth attempting; the third
+       * is the one site in the app where the rule has no good answer.
        */
       'react-hooks/set-state-in-effect': 'off',
       /*
