@@ -56,32 +56,41 @@ npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
                   # clients this build leaves out, the offline rules and the
                   # keyboard shortcuts (492 tests)
 npm run typecheck
-npm run lint      # ESLint over all 119 source files
+npm run lint         # ESLint: hook dependency lists, unhandled promises,
+                     # dead code, stray `any` — 119 files, no warnings allowed
 npm run build        # needs the two Supabase values in the environment
 npm run build:check  # the same build with placeholders, for when you only
                      # want to know that it builds
 ```
 
-**What `npm run lint` is for.** Not formatting — no rule in
-`eslint.config.js` reflows a line, so lint and the build never disagree about a
-file. It is there for the mistakes a type checker cannot see: a promise nobody
-handled, a React dependency array that has gone stale, a hook behind an `if`.
-It is type-aware, so it reads the same program `tsc` does.
+`npm run lint` is deliberately small, and it is not a formatter: no rule in
+`eslint.config.js` reflows a line, so lint and the build can never disagree
+about a file. Formatting is Prettier's argument and not worth having twice.
+`tsc` has the types, the four browser checks have the behaviour, and 492 unit
+tests have the rules; what those leave is the class of mistake that type-checks
+and runs and is still wrong.
 
-Two things about it worth knowing. `react-hooks/exhaustive-deps` is an **error**
-here rather than the warning it ships as, because a stale closure on the board
-shows up as the scheduler acting on the quarter you just left, and nobody
-reports that as a bug. And the config turns five rules off — two of them only in
-the tests — and narrows a sixth, each with the reason written next to it,
-because a rule switched off without one becomes a rule nobody can argue with
-later. The one to revisit is `@typescript-eslint/no-unsafe-assignment`: it is
-off only because no `src/lib/database.types.ts` has ever been generated, so
-Supabase rows arrive as `any`. `npm run db:types` is the fix, and it needs a
-linked Supabase CLI.
+It is **type-aware** — `projectService` hands it the same program `tsc` reads —
+which is what buys the rules that pay for the config. `no-floating-promises`
+found two `.then` chains in `src/lib/auth.tsx` with no rejection handler, one of
+which left a reader on "Loading…" for ever the moment a phone lost signal.
+`no-base-to-string` found `failureText` rendering a Postgrest error as
+"[object Object]" in the toast under the coordinator's thumb. Neither rule can
+exist without type information.
 
-The 14 `react-refresh/only-export-components` warnings are real and deliberately
-left: they say hot reload will do a full refresh for those files during
-`npm run dev`, which is a development convenience, not a defect in the app.
+`react-hooks/exhaustive-deps` is set to an **error** rather than the warning it
+ships as. The board keeps its conflict findings, tallies and drop hints in
+`useMemo`, and a stale dependency list there does not crash — it shows
+yesterday's conflicts beside today's assignment, which is the exact failure this
+app exists to prevent.
+
+There are no standing warnings: the script fails on one. Six rules are off and a
+seventh narrowed, each with its reason written beside it, because a rule
+switched off without one becomes a rule nobody can argue with later. The one to
+revisit is `@typescript-eslint/no-unsafe-assignment`: it is off only because no
+`src/lib/database.types.ts` has ever been generated, so Supabase rows arrive as
+`any` and are cast at the boundary. `npm run db:types` is the fix, and it needs
+a linked Supabase CLI.
 
 **`npm run build` will not build without `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_ANON_KEY`,** and that is deliberate. `src/lib/supabase.ts` throws

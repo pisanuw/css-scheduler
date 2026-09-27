@@ -16,11 +16,52 @@ this file is the state of play.
 | Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA, the Supabase trim and offline awareness done |
 | Dependencies | `npm audit` clean; Node pinned to 22 |
 | Keyboard | nine shortcuts on the board, with a `?` sheet rendered from the same table |
-| Lint | `npm run lint` runs: ESLint 10, type-aware, 119 files, 0 errors |
+| Lint | `npm run lint` runs: ESLint 10, type-aware, 119 files, fails on one warning |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-27 — two runs, one task, and what came of merging them
+
+**Read this before the two entries below it.** Two scheduled runs fired close
+enough together to pick the same item off the handoff, and both built it. The
+other one pushed first (`4c9efed`), this one merged into it (`867c849` and the
+merge commit above). Both entries are kept, because the collision is more useful
+on the record than either entry alone.
+
+What the merge kept, and why:
+
+- **The type-aware config**, from this run. That is the whole difference in what
+  the two found. `recommendedTypeChecked` with `projectService` gives
+  `no-floating-promises`, `no-base-to-string`, `no-unnecessary-type-assertion`
+  and `no-misused-promises`; none of those rules can decide anything without
+  type information, and the other run's `configs.recommended` does not have
+  them. Three real bugs came out of exactly those rules. The cost is that lint
+  now reads the same program `tsc` does, so it is slower than a syntactic pass.
+- **`react-refresh/only-export-components: 'off'` and `--max-warnings 0`**, from
+  the other run, and this is the better call. This run left fourteen standing
+  warnings and wrote them up as "real and deliberately left". The other run
+  checked why they fire: pages export their column definitions *on purpose* so
+  `harness/scenes.tsx` measures the real ones — `Courses.tsx` says so on the
+  line above the export. So they are permanent by design, nobody can ever act on
+  them, and fourteen of those is the same lie as a gate that cannot run.
+  Verified before adopting: the comment is there and the harness does import it.
+- **`undoChanges` over `undoMutate`** for the board's undo, from the other run —
+  the same fix, the better name — with this run's note on why the rule's own
+  suggestion (depend on `undo`) would have been worse than the warning.
+- **ESLint 10 and react-hooks 7** over 9 and 5. This run's config is written
+  against react-hooks 7's flat API (`configs.flat.recommended`; `configs
+  .recommended` is still the eslintrc shape in v7 and fails at startup).
+
+**What to learn from it.** Nothing prevents this happening again — two runs two
+hours apart will both read the same "next run should pick up" list and start at
+item 1. The cheap mitigation is to `git fetch` and check `origin/main` **before**
+choosing the work, not only before pushing; this run checked at the start, found
+itself apparently in sync, and spent a whole run duplicating an item that was
+being built as it read. The tell was available and not looked for.
 
 ---
 
@@ -101,7 +142,7 @@ files.
   `Error`, string, null and object still includes a function, and a function
   stringifies its own source into the toast.
 - *A rule turned off without a reason is a rule nobody can argue with later.*
-  Five are off and a sixth is narrowed; each carries the specific reason.
+  Six are off and a seventh is narrowed; each carries the specific reason.
   `no-unsafe-assignment` is the one to revisit — it is off only because no
   `database.types.ts` has ever been generated, so Supabase rows arrive as `any`
   and are cast at the boundary. Its sharper relatives (`no-unsafe-call`,
@@ -122,10 +163,11 @@ files.
   codebase — a stale `openNew` closure and a listener rebuilt on every keystroke
   are both in this log.
 
-**Verified.** `npm run lint` 0 errors, 14 warnings (all
-`react-refresh/only-export-components`, all real, all about hot reload during
-`npm run dev` rather than the app). 492 tests (483 before, 9 new — `messageOf`
-and the two `failureText` cases). Typecheck and build green. All 33 mobile scenes
+**Verified.** `npm run lint` clean — 0 errors and 0 warnings, under
+`--max-warnings 0`. (This run first left fourteen `react-refresh` warnings
+standing and argued for them; the merge note above explains why the other run's
+answer was better and what replaced it.) 492 tests (483 before, 9 new —
+`messageOf` and the two `failureText` cases). Typecheck and build green. All 33 mobile scenes
 clean at 375px, and `check:drag`, `check:keys`, `check:routes` and `check:pwa`
 all clean — worth running in full this time because `auth.tsx`'s behaviour
 changed and because two of the check scripts were themselves edited.
@@ -137,7 +179,8 @@ No migration: nothing in the database changed, so the RLS suite was not re-run.
 - **The verification bar is now four commands, not three.** `npm test`,
   `npm run typecheck`, `npm run build` and `npm run lint`. Lint is deliberately
   not wired into `build` — Netlify runs the build, and a lint failure should not
-  be able to take the site's deploy down.
+  be able to take the site's deploy down. It runs under `--max-warnings 0`, so
+  anything it reports at all is a failure.
 - **`react-hooks/set-state-in-effect` is off with five named sites.** That is
   recorded debt, not a dismissal. `auth.tsx:52` is one of them, and its loading
   window has already caused one real bug.
@@ -151,9 +194,86 @@ No migration: nothing in the database changed, so the RLS suite was not re-run.
    how many changes are waiting in total; an individual pill on the board still
    looks exactly like a saved one. Worth doing only if the banner turns out not
    to be enough in practice.
-3. `.env.asc` arrived in `dd09666` with nothing saying which key opens it or what
+3. **A real paste** through the time-schedule import, from the *current* UW
+   listing rather than the three quarters already imported. The parser reports
+   what it cannot read, so the failure mode is a list of lines rather than a
+   wrong board — but nobody has watched it meet a live page yet. (From the
+   concurrent run's list; it is the better third item.)
+4. `.env.asc` arrived in `dd09666` with nothing saying which key opens it or what
    to do with it — worth a line in the README, from whoever added it. Needs the
    maintainer; nothing in this sandbox can decrypt it.
+5. **Before picking any of the above, `git fetch origin main` and look.** See the
+   merge note at the top of this file.
+
+---
+
+## 2026-09-27 (seventeenth run, the concurrent one) — the gate that could not run
+
+*Pushed first, as `4c9efed`. Kept in full; see the merge note above for which of
+its decisions survived and which this run's replaced.*
+
+**Built.** `npm run lint` runs. It had been in `package.json` for fifteen runs
+with no config and no ESLint installed, so it failed with a migration notice
+that read like a warning — a gate everything passes.
+
+- **`eslint.config.js`**: the recommended sets, `react-hooks` with
+  `exhaustive-deps` as an **error**, and no stylistic rules at all. Formatting
+  is Prettier's argument and not worth having twice.
+- **`npm run lint` fails on a single warning** (`--max-warnings 0`), which is
+  only honest now that there are none left.
+
+**Three real findings, all fixed.**
+
+- *A dependency list the linter could not verify.* `runUndo` on the board
+  depended on `[undo.mutate, toast]`. A member access is not something the rule
+  can prove stable — and neither can a reader. It depends on a destructured
+  `undoChanges` now.
+- *Dead code.* `lumOf` in the mobile check, left behind when the print
+  assertions started comparing colours directly.
+- *An unused binding* in the routing check's dark sweep.
+
+**Learned.**
+
+- *The browser globals in the check scripts are not a mistake.* 26 of the 62
+  errors were `document is not defined` in `scripts/*.mjs` — inside functions
+  that `page.evaluate` serialises and runs in Chromium, where `document` is
+  exactly as real as `fs` is outside. The config gives those files both global
+  sets rather than silencing the rule.
+- *A rule you have decided against belongs in the config, off, with the
+  reason.* `react-refresh/only-export-components` fired fifteen times, all on
+  pages that export their column definitions so the mobile harness can measure
+  the real ones rather than a copy. Fifteen standing warnings nobody acts on is
+  the same lie as a gate that cannot run.
+
+**Checked rather than believed.** The gate was made to fail on purpose twice
+before being trusted: an unused import, and a `useMemo` over the board snapshot
+with an empty dependency list — the exact bug the rule is here for.
+
+**Verified.** 483 tests, typecheck, build, lint, and all four browser checks
+(33 mobile scenes in both themes and on paper, routing, drag, PWA).
+
+**A collision worth recording.** This session and the two-hourly one were both
+working on this repository at once, and both built the time-schedule import —
+the same feature, the same file names, within a few hours. The scheduled run
+got there first and its version is what shipped (`20332dc`); this session's
+duplicate was thrown away rather than merged, and it had nothing the other
+lacked, down to reading `scripts/data/history_sections.csv` as its fixture.
+Before starting anything, `git fetch` and read this file: it is the only thing
+that stops two runs spending a window each on one feature.
+
+**Next run should pick up — in this order.**
+
+1. **An `aria-busy` or equivalent on a paused write.** The offline banner says
+   how many changes are waiting in total; an individual pill on the board still
+   looks exactly like a saved one. Worth doing only if the banner turns out not
+   to be enough in practice.
+2. **A real paste** through the time-schedule import, from the *current* UW
+   listing rather than the three quarters already imported. The parser reports
+   what it cannot read, so the failure mode is a list of lines rather than a
+   wrong board — but nobody has watched it meet a live page yet.
+3. `.env.asc` arrived in `dd09666` with nothing saying which key opens it or
+   what to do with it — worth a line in the README, from whoever added it.
+   Needs the maintainer; nothing in this sandbox can decrypt it.
 
 ---
 

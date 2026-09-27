@@ -167,7 +167,21 @@ export default tseslint.config(
     files: ['src/**/*.tsx'],
     plugins: { 'react-refresh': reactRefresh },
     rules: {
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      /*
+       * Off, rather than warned about fourteen times for ever. It asks for a
+       * page's column definitions and helpers to move into files of their own
+       * so the dev server can hot-reload the component — but those helpers are
+       * imported by the mobile harness precisely so the check measures the
+       * page's own columns rather than a copy. `Courses.tsx` says so on the
+       * line above the export, and `harness/scenes.tsx` imports it. So the
+       * warnings are permanent by design, and a standing warning nobody can act
+       * on is the same lie as a gate that cannot run.
+       *
+       * The plugin is kept registered rather than dropped: its other rules
+       * still apply, and turning this one off by name records the decision
+       * where the next person will look for it.
+       */
+      'react-refresh/only-export-components': 'off',
     },
   },
 
