@@ -16,13 +16,92 @@ this file is the state of play.
 | Polish | undo, toasts, focus management, tables-as-cards, code splitting, drag and drop, print output, dark mode, the installable PWA, the Supabase trim and offline awareness done |
 | Dependencies | `npm audit` clean; Node pinned to 22 |
 | Keyboard | nine shortcuts on the board, with a `?` sheet rendered from the same table |
-| Lint | `npm run lint` runs: ESLint 10, type-aware, 119 files, fails on one warning. Two of the five `set-state-in-effect` sites cleared; three left |
+| Lint | `npm run lint` runs: ESLint 10, type-aware, fails on one warning. `set-state-in-effect` is an **error** with nothing grandfathered — all five sites cleared |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
 
 ---
+
+## 2026-09-27 (fourth run today) — the lint rule was right, and it had found real data loss
+
+Took item 1 off the handoff: the three `set-state-in-effect` sites left.
+`git fetch origin main` first, per the merge note — nothing new had arrived, and
+nothing arrived during the run either.
+
+All three are cleared and **the rule is now an error with nothing
+grandfathered.** The interesting part is not that the rule is on; it is what the
+third site turned out to be.
+
+- **`MyPreferences.tsx` was losing what instructors typed.** The form was
+  hydrated by an effect keyed on the query's data, so any refetch that returned
+  a *different* object put the saved answers back over the fields. Saving a
+  draft is exactly that: the mutation invalidates `['submission', cycleId]`, the
+  server echoes the row it was just sent, and every keystroke between the tap on
+  Save and the answer coming back was silently reverted. `refetchOnReconnect`
+  reaches it the same way on a phone that loses signal and finds it again
+  (`refetchOnWindowFocus` is off, so that path — which an earlier draft of this
+  entry claimed — is not real). The page is now a loader plus a
+  `PreferenceForm` child seeded once at mount from `initialFormState()` and
+  remounted by `formKey()` = cycle + submission id. A refetch of the same
+  submission cannot touch the fields.
+- **`auth.tsx` stopped clearing the profile.** `profile` and `profileFor` are
+  one `loaded: { userId, profile }` now, and `resolveProfile()` (pure, tested)
+  compares its owner against the current session. Sign-out needs no effect at
+  all, and the hole the old effect had is closed on the way past: for one render
+  after an account switch the previous user's profile was still the current one,
+  `isCoordinator` with it.
+- **`Layout.tsx` closes the drawer during render** rather than in an effect, so
+  the render that opens the new page is the one that closes the nav over it.
+  Deriving it from "the path it was opened on" is tidier and wrong — Back to
+  that path re-opens the drawer — which is why the check tests Back.
+
+**Tests.** `src/lib/prefsForm.ts` and `src/lib/authState.ts` are new pure
+modules with 18 unit tests between them, in the house style: the logic worth
+testing leaves the component. Two new sections in `scripts/route_check.mjs`
+drive the real bundle — the drawer (closes on navigate, stays closed through
+Back, still opens, still closes on Escape) and the preferences form (type, save,
+keep typing while the save is in flight, and the refetch must leave it alone).
+
+**Learned — the part worth carrying.** *The regression test passed against the
+broken page the first time I ran it.* The stub returned a fixed row, React
+Query's structural sharing kept the previous object, the old effect never fired,
+and the check went green over a bug that was live in production. It only became
+a test when the stub started echoing what the save sent it, the way the real
+project does. **Run a new regression check against the old code before believing
+it** — `git show HEAD:<file> > <file>`, run it, restore. Two minutes, and here
+it was the difference between a test and a decoration.
+
+Second: the five findings were recorded as debt rather than dismissed, and that
+record is what made this run possible — but "genuine debt, worth its own piece
+of work" undersold it. One of the five was user-visible data loss affecting the
+instructor who is actually using this. Debt that has been looked at closely
+enough to name is also debt that has been looked at closely enough to triage,
+and this one was never triaged.
+
+**Verified.** 510 tests (up from 492), typecheck, lint at `--max-warnings 0`,
+build, 33 mobile scenes at 375px, drag, keys, PWA, and `check:routes` — which
+now fails against the pre-run `MyPreferences.tsx`, checked.
+
+**Next run should pick up — in this order.**
+
+1. **An `aria-busy` or equivalent on a paused write.** The offline banner says
+   how many changes are waiting in total; an individual pill on the board still
+   looks exactly like a saved one. Worth doing only if the banner turns out not
+   to be enough in practice.
+2. **A real paste** through the time-schedule import, from the *current* UW
+   listing rather than the three quarters already imported. The parser reports
+   what it cannot read, so the failure mode is a list of lines rather than a
+   wrong board — but nobody has watched it meet a live page yet.
+3. **`react-hooks/refs`** is the last rule still off, for ten `LoadPanel` false
+   positives against dnd-kit's `setNodeRef`. Worth a look at whether scoping the
+   rule off to that one file turns it back into a gate everywhere else.
+4. `.env.asc` arrived in `dd09666` with nothing saying which key opens it or what
+   to do with it — worth a line in the README, from whoever added it. Needs the
+   maintainer; nothing in this sandbox can decrypt it.
+5. **Before picking any of the above, `git fetch origin main` and look.** See the
+   merge note at the top of this file.
 
 ## 2026-09-27 (later) — a third run at the same item, and the one thing it added
 

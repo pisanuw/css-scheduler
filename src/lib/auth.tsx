@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { resolveProfile, type LoadedProfile } from './authState'
 
 export type UserRole = 'coordinator' | 'instructor' | 'viewer'
 
@@ -25,20 +26,23 @@ const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
   /*
-   * Whose profile the state above holds, which is not the same question as
-   * "is a request in flight". `loading` used to be its own flag, and between
-   * the render that received the session and the effect that set the flag
-   * back to true there was one commit with a session, no profile, and
+   * The profile *and whose it is*, together, because the second question is
+   * what every bug here has turned on. `loading` used to be its own flag, and
+   * between the render that received the session and the effect that set the
+   * flag back to true there was one commit with a session, no profile, and
    * `loading` false — long enough for the router to decide the reader was not
    * a coordinator and send them home. A coordinator opening a bookmarked
    * `/board/:scenarioId` landed on the dashboard, and the deeper the link the
-   * more it mattered. Deriving the answer from the data removes the window
-   * rather than narrowing it.
+   * more it mattered.
+   *
+   * Recording the owner alongside the profile removes the window rather than
+   * narrowing it, and removes the effect that used to clear the profile on
+   * sign-out: nothing has to be reset, because a profile that does not belong
+   * to the current session is not shown. See `resolveProfile`.
    */
-  const [profileFor, setProfileFor] = useState<string | null>(null)
-  const loading = session ? profileFor !== session.user.id : false
+  const [loaded, setLoaded] = useState<LoadedProfile<Profile> | null>(null)
+  const { profile, loading } = resolveProfile(session?.user.id, loaded)
 
   useEffect(() => {
     /*
@@ -57,12 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    // Signed out needs no work at all now: `resolveProfile` answers it.
+    if (!session) return
     let cancelled = false
-    if (!session) {
-      setProfile(null)
-      setProfileFor(null)
-      return
-    }
     const userId = session.user.id
     supabase
       .from('profiles')
@@ -71,14 +72,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .single()
       .then(({ data }) => {
         if (cancelled) return
-        setProfile((data) ?? null)
         /*
-         * Marked resolved even when nothing came back. A signed-in reader
-         * with no profile row gets the app with no coordinator pages, which
-         * is both true and recoverable; leaving them on "Loading…" for ever
-         * is neither.
+         * Recorded even when nothing came back. A signed-in reader with no
+         * profile row gets the app with no coordinator pages, which is both
+         * true and recoverable; leaving them on "Loading…" for ever is
+         * neither.
          */
-        setProfileFor(userId)
+        setLoaded({ userId, profile: data ?? null })
       },
       /*
        * Same reasoning as the resolved-but-empty case above, and this is the
@@ -96,8 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
        */
       () => {
         if (cancelled) return
-        setProfile(null)
-        setProfileFor(userId)
+        setLoaded({ userId, profile: null })
       },
     )
     return () => {

@@ -140,33 +140,38 @@ export default tseslint.config(
        */
       'react-hooks/refs': 'off',
       /*
-       * `set-state-in-effect` — five findings, all genuine debt rather than
-       * noise, and all of the "you might not need an effect" shape: state
-       * derived in an effect that could be computed during render or seeded
-       * from a key. Turned off rather than left failing because clearing it
-       * means reworking five components' state flow, one of which is
-       * `auth.tsx`, whose loading window has already caused one real bug. That
-       * is its own piece of work, not something to do under a lint gate.
+       * `set-state-in-effect` — on, and with nothing grandfathered. It shipped
+       * off, with five named findings recorded as debt rather than dismissed,
+       * because clearing it meant reworking five components' state flow and
+       * that is its own piece of work rather than something to do under a lint
+       * gate. It has since been done, and all five were real:
        *
-       * Two of the five have since been cleared, and they were the two where
-       * deriving during render was strictly better rather than merely different:
-       * `Board.tsx` defaulted the selected quarter in an effect and `Compare.tsx`
-       * defaulted its two sides, so each rendered once with nothing selected —
-       * an empty tab strip and section list for a frame, and the "choose two
-       * different scenarios" notice appearing before the defaults landed. Both
-       * now read `chosen ?? first`.
+       * - `Board.tsx` defaulted the selected quarter in an effect and
+       *   `Compare.tsx` defaulted its two sides, so each rendered once with
+       *   nothing selected — an empty tab strip and section list for a frame,
+       *   and the "choose two different scenarios" notice appearing before the
+       *   defaults landed. Both read `chosen ?? first` now.
+       * - `Layout.tsx` closed the nav drawer in an effect on navigation, which
+       *   commits the new page with the drawer still over it and closes it a
+       *   frame later. Adjusted during render instead.
+       * - `auth.tsx` cleared the profile when the session went. A profile is a
+       *   round trip to `profiles` and cannot be computed during render, but
+       *   *whose* profile it is can be recorded next to it — so nothing is
+       *   cleared and `resolveProfile` compares. That also closed a hole the
+       *   effect had: for one render after an account switch the previous
+       *   user's profile was still the current one.
+       * - `MyPreferences.tsx` hydrated an editable form from the saved
+       *   submission, and this is the one the rule is actually about. Because
+       *   the effect ran whenever the query's data changed, the refetch that
+       *   follows a saved draft put the saved answers back over anything typed
+       *   since the tap. The form is seeded at mount and remounted by key now,
+       *   so a refetch of the same submission cannot touch it, and
+       *   `scripts/route_check.mjs` fails against the old page.
        *
-       * Three remain, and each is harder than it looks: `Layout.tsx:39` closes
-       * the nav drawer on navigation, where deriving needs the previous pathname
-       * kept somewhere and keying remounts the drawer and loses its focus
-       * management; `auth.tsx:52` clears the profile when the session goes, and
-       * a profile cannot be derived from a session during render because it is a
-       * round trip to `profiles`; `MyPreferences.tsx:72` hydrates an editable
-       * form from the saved submission, where deriving during render would
-       * overwrite every keystroke. The first two are worth attempting; the third
-       * is the one site in the app where the rule has no good answer.
+       * The rule found a data-loss bug that nobody had reported. It is an
+       * error from here.
        */
-      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/set-state-in-effect': 'error',
       /*
        * Promoted from the warning it ships as. This is the rule with the best
        * record on this codebase — a stale `openNew` closure and a `keydown`

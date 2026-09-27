@@ -35,8 +35,21 @@ export default function Layout({
   const drawerRef = useRef<HTMLElement>(null)
   const toggleRef = useRef<HTMLButtonElement>(null)
 
-  // Navigating is the drawer's cue to get out of the way.
-  useEffect(() => setOpen(false), [location.pathname])
+  /*
+   * Navigating is the drawer's cue to get out of the way. Adjusted during
+   * render rather than in an effect: an effect would commit the new page with
+   * the drawer still over it and close it on the next frame, which on a phone
+   * is a visible flash of the old nav on top of the page you just asked for.
+   * This is React's documented shape for "reset some state when something
+   * changes" — the set during render is thrown away with the render it is in,
+   * and nothing is painted in between. Keying the drawer instead would remount
+   * it and lose the focus management below.
+   */
+  const [drawerPath, setDrawerPath] = useState(location.pathname)
+  if (drawerPath !== location.pathname) {
+    setDrawerPath(location.pathname)
+    setOpen(false)
+  }
 
   /*
    * The drawer is a disclosure rather than a modal — the page behind it is

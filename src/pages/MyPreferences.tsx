@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAuth } from '../lib/auth'
-import { useCourses } from '../hooks/queries'
+import { useCourses, type CourseRow } from '../hooks/queries'
 import {
   useMySubmission,
   useOpenCycle,
   useSaveSubmission,
   useTaughtBefore,
   useTerms,
+  type FullSubmission,
 } from '../hooks/preferences'
 import { ChipGroup, Section, TriState } from '../components/Chips'
 import { useToast, useToastInset } from '../components/Toast'
+import { DEFAULT_TERM, formKey, initialFormState } from '../lib/prefsForm'
 import {
   MODALITY_LABEL,
   QUARTER_LABEL,
@@ -19,16 +21,17 @@ import {
   TIME_OF_DAY_LABEL,
   WEEKDAYS,
   type Modality,
-  type PrefTier,
+  type PreferenceCycle,
+  type Term,
   type TimeOfDay,
 } from '../lib/types'
 
-interface TermState {
-  available: boolean
-  desired: number
-  leaveReason: string
-}
-
+/**
+ * Loads what the form needs and decides whether there is a form to show at
+ * all. The form itself is a separate component so that its ten pieces of state
+ * can be seeded from the saved submission at mount instead of being pushed in
+ * by an effect — see `initialFormState`.
+ */
 export default function MyPreferences() {
   const { profile } = useAuth()
   const cycleQ = useOpenCycle()
@@ -37,66 +40,9 @@ export default function MyPreferences() {
   const coursesQ = useCourses('undergraduate')
   const subQ = useMySubmission(cycle?.id, profile?.instructor_id)
   const taughtQ = useTaughtBefore(profile?.instructor_id)
-  const save = useSaveSubmission()
-  const toast = useToast()
   // The Save/Submit bar is pinned to the bottom of this page; keep the toast
   // stack above it rather than over the buttons.
   useToastInset(76)
-
-  const [terms, setTerms] = useState<Record<string, TermState>>({})
-  const [tiers, setTiers] = useState<Record<string, PrefTier>>({})
-  const [preferredDays, setPreferredDays] = useState<number[]>([])
-  const [blockedDays, setBlockedDays] = useState<number[]>([])
-  const [times, setTimes] = useState<TimeOfDay[]>([])
-  const [modalities, setModalities] = useState<Modality[]>([])
-  const [repeatPrep, setRepeatPrep] = useState<boolean | null>(null)
-  const [backToBack, setBackToBack] = useState<boolean | null>(null)
-  const [maxNewPreps, setMaxNewPreps] = useState<string>('')
-  const [note, setNote] = useState('')
-  const [courseFilter, setCourseFilter] = useState('')
-  const [onlyChosen, setOnlyChosen] = useState(false)
-
-  // Hydrate local state once the saved submission arrives.
-  useEffect(() => {
-    if (!subQ.data || !termsQ.data) return
-    const { submission, courses, terms: savedTerms } = subQ.data
-    const nextTerms: Record<string, TermState> = {}
-    for (const t of termsQ.data) {
-      const saved = savedTerms.find((s) => s.term_id === t.id)
-      nextTerms[t.id] = {
-        available: saved?.available ?? true,
-        desired: saved?.desired_course_count ?? 2,
-        leaveReason: saved?.leave_reason ?? '',
-      }
-    }
-    setTerms(nextTerms)
-    setTiers(Object.fromEntries(courses.map((c) => [c.course_id, c.tier])))
-    if (submission) {
-      setPreferredDays(submission.preferred_days ?? [])
-      setBlockedDays(submission.blocked_days ?? [])
-      setTimes(submission.preferred_times ?? [])
-      setModalities(submission.modality_prefs ?? [])
-      setRepeatPrep(submission.prefers_repeat_prep)
-      setBackToBack(submission.wants_back_to_back)
-      setMaxNewPreps(submission.max_new_preps == null ? '' : String(submission.max_new_preps))
-      setNote(submission.note_to_coordinator ?? '')
-    }
-  }, [subQ.data, termsQ.data])
-
-  const locked = subQ.data?.submission?.status === 'submitted'
-  const taught = taughtQ.data ?? new Set<string>()
-
-  const visibleCourses = useMemo(() => {
-    const list = coursesQ.data ?? []
-    return list.filter((c) => {
-      if (onlyChosen && !tiers[c.id]) return false
-      if (!courseFilter) return true
-      return `${c.code} ${c.title}`.toLowerCase().includes(courseFilter.toLowerCase())
-    })
-  }, [coursesQ.data, courseFilter, onlyChosen, tiers])
-
-  const chosenCount = Object.keys(tiers).length
-  const totalRequested = Object.values(terms).reduce((a, t) => a + (t.available ? t.desired : 0), 0)
 
   if (cycleQ.isLoading) return <p className="text-slate-500">Loading…</p>
 
@@ -124,12 +70,87 @@ export default function MyPreferences() {
     )
   }
 
+  // Both are needed to seed the form, and seeding happens once, so the form
+  // does not open until they are here.
+  if (!subQ.data || !termsQ.data) return <p className="text-slate-500">Loading…</p>
+
+  return (
+    <PreferenceForm
+      /*
+       * The form is remounted only when it is seeded from a genuinely
+       * different submission — a new cycle, or the first save turning a blank
+       * form into a real one. Every other refetch — the one that follows a
+       * saved draft, or the one `refetchOnReconnect` fires when a phone finds
+       * signal again — leaves whatever the instructor has typed alone, which
+       * is what the old hydrating effect could not promise.
+       */
+      key={formKey(cycle.id, subQ.data)}
+      cycle={cycle}
+      instructorId={profile.instructor_id}
+      saved={subQ.data}
+      terms={termsQ.data}
+      courses={coursesQ.data ?? []}
+      taught={taughtQ.data ?? EMPTY_SET}
+    />
+  )
+}
+
+/** Stable identity, so it cannot make `visibleCourses` recompute for nothing. */
+const EMPTY_SET: ReadonlySet<string> = new Set<string>()
+
+function PreferenceForm({
+  cycle,
+  instructorId,
+  saved,
+  terms: termList,
+  courses,
+  taught,
+}: {
+  cycle: PreferenceCycle
+  instructorId: string
+  saved: FullSubmission
+  terms: Term[]
+  courses: CourseRow[]
+  taught: ReadonlySet<string>
+}) {
+  const save = useSaveSubmission()
+  const toast = useToast()
+  // Computed once, at mount. The key above is what makes "once" the right
+  // number of times.
+  const [initial] = useState(() => initialFormState(saved, termList))
+
+  const [terms, setTerms] = useState(initial.terms)
+  const [tiers, setTiers] = useState(initial.tiers)
+  const [preferredDays, setPreferredDays] = useState(initial.preferredDays)
+  const [blockedDays, setBlockedDays] = useState(initial.blockedDays)
+  const [times, setTimes] = useState(initial.times)
+  const [modalities, setModalities] = useState(initial.modalities)
+  const [repeatPrep, setRepeatPrep] = useState(initial.repeatPrep)
+  const [backToBack, setBackToBack] = useState(initial.backToBack)
+  const [maxNewPreps, setMaxNewPreps] = useState(initial.maxNewPreps)
+  const [note, setNote] = useState(initial.note)
+  const [courseFilter, setCourseFilter] = useState('')
+  const [onlyChosen, setOnlyChosen] = useState(false)
+
+  const locked = saved.submission?.status === 'submitted'
+
+  const visibleCourses = useMemo(() => {
+    return courses.filter((c) => {
+      if (onlyChosen && !tiers[c.id]) return false
+      if (!courseFilter) return true
+      return `${c.code} ${c.title}`.toLowerCase().includes(courseFilter.toLowerCase())
+    })
+  }, [courses, courseFilter, onlyChosen, tiers])
+
+  const chosenCount = Object.keys(tiers).length
+  const totalRequested = Object.values(terms).reduce((a, t) => a + (t.available ? t.desired : 0), 0)
+
   const submit = (status: 'draft' | 'submitted') => {
     save.mutate(
       {
         cycleId: cycle.id,
-        instructorId: profile.instructor_id!,
-        submissionId: subQ.data?.submission?.id ?? null,
+        instructorId,
+        submissionId: saved.submission?.id ?? null,
         status,
         scalars: {
           preferred_days: preferredDays,
@@ -189,8 +210,8 @@ export default function MyPreferences() {
         hint="Say which quarters you are available and how many sections you want in each."
       >
         <div className="grid gap-4 sm:grid-cols-3">
-          {(termsQ.data ?? []).map((t) => {
-            const st = terms[t.id] ?? { available: true, desired: 2, leaveReason: '' }
+          {termList.map((t) => {
+            const st = terms[t.id] ?? DEFAULT_TERM
             return (
               <div key={t.id} className="rounded-lg border border-slate-200 p-4">
                 <div className="flex items-center justify-between">

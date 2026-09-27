@@ -491,6 +491,36 @@ The pills above the list are the right shape to scan and the wrong shape to
 hear: three button labels read out after every assignment give you the numbers
 without telling you whether anything broke.
 
+### State the app derives, rather than synchronises
+
+Three places used to keep a copy of something and push the copy around with an
+effect. All three had the same failure: between the render that received the
+truth and the effect that copied it, there was a commit showing the old answer
+— or, worse, the copy won.
+
+- **The preferences form.** It was hydrated from the saved submission by an
+  effect that ran whenever the query's data changed. Saving a draft invalidates
+  that query, so the refetch that follows a save put the saved answers back
+  over anything the instructor had typed since they tapped Save;
+  `refetchOnReconnect` does the same to a phone that finds signal again. The
+  form is a child component now, seeded once at mount by
+  `initialFormState()` and remounted by `formKey()` — cycle plus submission id
+  — so a refetch of the *same* submission cannot reach the fields at all.
+  `scripts/route_check.mjs` drives the real bundle through a save and fails
+  against the old page.
+- **The profile.** A profile is a round trip to `profiles` and genuinely cannot
+  be computed during render, but *whose* profile it is can be recorded next to
+  it. `resolveProfile()` compares that owner against the current session, which
+  means nothing has to be cleared on sign-out and a profile fetched for the
+  previous account is never shown to the next one.
+- **The nav drawer.** Closing it in an effect commits the new page with the
+  drawer still over it and closes it a frame later. It is adjusted during
+  render instead. Deriving it from "the path it was opened on" would have been
+  tidier still and is wrong: going Back to that path re-opens it.
+
+`react-hooks/set-state-in-effect` is an error as of that work, with nothing
+grandfathered; `eslint.config.js` carries the list of what it found.
+
 ## Colour, and dark mode
 
 The coordinator schedules at night. Dark mode is a setting with three states,

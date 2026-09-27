@@ -586,6 +586,208 @@ const DESTINATIONS = [
     console.log('✓ offline — the banner arrives, sits under the nav, and leaves when the signal returns')
 }
 
+// ── Typing into the preferences form survives a refetch ─────────────────────
+/*
+ * The form an instructor fills in used to be hydrated by an effect that ran
+ * whenever its query's data changed, which meant a refetch put the saved
+ * answers back over whatever they had typed since. Two live paths reach it:
+ * saving a draft invalidates the submission and refetches it straight away,
+ * and `refetchOnReconnect` does the same when a phone that lost signal in a
+ * stairwell finds it again. Nobody reported it, because from the instructor's
+ * side it looks like your own browser losing what you typed.
+ *
+ * This drives the save path, because it is the one a test can provoke in a
+ * second rather than having to outwait a 30s `staleTime`: type, save, keep
+ * typing while the save is in flight, and look at the field once the refetch
+ * has landed. The refetch is counted rather than assumed — an assertion about
+ * a refetch that did not happen is worse than no assertion.
+ *
+ * The form is seeded once at mount now and remounted only when the submission
+ * it was seeded from is genuinely a different one, so a refetch of the same
+ * submission cannot reach the fields at all.
+ */
+{
+  const CYCLE = {
+    id: 'cy1',
+    academic_year_id: 'ay1',
+    name: '2026–27 preferences',
+    status: 'open',
+    opens_at: null,
+    closes_at: null,
+    instructions: null,
+  }
+  /*
+   * Mutable on purpose: the save writes into it and the refetch reads it back,
+   * which is what the real project does and is the whole point. A stub that
+   * returned a fixed row would hand React Query a structurally identical
+   * answer, it would keep the previous object by structural sharing, and the
+   * old hydrating effect would never even fire — a green test for a bug that
+   * is still there.
+   */
+  const SUBMISSION = {
+    id: 'sub1',
+    cycle_id: 'cy1',
+    instructor_id: 'in1',
+    status: 'draft',
+    submitted_at: null,
+    preferred_days: [],
+    blocked_days: [],
+    preferred_times: [],
+    modality_prefs: [],
+    prefers_repeat_prep: null,
+    wants_back_to_back: null,
+    max_new_preps: null,
+    note_to_coordinator: 'Saved earlier.',
+  }
+  const TERMS = ['autumn', 'winter', 'spring'].map((quarter, i) => ({
+    id: quarter.slice(0, 2),
+    academic_year_id: 'ay1',
+    quarter,
+    sort_order: i + 1,
+  }))
+  const COURSES = [
+    {
+      id: 'c343',
+      code: 'CSS 343',
+      number: 343,
+      title: 'Data Structures',
+      credits_min: 5,
+      credits_max: 5,
+      level: 'undergraduate',
+      prereq_text: null,
+      is_active: true,
+    },
+  ]
+  /* Long enough to type into the form while the save is still in the air. */
+  const SAVE_MS = 700
+
+  const user = { ...USERS.instructor, instructor_id: 'in1' }
+  const { page, noise } = await newPage(user)
+
+  let refetches = 0
+  await page.route('**/*.supabase.co/**', async (route) => {
+    const req = route.request()
+    const url = req.url()
+    const json = (body) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*', 'content-range': '0-0/0' },
+        body: JSON.stringify(body),
+      })
+    if (url.includes('/auth/v1/user')) return json({ id: user.id, email: user.email })
+    if (url.includes('/rest/v1/profiles')) return json(user)
+    if (url.includes('/rest/v1/preference_cycles')) return json([CYCLE])
+    if (url.includes('/rest/v1/terms')) return json(TERMS)
+    if (url.includes('/rest/v1/courses')) return json(COURSES)
+    if (url.includes('/rest/v1/preference_submissions')) {
+      // A read is the refetch under test; the POST is the save that provokes
+      // it, and it answers slowly on purpose.
+      if (req.method() === 'GET') {
+        refetches += 1
+        // `.maybeSingle()` asks for an object, not an array.
+        return json(SUBMISSION)
+      }
+      // The server echoes what it was just sent, so the refetch that follows
+      // carries the saved answers rather than the ones the form started with.
+      Object.assign(SUBMISSION, JSON.parse(req.postData() ?? '{}'))
+      await new Promise((r) => setTimeout(r, SAVE_MS))
+      return json(SUBMISSION)
+    }
+    if (url.includes('/rest/v1/rpc/')) return json(null)
+    return json([])
+  })
+
+  await signIn(page, base, user)
+  await page.goto(`${base}/preferences`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(300)
+
+  const note = page.getByPlaceholder('Anything the form does not capture.')
+  const eager = page.getByRole('button', { name: 'Want to teach' }).first()
+  if (!(await note.count())) {
+    fail('the preferences form did not render for an instructor with an open cycle')
+  } else {
+    if ((await note.inputValue()) !== 'Saved earlier.')
+      fail(`the form did not seed the saved note (read "${await note.inputValue()}")`)
+
+    await note.fill('Typed on the bus.')
+    const before = refetches
+    await page.getByRole('button', { name: 'Save draft' }).click()
+    // Still typing while it saves, which is exactly when the refetch lands.
+    await note.fill('Typed on the bus, and then some more.')
+    await eager.click()
+    await page.waitForTimeout(SAVE_MS + 1200)
+
+    const problemsBefore = problems.length
+    if (refetches <= before) {
+      fail('saving a draft did not refetch the submission, so this proves nothing')
+    } else {
+      if ((await note.inputValue()) !== 'Typed on the bus, and then some more.')
+        fail(`the refetch after a save overwrote the note with "${await note.inputValue()}"`)
+      if (/border-slate-300/.test((await eager.getAttribute('class')) ?? ''))
+        fail('the refetch after a save cleared a course rating chosen while it was in flight')
+    }
+    if (problems.length === problemsBefore)
+      console.log(
+        `✓ preferences — a save refetched the submission ${refetches - before}× and left the typing alone`,
+      )
+  }
+
+  for (const n of noise) fail(`preferences: console ${n}`)
+  await page.close()
+}
+
+// ── The drawer gets out of the way, and stays out ────────────────────────────
+/*
+ * Seven destinations do not fit across a phone, so below `md` the nav is a
+ * drawer that covers the top of the page. It has to close when you navigate,
+ * and closing it used to be an effect — which meant React committed the new
+ * page with the old nav still over it and closed it on the next frame. It is
+ * adjusted during render now, and the render that opens the new page is the
+ * one that closes the drawer.
+ *
+ * The Back case is here because the obvious alternative fix gets it wrong:
+ * deriving `open` from "the path the drawer was opened on" re-opens the drawer
+ * when you go back to that path, which is not something anybody asked for.
+ */
+{
+  const { page, noise } = await newPage(USERS.coordinator)
+  await signIn(page, base, USERS.coordinator)
+  await page.goto(`${base}/courses`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(200)
+
+  const drawer = page.locator('#main-nav-drawer')
+  const toggle = page.getByRole('button', { name: /menu/ })
+  await toggle.click()
+  if (!(await drawer.isVisible())) fail('the menu button did not open the drawer')
+
+  await page.getByRole('link', { name: 'Instructors', exact: true }).first().click()
+  await page.waitForTimeout(400)
+  if (new URL(page.url()).pathname !== '/instructors') fail('the drawer link did not navigate')
+  if (await drawer.isVisible()) fail('the drawer is still open over the page it navigated to')
+  if ((await toggle.getAttribute('aria-expanded')) !== 'false')
+    fail('the drawer closed but the menu button still says it is expanded')
+
+  await page.goBack()
+  await page.waitForTimeout(400)
+  if (new URL(page.url()).pathname !== '/courses') fail('Back did not return to /courses')
+  if (await drawer.isVisible()) fail('Back re-opened the drawer on the page it was opened from')
+
+  /*
+   * And the button still works after all that: adjusting state during render
+   * is only correct if the value it adjusts is otherwise ordinary state.
+   */
+  await toggle.click()
+  if (!(await drawer.isVisible())) fail('the drawer would not re-open after a navigation')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+  if (await drawer.isVisible()) fail('Escape did not close the drawer')
+
+  for (const n of noise) fail(`drawer: console ${n}`)
+  console.log('✓ drawer — closes on navigation, stays closed through Back, still opens on demand')
+  await page.close()
+}
+
 await browser.close()
 server.close()
 
