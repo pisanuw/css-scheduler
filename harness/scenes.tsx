@@ -59,6 +59,9 @@ import RouteFallback from "../src/components/RouteFallback";
 import RouteErrorNotice from "../src/components/RouteErrorNotice";
 import OfflineBanner from "../src/components/OfflineBanner";
 import { bannerFor } from "../src/lib/online";
+import ShortcutHelp from "../src/components/board/ShortcutHelp";
+import { activeShortcuts } from "../src/lib/shortcuts";
+import { useShortcuts } from "../src/hooks/useShortcuts";
 import Dialog from "../src/components/Dialog";
 import ThemeToggle from "../src/components/ThemeToggle";
 import { useTheme } from "../src/hooks/useTheme";
@@ -646,6 +649,77 @@ function ToolbarScene() {
  * also where the promise that matters is kept or broken: that a tap still taps
  * and a scroll still scrolls.
  */
+/**
+ * A board-shaped page for `scripts/keys_check.mjs` to type at.
+ *
+ * `src/lib/shortcuts.ts` decides what a key press means and is unit-tested
+ * there. What no unit test reaches is the wiring: that the listener is on the
+ * window at all, that a keystroke aimed at a field is left alone, that the
+ * browser's own binding is only pre-empted once a shortcut has matched, and that
+ * a modal takes the keyboard away. Those are properties of a real page.
+ *
+ * Every action taken lands in the list, the way `DragSandbox` records drops.
+ */
+function ShortcutSandbox() {
+  const [log, setLog] = useState<string[]>([]);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [text, setText] = useState("");
+
+  useShortcuts(
+    {
+      locked: false,
+      sheetOpen,
+      helpOpen: false,
+      undoPending: false,
+      unstaffedCount: 2,
+      quarterCount: 3,
+    },
+    (action) => setLog((l) => [...l, action]),
+  );
+
+  return (
+    <div className="space-y-3 p-4">
+      <label className="block text-sm text-slate-700">
+        A field, which every shortcut must leave alone
+        <input
+          id="field"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="mt-1 block min-h-11 w-full rounded-md border border-slate-300 px-2"
+        />
+      </label>
+      <label className="block text-sm text-slate-700">
+        And a textarea, which is where a whole quarter gets pasted
+        <textarea
+          id="area"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="mt-1 block min-h-11 w-full rounded-md border border-slate-300 px-2"
+          rows={2}
+        />
+      </label>
+      <button
+        type="button"
+        id="toggle-sheet"
+        onClick={() => setSheetOpen((v) => !v)}
+        className="flex min-h-11 items-center rounded-md border border-slate-300 px-3 text-sm text-slate-700"
+      >
+        {sheetOpen ? "Close the sheet" : "Open a sheet"}
+      </button>
+      <p id="sheet-state" data-open={sheetOpen ? "yes" : "no"} className="text-sm text-slate-600">
+        A sheet is {sheetOpen ? "open" : "closed"}.
+      </p>
+      <ul id="key-log" className="text-sm text-slate-700">
+        {log.map((action, i) => (
+          <li key={i} data-key={action}>
+            {action}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function DragSandbox() {
   const sensors = useBoardSensors();
   const [dragging, setDragging] = useState<DragSource | null>(null);
@@ -1122,6 +1196,7 @@ export const SCENES: Record<string, () => JSX.Element> = {
   "header-bits": () => <HeaderBits />,
 
   "drag-sandbox": () => <DragSandbox />,
+  "shortcut-sandbox": () => <ShortcutSandbox />,
 
   /* What follows the finger, in each verdict it can carry. */
   "drag-pill": () => (
@@ -1185,6 +1260,60 @@ export const SCENES: Record<string, () => JSX.Element> = {
    * Rendered from `bannerFor` rather than from hand-written props, so the
    * strings the check measures are the strings the app will show.
    */
+  /*
+   * The shortcut list, in the state that exercises the most of it: a locked
+   * scenario, where four of the nine rows are greyed with a reason underneath.
+   * That is the tall variant — the one that has to scroll inside the sheet
+   * rather than push the page sideways — and it is measured on an Apple
+   * keyboard, because `⌘Z` is the widest key cap the list can produce.
+   */
+  "shortcut-help": () => (
+    <Closeable
+      render={(close) => (
+        <ShortcutHelp
+          active={activeShortcuts({
+            locked: true,
+            sheetOpen: false,
+            helpOpen: false,
+            undoPending: false,
+            unstaffedCount: 0,
+            quarterCount: 3,
+          })}
+          isApple
+          reasons={{
+            undo: "The scenario is locked.",
+            "add-section": "The scenario is locked.",
+            import: "The scenario is locked.",
+            "fill-gaps": "The scenario is locked.",
+            "quarter-4": "This year has 3 quarters.",
+          }}
+          onClose={close}
+        />
+      )}
+    />
+  ),
+
+  /* And the ordinary state, where everything works. */
+  "shortcut-help-open": () => (
+    <Closeable
+      render={(close) => (
+        <ShortcutHelp
+          active={activeShortcuts({
+            locked: false,
+            sheetOpen: false,
+            helpOpen: false,
+            undoPending: false,
+            unstaffedCount: 4,
+            quarterCount: 3,
+          })}
+          isApple={false}
+          reasons={{ "quarter-4": "This year has 3 quarters." }}
+          onClose={close}
+        />
+      )}
+    />
+  ),
+
   "offline-banner": () => (
     <div>
       <OfflineBanner banner={bannerFor("offline", 0)} />

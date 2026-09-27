@@ -21,6 +21,7 @@
     "build:harness": "vite build --config harness/vite.config.ts",
     "check:mobile": "npm run build:harness && node scripts/mobile_check.mjs",
     "check:drag": "npm run build:harness && node scripts/drag_check.mjs",
+    "check:keys": "npm run build:harness && node scripts/keys_check.mjs",
     "check:pwa": "VITE_SUPABASE_URL=https://abvnaelzfriusckqqrfc.supabase.co VITE_SUPABASE_ANON_KEY=pwa-check-placeholder vite build --outDir dist-pwacheck && PWA_CHECK_DIST=dist-pwacheck node scripts/pwa_check.mjs",
     "icons": "node scripts/generate_icons.mjs",
     "check:deployed": "node scripts/deployed_check.mjs",

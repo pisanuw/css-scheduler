@@ -768,6 +768,76 @@ its function regardless of the caller's EXECUTE privilege, so the access log is
 unaffected; the trap above does not apply, because that concerns functions
 called from a policy expression and this one is not.
 
+### Keyboard shortcuts
+
+⌘Z was the first and for a while the only one, and it had both of the problems a
+shortcut can have. It was a `useEffect` in `Board.tsx` with a fourteen-entry
+dependency array, so a `keydown` listener was torn down and rebuilt on every
+assignment, every conflict recount and every keystroke in the import sheet. And
+nothing anywhere told anybody it existed, which makes an accelerator a feature
+for whoever already knew.
+
+The table now lives in `src/lib/shortcuts.ts`, and **the help sheet is rendered
+from that same table**. That is the one design decision here worth the name: a
+shortcut cannot be added without appearing in the help, and the help cannot claim
+a key that does nothing. A hand-kept list would have drifted by the second
+shortcut.
+
+`activeShortcuts(state)` is a pure function rather than a static table because
+which keys should work depends on what is on screen — a locked scenario has no
+Add section, a quarter with nothing unstaffed has no Fill — and because the help
+sheet needs the same answer to decide what to show as unavailable. While a sheet
+is open it returns nothing at all: the coordinator is in a modal, and `n` quietly
+opening the section editor behind an import they were reading would be
+inexplicable. The help sheet is the one exception, and only for its own key.
+
+Single letters, not chords. A chord (`g` then `b`) buys a namespace bigger than
+nine actions need and costs a mode: press `g`, go and answer the door, come back
+to a board that is waiting for a second key and will not respond to the first
+thing you try.
+
+Three rules that are not obvious, all of them tested:
+
+- **Shift is allowed on an unmodified shortcut; Alt is not.** `?` is Shift and
+  `/` on most layouts, so "no modifiers" would make the help key unpressable.
+  Alt is excluded because on several layouts it composes a different character,
+  and that character is what was meant.
+- **Shift is forbidden on a `mod` shortcut.** ⇧⌘Z is redo almost everywhere. It
+  must not reach undo, which is exactly what it would do if `mod` only tested
+  for ⌘.
+- **`preventDefault` only once a shortcut has matched.** Calling it on every key
+  press swallows the browser's own bindings, ⌘R among them, which is how anybody
+  gets out of a page that has gone wrong.
+
+Unavailable rows in the help sheet are **not** dimmed. That was the first
+attempt and `npm run check:mobile` rejected it: `text-slate-400` on the sheet is
+2.6:1 in daylight and 3.5:1 in the dark, against the 4.5 every string in this app
+is held to. Which was the right answer for a better reason than contrast — colour
+alone is a poor way to say "this does nothing", and the rows that do nothing are
+the ones most in need of reading. So the label stays legible, the key cap takes a
+dashed border, and the row carries `aria-disabled` and a sentence saying why.
+
+The same harness scene caught a real bug on its first run: `Board` was passing
+its own live state to the help sheet, and that state says a sheet is open — this
+one — so `activeShortcuts` correctly reported that nothing else was bound and the
+sheet greyed out every row. What the sheet wants is what the keys do *once it is
+closed*, which is what it is now given.
+
+Checked in a browser by `npm run check:keys`, which is the third input device
+after `check:drag`'s mouse and finger. The pure table is unit-tested; what only a
+real page can answer is whether the listener is on the window at all, whether a
+keystroke aimed at a field is left entirely alone (the import sheet's textarea
+takes a paste of a whole quarter), whether an unmatched key keeps its default,
+and whether a modal really takes the keyboard away. One of those assertions
+passed for the wrong reason until an unrelated line was removed: focus was still
+in the textarea from the step before, so the key was being suppressed by the
+typing guard rather than prevented by a match. The fix is a line that moves focus
+on purpose, with a comment saying why it is there.
+
+The `?` button in the board toolbar is hidden below `sm`. Shortcuts are no use to
+a phone, and a 44px target listing keys nobody has is worse than nothing; an iPad
+with a keyboard is `sm` and up, and gets it.
+
 ### Dependency advisories
 
 `npm audit` reports nothing, and the way it got there is worth recording because

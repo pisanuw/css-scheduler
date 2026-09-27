@@ -53,8 +53,8 @@ npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
                   # reporting, suggestions, undo, drag rules, the toast queue,
                   # the focus trap, the theme rules, the route table, chunk
                   # recovery, the service worker's rules and the Supabase
-                  # clients this build leaves out, and the offline rules
-                  # (446 tests)
+                  # clients this build leaves out, the offline rules and the
+                  # keyboard shortcuts (483 tests)
 npm run typecheck
 npm run build        # needs the two Supabase values in the environment
 npm run build:check  # the same build with placeholders, for when you only
@@ -78,6 +78,7 @@ npm run check:mobile -- chips   # one scene
 SHOTS=1 npm run check:mobile    # and write PNGs to dist-harness/shots
 npm run check:routes            # the built bundle in a browser: chunks, deep links, roles
 npm run check:drag              # a real mouse and a real finger on the board
+npm run check:keys              # real key presses: shortcuts fire, fields keep their keys
 npm run check:pwa               # installable, offline, and able to update itself
 npm run check:deployed          # the live site: what the server says about the bytes
 npm run icons                   # redraw the icons (committed; not part of the build)

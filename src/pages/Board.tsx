@@ -46,6 +46,10 @@ import HistoryPanel from '../components/board/HistoryPanel'
 import SuggestSheet from '../components/board/SuggestSheet'
 import ImportSheet from '../components/board/ImportSheet'
 import { useToast } from '../components/Toast'
+import ShortcutHelp from '../components/board/ShortcutHelp'
+import { useIsApple, useShortcuts } from '../hooks/useShortcuts'
+import { activeShortcuts, type ShortcutAction } from '../lib/shortcuts'
+import { plural } from '../lib/format'
 import SectionEditor, {
   toFormValue,
   toRow,
@@ -120,6 +124,7 @@ export default function Board() {
   const [highlighted, setHighlighted] = useState<string | null>(null)
   const [suggesting, setSuggesting] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [helping, setHelping] = useState(false)
   const [dragging, setDragging] = useState<DragSource | null>(null)
   const [overSectionId, setOverSectionId] = useState<string | null>(null)
 
@@ -145,45 +150,6 @@ export default function Board() {
     [undo.mutate, toast],
   )
 
-  /**
-   * ⌘Z / Ctrl+Z takes back my own most recent change. Someone else's later edit
-   * is theirs to take back — it keeps its own Undo button in the history panel,
-   * where reversing it is deliberate rather than a reflex.
-   */
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== 'z' || !(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return
-      // Never steal undo from a field being typed into, or from an open sheet.
-      const el = e.target as HTMLElement | null
-      if (el?.closest('input, textarea, select, [contenteditable="true"]')) return
-      if (!resolvedId || editing || assigning || suggesting || importing || locked || undo.isPending)
-        return
-      e.preventDefault()
-      // Both halves of a move, so ⌘Z after a drag puts the person back on the
-      // section they came from rather than leaving them on neither.
-      const ids = myLastUndoableIds(changes.data ?? [], profile?.email)
-      if (!ids) {
-        toast.say('Nothing of yours left to undo.')
-        return
-      }
-      runUndo(ids)
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [
-    resolvedId,
-    changes.data,
-    profile?.email,
-    editing,
-    assigning,
-    suggesting,
-    importing,
-    locked,
-    undo.isPending,
-    runUndo,
-    toast,
-  ])
-
   const courseOrder = useMemo(() => {
     const m = new Map<string, number>()
     for (const c of courses.data ?? []) m.set(c.id, c.number)
@@ -201,6 +167,138 @@ export default function Board() {
     [suggesting, snapshot],
   )
   const unstaffedCount = snapshot.sections.filter((s) => s.instructorIds.length === 0).length
+
+  /**
+   * Defined up here rather than beside the other sheet openers below, because
+   * the keyboard's `N` needs it and the shortcut table is bound above the early
+   * returns — a hook cannot be conditional on a scenario having loaded.
+   */
+  const openNew = useCallback(() => {
+    setEditorError(null)
+    setEditing({
+      term_id: termId ?? terms.data?.[0]?.id ?? '',
+      course_id: '',
+      section_letter: 'A',
+      timing: 'grid',
+      time_slot_id: null,
+      custom_days: [],
+      custom_start: '',
+      custom_end: '',
+      modality: 'in_person',
+      room_id: null,
+      enrollment_cap: '',
+      notes: '',
+    })
+    /*
+     * Memoised on the quarter, not for speed: `runAction` closes over this, and a
+     * version captured before the coordinator switched quarter would open the
+     * editor preset to the quarter they left.
+     */
+  }, [termId, terms.data])
+
+  /**
+   * ⌘Z takes back my own most recent change. Someone else's later edit is theirs
+   * to take back — it keeps its own Undo button in the history panel, where
+   * reversing it is deliberate rather than a reflex.
+   */
+  const undoMine = useCallback(() => {
+    // Both halves of a move, so ⌘Z after a drag puts the coordinator back on the
+    // section they came from rather than leaving them on neither.
+    const ids = myLastUndoableIds(changes.data ?? [], profile?.email)
+    if (!ids) {
+      toast.say('Nothing of yours left to undo.')
+      return
+    }
+    runUndo(ids)
+  }, [changes.data, profile?.email, runUndo, toast])
+
+  /**
+   * Everything the keyboard can reach, and the state that decides which of it
+   * works right now. `src/lib/shortcuts.ts` holds the rules and is tested there;
+   * the help sheet renders from the same list, so it cannot drift.
+   */
+  const shortcutState = useMemo(
+    () => ({
+      locked,
+      sheetOpen: Boolean(editing || assigning || suggesting || importing),
+      helpOpen: helping,
+      undoPending: undo.isPending,
+      unstaffedCount,
+      quarterCount: snapshot.terms.length,
+    }),
+    [locked, editing, assigning, suggesting, importing, helping, undo.isPending, unstaffedCount, snapshot.terms.length],
+  )
+
+  const goToQuarter = useCallback(
+    (index: number) => {
+      const term = snapshot.terms[index]
+      if (term) setTermId(term.id)
+    },
+    [snapshot.terms],
+  )
+
+  const runAction = useCallback(
+    (action: ShortcutAction) => {
+      switch (action) {
+        case 'help':
+          setHelping((v) => !v)
+          return
+        case 'undo':
+          undoMine()
+          return
+        case 'add-section':
+          openNew()
+          return
+        case 'import':
+          setImporting(true)
+          return
+        case 'fill-gaps':
+          setSuggesting(true)
+          return
+        case 'quarter-1':
+          return goToQuarter(0)
+        case 'quarter-2':
+          return goToQuarter(1)
+        case 'quarter-3':
+          return goToQuarter(2)
+        case 'quarter-4':
+          return goToQuarter(3)
+      }
+    },
+    [undoMine, goToQuarter, openNew],
+  )
+
+  useShortcuts(shortcutState, runAction)
+  const isApple = useIsApple()
+
+  /**
+   * Why a shortcut is greyed out in the help sheet. Only where there is
+   * something useful to say: "nothing to undo yet" is worth a line, "this
+   * quarter does not exist" is not — the row simply is not reachable.
+   */
+  const shortcutReasons = useMemo(() => {
+    const lockedNote = 'The scenario is locked.'
+    const quarters = snapshot.terms.length
+    const quarterNote = `This year has ${plural(quarters, 'quarter')}.`
+    return {
+      ...(locked
+        ? {
+            undo: lockedNote,
+            'add-section': lockedNote,
+            import: lockedNote,
+            'fill-gaps': lockedNote,
+          }
+        : {}),
+      ...(!locked && undo.isPending ? { undo: 'An undo is already running.' } : {}),
+      ...(!locked && unstaffedCount === 0
+        ? { 'fill-gaps': 'Every section already has somebody on it.' }
+        : {}),
+      ...(quarters < 4 ? { 'quarter-4': quarterNote } : {}),
+      ...(quarters < 3 ? { 'quarter-3': quarterNote } : {}),
+      ...(quarters < 2 ? { 'quarter-2': quarterNote } : {}),
+    }
+  }, [locked, unstaffedCount, undo.isPending, snapshot.terms.length])
+
 
   /** sectionId -> its findings, so each card can show its own badge. */
   const bySection = useMemo(() => {
@@ -357,23 +455,6 @@ export default function Board() {
     })
   }
 
-  const openNew = () => {
-    setEditorError(null)
-    setEditing({
-      term_id: termId ?? terms.data?.[0]?.id ?? '',
-      course_id: '',
-      section_letter: 'A',
-      timing: 'grid',
-      time_slot_id: null,
-      custom_days: [],
-      custom_start: '',
-      custom_end: '',
-      modality: 'in_person',
-      room_id: null,
-      enrollment_cap: '',
-      notes: '',
-    })
-  }
 
   const openEdit = (sectionId: string) => {
     const row = board.data?.sections.find((s) => s.id === sectionId)
@@ -508,6 +589,21 @@ export default function Board() {
                   Fill {unstaffedCount} gap{unstaffedCount === 1 ? '' : 's'}
                 </button>
               )}
+              {/*
+                A keyboard is the only thing the shortcuts are any use to, so this
+                is hidden on a phone — where it would spend a 44px target on a
+                list of keys nobody has. An iPad with a keyboard is `sm` and up,
+                and gets it.
+              */}
+              <button
+                type="button"
+                onClick={() => setHelping(true)}
+                title="Keyboard shortcuts"
+                aria-label="Keyboard shortcuts"
+                className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-surface text-sm font-medium text-slate-600 hover:bg-slate-50 sm:flex"
+              >
+                ?
+              </button>
               <button
                 type="button"
                 onClick={openNew}
@@ -664,6 +760,21 @@ export default function Board() {
               },
             )
           }
+        />
+      )}
+
+      {helping && (
+        <ShortcutHelp
+          /*
+            What the keys do once this sheet is closed. `shortcutState` says a
+            sheet is open — this one — and `activeShortcuts` correctly reports
+            that nothing else is bound, which as a *list* would grey out every
+            row. The harness scene caught that.
+          */
+          active={activeShortcuts({ ...shortcutState, helpOpen: false, sheetOpen: false })}
+          isApple={isApple}
+          reasons={shortcutReasons}
+          onClose={() => setHelping(false)}
         />
       )}
 
