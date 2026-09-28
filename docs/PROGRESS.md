@@ -24,11 +24,112 @@ this file is the state of play.
 | Live data | 76 instructors, 128 courses, 3 profiles, 1 preference cycle, 2 academic years, 6 terms, 42 time slots, 37 rooms, 199 history rows — and **no scenarios, sections, assignments or submissions at all**. What the two real users currently meet is every page's empty state. |
 | Cold start | **Done, in production.** The coordinator created "First pass at scenario" (2026-27, draft) on a phone and it seeded **199 sections and 198 assignments** — exactly what `seedPlan.real.test.ts` predicted. The empty states are one component, checked at 375px. |
 | Import | **Checked against a real published quarter, from two sources.** Autumn 2026 as PDF text *and* as the web page (`scripts/data/aut2026_timeschedule{,_web}.txt`): 75 sections each, nothing ignored, 74 rows ready, no unknown courses, and the two agree field for field. Three bugs found on first contact, all fixed and pinned. |
+| Excel auto-fill | **Done, on the real year.** `/autofill` and `npm run autofill`: the year-at-a-glance workbook and both survey exports in, the workbook back with full-time names in purple. On AY 2026-27: 143 of 144 full-time load placed, every hard constraint held, 149 sections proposed, 125 left open with who could take each. Not merged to `main` yet at the time of writing — see the tenth-run entry. |
 | Board at real size | The real Autumn is **67 cards — about 34 phone screens** at 375px. Nothing breaks; there is no search or filter, so finding one section means scrolling past sixty-six. `board-real-size` scene holds it. |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-28 (tenth run) — Excel in, Excel out
+
+The coordinator sent the real AY 2026-27 inputs — the year-at-a-glance
+workbook with every instructor cell emptied for Autumn to Spring, and the
+full-time and part-time survey exports with names replaced by F1…F26 and
+P1…P35 — and asked whether the full-time names could be filled in from the
+preferences and the loads, part-time later, and whether this app could take
+Excel like that. The prompt is in `docs/SESSION-LOG.md`.
+
+**Built.** `src/lib/autofill/` — five modules and their tests — the
+`/autofill` page (coordinator-only, with a card on the dashboard), and
+`npm run autofill` for a terminal. The design, and what was rejected, is in
+**Excel auto-fill** in `docs/DESIGN.md`.
+
+- `xlsx.ts` — reads a workbook and edits it where it lies: only the rows it
+  writes into, only the fill and italics of those cells, plus new sheets. One
+  new dependency, `fflate` (zip, no dependencies of its own; `npm audit` still
+  clean).
+- `glance.ts` — finds the quarter blocks by their headings, reads times with
+  the campus's meridiem, and knows arranged, online, TBD, reserved, joint,
+  lab and "Non-CSS" rows.
+- `text.ts` and `prefs.ts` — turn survey paragraphs into loads, ranked courses
+  with the quarter, count, time and days said about each, prefer-not lists and
+  time rules; unsure readings become review notes; the `FT preferences` and
+  `PT preferences` sheets read back exactly what they wrote.
+- `engine.ts` — regret-ordered greedy start, then trades, transfers, swaps and
+  a per-person branch and bound, all on one objective: load first (shortfalls
+  shared), then preferences, then tidiness. Lectures travel with their own
+  labs; a skills lab that meets with its lecture is one class.
+- `run.ts` — the whole run, and the sheets it adds: summary, faculty load,
+  assignments (with who else wanted each), open sections (with why not, and
+  which part-time instructors are free), by faculty, and the two editable
+  preference sheets.
+
+**Verified.** 664 unit tests (83 new) plus three that run against the real
+workbooks when `AUTOFILL_REAL_DIR` is set, typecheck, lint (149 files, no
+warnings), `build:check`, `check:mobile` (38 scenes, two new),
+`check:routes` (the new page renders, instructors cannot reach or download
+it, 14 pages swept in the dark) and `check:pwa`. Every output workbook was
+read back with openpyxl and checked part by part: well-formed XML, rows and
+cells in order, style indices in range, content types present, the 109 merged
+ranges, frozen pane and print area intact.
+
+On the real year: 143 of 144 full-time load placed in under a second; the one
+shortfall is a Winter service release where most of that person's courses are,
+and the output says so. Each of the 26 results was read against the response
+it came from, and that reading changed the engine four times:
+
+- *Naming quarters for a course means one each.* "497 (Autumn, Winter and
+  Spring), 421 (Winter), 360 (Autumn, Spring), 506 (Autumn), 507 (Winter), 101
+  or 142 (Spring)" first came back as seven sections of 497. The list sums to
+  exactly eight; it now comes back as written.
+- *Two out, three in.* A response that laid out its own timetable lost its
+  requested SKL123 labs to a single-trade local optimum; the per-person branch
+  and bound finds it.
+- *A co-taught lab is not a clash.* Winter's 123A (1:15 M/W) and SKL123A (1:15
+  W) meet together; treated as a clash, the timetable above was infeasible.
+- *A pinned list means one of each.* "3: 502, 584, 343" came back as 343 twice
+  and 584, because a preparation saved outweighed the note. It now holds.
+
+**Learned.**
+
+- *The parser does not have to be right, it has to be correctable.* The real
+  answers include "Cannot teach 8-10pm course, but willing to teach 845am if
+  necessary", "the latest course I can teach on WEDNESDAY is 3:30", and "I
+  just have to work at like 545pm due to having a full time job" — which the
+  first draft read as a refusal of the one slot that person *can* teach. Each
+  is pinned in `text.test.ts`, but the design answer is the review sheet: every
+  reading visible, every one editable, read back exactly.
+- *The coordinator's conventions are the protocol.* Purple for unconfirmed and
+  italics for part-time were already in the sheet's legend, so they are how
+  the tool marks a proposal and how she accepts one.
+- *Re-running must not wander.* A second run on its own output first moved 7
+  of 149 names with nothing changed. It starts from the previous proposals now,
+  and moves none.
+- *Anonymised is not the same as shareable.* The survey answers describe leave,
+  health and family. None of them is in the repository: the tests build their
+  own workbooks, and the real-data test reads a folder only when told to.
+
+**Deliberately not done.** Part-time placement is a draft behind a toggle, as
+asked — title-based caps are not modelled; the `PT preferences` sheet has
+two-quarter and year cap columns for the coordinator to fill. Nothing is
+written to the database: carrying the result into a scenario is what the
+board's import is for.
+
+**Where it is.** Committed and pushed to `claude/faculty-schedule-preferences-93rbjl`.
+It reaches https://uwb-css-scheduler.netlify.app when that branch is merged
+into `main`, which deploys itself.
+
+**Next run should pick up.**
+
+1. Merge, and watch the coordinator use it on the real files; the review
+   sheet's notes are where the parser will need new phrasings.
+2. A structured version of the survey (or the app's own preference form, which
+   already asks these questions as fields) would make next year's parse
+   unnecessary.
+3. Part-time caps by title, once the policy is written down.
 
 ---
 

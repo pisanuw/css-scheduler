@@ -390,7 +390,7 @@ grown its own, and each was a single non-wrapping row with a 256px search box
 pushed right — which at 375px is a page that scrolls sideways — holding
 controls about 34px tall against a 44px floor.
 
-The navigation is a drawer below `md`, because thirteen destinations do not fit
+The navigation is a drawer below `md`, because fourteen destinations do not fit
 across a phone and a sideways-scrolling nav bar was worse than a menu. A skip
 link sits before it so a keyboard user does not have to Tab past every
 destination to reach the page.
@@ -734,7 +734,7 @@ finds that by looking at the light theme. So
   is already right, which is the only honest way to ask what the first paint
   looked like. Module scripts are deferred, so `DOMContentLoaded` has already
   waited for React and would pass with the inline script deleted;
-- **and it sweeps all thirteen real pages in the dark** for the three light
+- **and it sweeps all fourteen real pages in the dark** for the three light
   surfaces the stock palette paints, which is what a hardcoded `#fff` or a
   `bg-white` written after this landed would look like.
 
@@ -1112,6 +1112,154 @@ thirteen rules and 1,159 bytes, all of it junk: the bare `.bg-white`,
 The 30 rendered scenes in `npm run check:mobile` are what would notice a utility
 this list had wrongly excluded.
 
+## Excel auto-fill
+
+The coordinator plans the year in a workbook — "26-27 at a glance", one block
+of columns per quarter, every section with its load, time, days, cap and an
+empty instructor cell — and collects preferences through two Google Forms, one
+for full-time and one for part-time faculty. She asked whether the full-time
+names could be filled in from the survey and the loads, with part-time left for
+later, and whether this app could take Excel as it is. `/autofill` does both,
+and so does `npm run autofill` from a terminal: the same code, `src/lib/autofill/`.
+
+**Excel in, Excel out, and no database.** The page takes the three workbooks,
+fills the schedule in the browser, and hands the workbook back. It writes no
+scenario and reads no table, for two reasons. The workbook is the record she
+works from, with notes, shading and conventions this app's schema has no room
+for; making her retype it into a scenario first would be the work the app
+exists to remove. And the survey answers are about people's leave, health and
+families — they stay on her disk. The route is coordinator-only for the same
+reason every scheduling page is, not because anything behind it needs row
+level security.
+
+**The workbook is edited where it lies.** A spreadsheet library would load her
+file into its own model and write a new one from it: 109 merged ranges, a
+frozen pane, a print area, per-cell fonts and whatever it did not understand
+would come back as its idea of the workbook. `xlsx.ts` unzips the file
+(`fflate`, 8 kB, no dependencies), rewrites only the rows it writes into —
+keeping each cell's own style and changing only the fill and the italics — adds
+its sheets, and zips the rest back byte for byte. Its tests assert that nothing
+outside the three instructor columns changed.
+
+**Purple means "not decided yet" because her legend already says so.** The
+sheet's own key: *purple shading are assignments that still need to be made or
+confirmed; italicized instructors are part-time faculty.* So every name the
+tool writes is purple, and a part-time name is italic. That convention is also
+the whole protocol for running again: a name still in the tool's purple is a
+proposal and is worked out afresh; a name without it — one she accepted by
+clearing the shading, or typed herself — is kept and counts toward that
+person's load. A re-run on an unchanged workbook changes nothing: the search
+starts from the previous proposals (`solve` in `engine.ts`) rather than from
+scratch, and `run.test.ts` holds that.
+
+**The layout is found, not assumed.** `glance.ts` looks for the row that heads
+columns `course` and `instructor`, splits it into blocks at each `course`, and
+reads the quarter's name from the merged cell above. The meridiem the sheet
+leaves off is read the way the campus writes it — 1:15 is afternoon, 8:00 is
+the 8–10 PM block, 8:45 is morning — using the same rule as the time-schedule
+import. Summer is ignored: it is staffed before the year is planned and the
+survey does not ask about it. Rows under the sections (notes, the summary
+block, a stray remark typed into a course column) are not sections, because a
+section's label has to parse *as a whole cell* and carry a load.
+
+**Reading the survey, and admitting what it could not read.** A Google Form
+answer is a paragraph: "343, 342, 385, 422. Ideally: Autumn 2 x 342
+(back-to-back if possible), 1 x 343; Winter 2 x 343, 1 x 342". `text.ts`
+recognises the shapes these answers actually take — course numbers in their
+dozen spellings, quarter names with or without years (last year's are
+ignored), day patterns, clock times with half a meridiem, and a short list of
+words that turn a time into a constraint ("cannot", "very difficult", "prefer
+not", "the latest I can teach is") — and `prefs.ts` assembles each response
+into a load, ranked courses with the quarter/count/time said about each, a
+prefer-not list and time rules. Every function is tested against the real
+phrasings.
+
+What it is unsure of becomes a review note rather than a guess applied quietly.
+The load comes from the coordinator's own "# of courses" column: "8 for now
+(possibly 1 ISS & possibly leave all quarters)" plans for 8 and says why it
+might change; a possible ISS release, sabbatical or buy-out is noted, never
+subtracted. A definite answer is applied: a service release "in Aut'26" lowers
+that quarter's maximum, "keep my winter quarter free" empties it, "no graduate
+classes" rules out the 500s.
+
+**The parser only has to be right most of the time.** The output carries an
+`FT preferences` sheet (and `PT preferences`) with every reading in plain
+columns — load, three quarter maximums, pinned courses, ranked courses, "also
+OK", prefer-not, quarter and time wishes in a small notation, time rules in
+words ("no 8:00 PM-midnight; prefer not starting before 1:15 PM"). Correct a
+cell, upload the workbook again, and the sheet is read instead of the survey.
+Being wrong costs one edit rather than a re-run that makes the same mistake
+again. The notation reads back exactly what it wrote; `prefs.test.ts` asserts
+that round trip, and caught the one place it did not (a single weekday written
+as a bare "W").
+
+**What it optimises, in order.** Load, then preferences, then tidiness:
+
+1. Nobody over their load, nobody in two places at once, nobody in a quarter
+   they are away or have filled, nothing against a hard constraint. These are
+   refusals, not costs.
+2. As close to everyone's load as the schedule allows, with a shortfall
+   *shared* — the deficit is penalised by its square, so two people one course
+   short beats one person two short.
+3. The coordinator's pinned courses ("3: 502, 584, 343" in the load column)
+   first, then each person's higher-ranked courses, in the quarter and at the
+   time they named. Naming quarters for a course ("497 (Autumn, Winter and
+   Spring)") means one section in each, not as many as will fit.
+4. Fewer preparations, days kept together for those who asked, reserved
+   sections ("reserved, assign if needed") used last because they may not run.
+
+**How it searches.** A regret-ordered greedy start — whoever would lose most by
+waiting chooses first — then moves a person would make with the sheet open:
+take something free, trade one section for a better free one or for two
+smaller ones, take a section a colleague holds while the colleague takes
+something free instead, swap one each. Single moves could not get one faculty
+member from "112, 142, 143 in Autumn" to the timetable they had written out
+("112, 142 and the SKL123 lab, with 143 moved to Winter"): that is two out and
+three in. So each person's whole set is also re-chosen by a bounded branch and
+bound over their own options with everyone else held still (`repack`). On the
+real year the whole run takes under a second.
+
+A course's own lab ("427 Lab") is placed with its lecture as one piece, and a
+skills lab that meets *with* its lecture (Winter's 123A at 1:15 M/W and SKL123A
+at 1:15 W) is one class, not a clash. Skills labs that meet on their own
+(CSSSKL 142 on Fridays) are their own assignments: one full-time response laid
+out an exact load of eight without the lab of the 142 it asked for.
+
+**Every name has a reason, and every gap has an explanation.** The
+`Assignments` sheet gives each proposal's reasons ("#1 of their most-wanted;
+asked for it in Win; at 11:00 AM, as asked"), its caveats ("reserved section:
+may not run"), and who else asked for it — the contested calls are the ones a
+coordinator wants to see, and "also wanted by F8 (#1)" beside a section given
+to someone's second choice is the whole argument for looking. `Open sections`
+lists, for every section left, which full-time faculty asked for it and why
+they did not get it, and which part-time instructors asked for it and are free
+at that hour. `Faculty load` and `By faculty` are the per-person views.
+
+**Part-time is a draft, by request.** The coordinator said part-time could wait:
+their caps depend on title, per quarter, per six-month window and per year, and
+the survey does not carry them. So by default the part-time survey is only
+*read* — to say who could take each open section — and "Also place part-time
+instructors" fills what is left within the number of courses each asked for per
+quarter, plus a two-quarter cap and a year cap that the `PT preferences` sheet
+has columns for, for her to fill in from their titles.
+
+**What it will not do.** It does not invent a load, apply a release that is not
+decided, move a name that is not purple, place anyone in a course they did not
+list, or put a skills lab with a lecture it does not meet with. It does not
+write to the database: turning the result into a scenario on the board is the
+import this app already has.
+
+**Checked.** Unit tests for every module, including a property test that runs
+the engine over 25 random years and asserts no overload, no double booking and
+no broken hard rule. `run.real.test.ts` runs against the actual AY 2026-27
+workbooks when `AUTOFILL_REAL_DIR` points at them — they are not in the
+repository and must not be — and pins what the first run was checked for by
+hand, person by person: every rule held, 143 of 144 full-time load placed, the
+one shortfall (a Winter service release where most of that person's courses
+are), and the three most specific requests getting exactly what they wrote.
+The page and its results are two scenes in `npm run check:mobile`, and the
+route is in `npm run check:routes`.
+
 ## Iterations
 
 **1 — Foundation (done).** Schema, RLS, seeded catalog and roster, imported
@@ -1144,6 +1292,10 @@ week's.
 **5 — Done.** Solver-assisted suggestions for unfilled sections,
 student-facing conflict checks, and importing a quarter from a pasted UW time
 schedule — see **Importing a quarter** below.
+
+**6 — Excel in, Excel out (done).** The year-at-a-glance workbook and the
+two preference surveys go in, the workbook comes back with full-time faculty
+proposed — see **Excel auto-fill** above.
 
 **Polish.** Undo, one voice for feedback, focus management, tables as cards,
 code splitting, dragging, print output, dark mode and an installable,
@@ -1180,7 +1332,7 @@ long-lived cache updated in place — has to reason about an `index.html` from
 today asking for a chunk from last Tuesday.
 
 **The shell, the dashboard and the board are precached; every other page is
-cached when it is first opened.** Precaching all thirteen pages would download
+cached when it is first opened.** Precaching all fourteen pages would download
 the whole app to everyone on every deploy, which is the cost the chunk split
 was made to avoid. Precaching only the shell would leave the board — the page
 this app exists for, and the one most likely to be opened on bad wifi — a
