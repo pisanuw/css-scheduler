@@ -197,10 +197,25 @@ goes and every print-only element really arrives. Every scene is measured
 twice, once in each theme: the dark palette re-points every colour in the app,
 so a pairing that reads perfectly in daylight has to be measured again rather
 than assumed. The printed page is asserted to be identical whichever theme it
-was printed from. Playwright is
-not a dependency; the script finds it locally or globally and tells you what to
-install if it finds neither (`npm i -D playwright && npx playwright install
-chromium`).
+was printed from.
+
+Playwright is not a dependency — it is a ~150 MB install the unit tests, the
+build and the deploy have no use for — so the scripts that need it resolve it
+from `node_modules` or from `npm root -g` and say so when it is nowhere. Two
+things have to be true, and only the first is obvious:
+
+```bash
+npm i -g playwright          # the package: `npm i -D playwright` also works,
+                             # at the cost of putting it in package.json
+playwright install chromium  # the browser build *that package* asks for
+```
+
+The browsers are versioned against the package, and they are the half that bites:
+installing them with a different Playwright than the one the checks resolve —
+`npx playwright install`, say, which fetches a throwaway copy of its own — leaves
+a cache full of the wrong revision, and the failure arrives at
+`browserType.launch` rather than at import, reading as "Executable doesn't exist
+at …/chromium_headless_shell-1243" while `-1223` sits right beside it.
 
 `check:routes` is the other half: it builds the app and drives the *real*
 bundle, with Supabase stubbed and a fabricated session, to check that the code
@@ -320,6 +335,26 @@ depend on: `auth.users`, `auth.uid()` and the platform roles), then every
 migration, the seed and the suite. It needs the postgres server binaries on the
 machine and nothing else — no Docker, no project, no credentials. It is the
 right thing to run before applying a migration anywhere real.
+
+On macOS it needs a **linked** server, and the client tools are not enough:
+
+```bash
+brew install postgresql@18
+brew link --overwrite postgresql@18   # takes psql/initdb over from libpq
+```
+
+Homebrew's `libpq` puts a client-only `initdb` on PATH, which is why the script
+probes for `postgres` rather than for `initdb` — a machine with both looks
+equipped and fails inside `initdb`. And the 18.6 keg is inconsistent with itself:
+its binaries have `share/postgresql@18` and `lib/postgresql@18` compiled in, while
+`brew link` creates `share/postgresql` and `lib/postgresql`, so a linked install
+still fails — first on `postgres.bki`, then on `dict_snowball`. Two symlinks
+settle it:
+
+```bash
+ln -s /opt/homebrew/share/postgresql /opt/homebrew/share/postgresql@18
+ln -s /opt/homebrew/lib/postgresql   /opt/homebrew/lib/postgresql@18
+```
 
 It does not replace `npm run test:e2e`, which is the only check that exercises
 the real auth and REST layers; `local_shim.sql` says in its header exactly what

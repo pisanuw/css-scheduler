@@ -245,26 +245,84 @@ kind names itself where it happens. Residue confirmed independently afterwards,
 not just from the test's own cleanup line: 3 profiles, no submissions, no child
 rows, no `e2e-test@uw.edu` anywhere.
 
-*Still not verified here:* every browser check (`check:routes`, `check:mobile`,
-`check:drag`, `check:keys`, `check:pwa`) skips on this machine — Playwright is not
-installed — and `db:test:rls:local` cannot run either, because only libpq's client
-binaries are present, with no PostgreSQL server. Nothing here has watched the
-access log or the load table render.
+**Every browser check now passes on this machine, and getting there took two
+installs and one script fix.** They had been skipping, and the reason was not
+simply "no Playwright":
+
+- Playwright needs to be **the package, not just the browsers**. Installing the
+  browser binaries leaves `loadPlaywright()` still unable to resolve `playwright`,
+  `playwright-core` or `@playwright/test`, and `npx playwright` does not count: it
+  downloads a throwaway copy into the npx cache, which is neither `node_modules`
+  nor `npm root -g`. `npm i -g playwright` is what works, and it keeps the ~150 MB
+  out of `package.json`, which is what `scripts/playwright.mjs` asks for.
+- The **browser build has to match the package**. A global 1.63.0 wanted
+  `chromium_headless_shell-1243` while the cache held `-1223` from an earlier
+  Playwright, which fails at launch rather than at resolve. `playwright install
+  chromium` (using the global CLI, not `npx`) fixes it.
+
+Results: `check:keys`, `check:drag`, `check:mobile` (**36 scenes** clean at
+375px), `check:routes` (13 pages in the dark sweep, the preferences save
+refetching once and leaving the typing alone, no coordinator page reachable as an
+instructor) and `check:pwa` (17 precached files, update offered and applied). So
+the boundary changes have now been watched in a real browser, which the entry
+above could not claim.
+
+**`db:test:rls:local` passes too, 70/70 — and it had never run outside a root
+sandbox, which hid four separate faults.** Every run of this check to date has
+been as root in a cloud sandbox, and every one of these was waiting for the first
+developer machine:
+
+- **libpq's client-only `initdb` shadows the server.** `postgresql@18` is
+  keg-only; libpq is linked. The script probed for `initdb`, found one, looked
+  equipped, and failed several lines later with "program postgres is needed by
+  initdb". It probes for `postgres` now.
+- **The 18.6 keg is inconsistent with itself.** Its binaries have
+  `share/postgresql@18` and `lib/postgresql@18` compiled in, while `brew link`
+  creates `share/postgresql` and `lib/postgresql` — so even a linked install fails,
+  first on `postgres.bki` and then, past that, on `dict_snowball`. Two symlinks
+  bridge it; they are in the README now. Not a repo bug, but the repo is where
+  the next person will look.
+- **The socket directory was created inside `PGDATA`.** `initdb` refuses a
+  non-empty directory, and `mkdir -p "$PGDATA_DIR" "$SOCKET"` with
+  `SOCKET=$PGDATA_DIR/socket` guaranteed one. As root the socket goes to
+  `/var/run/postgresql` and the collision never happens, which is exactly why
+  this survived nine runs. The socket sits beside the data directory now, and a
+  data directory with no `PG_VERSION` is cleared rather than tripped over, so the
+  second failure stops describing the first one's wreckage.
+- **PostgreSQL 18 will not start on macOS with an unset locale.** Apple's libc
+  starts threads during locale lookup, the postmaster notices it has become
+  multithreaded and dies. A login shell has `LANG` set and never sees it; `npm
+  run` does not. `local_db.sh` exports `LC_ALL` explicitly, which also pins the
+  cluster's collation instead of inheriting the caller's.
+
+That the suite passes on a cluster built from `supabase/migrations` is also the
+first real evidence that the nine consolidated files produce a working schema,
+rather than only that the hosted project has one.
 
 **Next run should pick up — in this order.**
 
-1. **`npm install --no-audit --no-fund` first**, and expect detached HEAD.
-2. **Run the browser checks** before deploying this — they are the only gate
-   this run could not reach. `npm run test:e2e` has been run: 24/24.
+1. **First, `npm install --no-audit --no-fund`**, and expect detached HEAD.
+   Do not paste the words *after* the command: `npm install --no-audit --no-fund
+   first` installs a package called `first`, which is how `first@0.0.3` arrived in
+   `package.json` on 27 September. The wording of this very item is what did it;
+   it is reworded here and in the eighth run's copy, and left as written in the
+   older entries, which are history rather than instructions.
+2. **Nothing is unrun any more.** 581 unit tests, `test:e2e` 24/24, all five
+   browser checks, and `db:test:rls:local` 70/70 — the first time every gate in
+   this repository has passed on one machine. Deploying this is the next step,
+   and `check:deployed` plus a `cmp` against a local build is how the last four
+   runs did it.
 3. **Make the board usable at 67 sections** — the eighth run's top item, with a
    measurement behind it rather than an opinion. Unchanged by this run.
 4. **The two migration histories are not the same shape.** The hosted project
    records twelve applied migrations; `supabase/migrations/` holds nine
-   consolidated files. The generated types come from the hosted one and the
-   schemas are believed identical, but nothing has proved it —
-   `supabase gen types --db-url` against a `scripts/local_db.sh` cluster, then a
-   diff, would, on a machine with a PostgreSQL server. Worth doing once, and
-   worth a line in the README either way.
+   consolidated files. The generated types come from the hosted one, and the RLS
+   suite now passing against the migrations is evidence that both describe a
+   working schema — but not that they describe the *same* one. `supabase gen types
+   --db-url` against the local cluster would settle it and **needs Docker**: it
+   pulls `supabase/postgres-meta`, which is the one thing `--db-url` does not
+   avoid, tried and confirmed this run. Without Docker, comparing
+   `information_schema` column by column across the two is the way in.
 5. **`courses.code` could stop being a special case.** `alter table courses alter
    column code set not null` on a stored generated column over two not-null
    columns is a one-line migration, after which `courseFrom`'s recomputation is
@@ -336,7 +394,7 @@ byte for byte**, served entry `index-BHXUVnwa.js`, `check:deployed` clean.
 
 **Next run should pick up — in this order.**
 
-1. **`npm install --no-audit --no-fund` first**, and expect detached HEAD.
+1. **First, `npm install --no-audit --no-fund`**, and expect detached HEAD.
 2. **Make the board usable at 67 sections.** This is the top item and it now has
    a measurement behind it rather than an opinion. The cheapest thing that would
    work is a filter above the list — by course code, by instructor, and
