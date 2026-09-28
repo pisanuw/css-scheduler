@@ -26,6 +26,16 @@ PORT="${CSS_LOCAL_PG_PORT:-55432}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DB=css_local
 
+# PostgreSQL 18 will not start on macOS with an unset locale: Apple's libc starts
+# threads of its own during locale lookup, the postmaster notices it has become
+# multithreaded and dies — "postmaster became multithreaded during startup", with
+# a HINT about LC_ALL that is easy to read as advice rather than the cause. A
+# login shell usually has LANG set and never sees this; `npm run` does not.
+# Setting it here also pins the cluster's collation instead of inheriting
+# whatever the caller happened to have.
+export LC_ALL="${CSS_LOCAL_LOCALE:-en_US.UTF-8}"
+export LANG="$LC_ALL"
+
 # The server binaries, and a check that they are actually usable.
 #
 # Two ways this looks satisfied and is not, both of them found the hard way on a
@@ -62,6 +72,20 @@ if ! command -v postgres >/dev/null 2>&1; then
   echo "its binaries look for share/ at a prefix that linking is what creates."
   exit 1
 fi
+if ! command -v postgres >/dev/null 2>&1; then
+  echo "no PostgreSQL *server* on PATH — this needs more than the client tools."
+  if command -v initdb >/dev/null 2>&1; then
+    echo "('$(command -v initdb)' exists, but it is a client-only initdb: it has no server beside it.)"
+  fi
+  echo
+  echo "on macOS, with Homebrew:"
+  echo "    brew install postgresql@18"
+  echo "    brew link --overwrite postgresql@18   # takes psql/initdb over from libpq"
+  echo
+  echo "a keg-only postgresql@NN that is installed but not linked cannot work:"
+  echo "its binaries look for share/ at a prefix that linking is what creates."
+  exit 1
+fi
 
 # A server may not run as root, so as root we borrow the packaged postgres
 # account and put the cluster somewhere it can actually reach — a home
@@ -73,10 +97,14 @@ if [ "$(id -u)" = 0 ] && id postgres >/dev/null 2>&1; then
   SOCKET=/var/run/postgresql
 else
   PGDATA_DIR="${CSS_LOCAL_PGDATA:-${TMPDIR:-/tmp}/css-local-pg}"
-  SOCKET="$PGDATA_DIR/socket"
+  # Beside the data directory, not inside it: initdb refuses a directory that is
+  # not empty, and creating the socket directory first made it so. As root the
+  # socket goes to /var/run/postgresql and the two never collide, which is why
+  # every run to date — all of them in a root sandbox — got away with it.
+  SOCKET="${PGDATA_DIR%/}-socket"
 fi
 
-run() { if [ -n "$AS" ]; then su "$AS" -s /bin/bash -c "PATH=$PATH $*"; else bash -c "$*"; fi; }
+run() { if [ -n "$AS" ]; then su "$AS" -s /bin/bash -c "PATH=$PATH LC_ALL=$LC_ALL LANG=$LANG $*"; else bash -c "$*"; fi; }
 psql_() { psql -h "$SOCKET" -p "$PORT" -U postgres "$@"; }
 q()     { psql_ -d "$DB" -q -v ON_ERROR_STOP=1 "$@"; }
 
@@ -85,6 +113,12 @@ running() { pg_isready -h "$SOCKET" -p "$PORT" -q 2>/dev/null; }
 start() {
   running && return 0
   if [ ! -s "$PGDATA_DIR/PG_VERSION" ]; then
+    # No PG_VERSION means there is no cluster here, so whatever is in the way is
+    # the wreckage of a run that failed inside initdb — which then refuses the
+    # non-empty directory for ever after, and the second failure describes the
+    # first one's mess rather than its cause. Nothing here is meant to outlive a
+    # run, so clear it and start over.
+    rm -rf "$PGDATA_DIR"
     mkdir -p "$PGDATA_DIR" "$SOCKET"
     [ -n "$AS" ] && chown "$AS" "$PGDATA_DIR" "$SOCKET"
     run "initdb -D '$PGDATA_DIR' -U postgres --auth=trust" >/dev/null
