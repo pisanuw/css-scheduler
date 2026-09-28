@@ -26,14 +26,42 @@ PORT="${CSS_LOCAL_PG_PORT:-55432}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DB=css_local
 
-# Debian and Ubuntu keep the server binaries off PATH; Homebrew and the
-# postgres.app do not.
-if ! command -v initdb >/dev/null 2>&1; then
-  for d in /usr/lib/postgresql/*/bin /opt/homebrew/opt/postgresql@*/bin; do
-    [ -x "$d/initdb" ] && export PATH="$d:$PATH" && break
+# The server binaries, and a check that they are actually usable.
+#
+# Two ways this looks satisfied and is not, both of them found the hard way on a
+# machine with Homebrew:
+#
+# - libpq links a *client-only* `initdb` into /opt/homebrew/bin. Probing for
+#   `initdb` therefore finds something that cannot build a cluster, and the
+#   failure lands several lines later as "program postgres is needed by initdb".
+#   So probe for the server itself.
+# - `postgresql@NN` is keg-only. Its binaries carry a share path compiled in at
+#   build time that only exists once the keg is linked, so an unlinked keg cannot
+#   initdb (no postgres.bki) and cannot start (no timezone database) whatever
+#   PATH says. `initdb -L` reaches the first but there is no equivalent for the
+#   server, which is why this asks for a link rather than working around it.
+#
+# Debian and Ubuntu keep a complete, correctly built server off PATH, which is
+# the one case worth searching for.
+if ! command -v postgres >/dev/null 2>&1; then
+  for d in /usr/lib/postgresql/*/bin /Applications/Postgres.app/Contents/Versions/*/bin; do
+    [ -x "$d/postgres" ] && [ -x "$d/initdb" ] && export PATH="$d:$PATH" && break
   done
 fi
-command -v initdb >/dev/null 2>&1 || { echo "no postgres server binaries found (initdb)"; exit 1; }
+if ! command -v postgres >/dev/null 2>&1; then
+  echo "no PostgreSQL *server* on PATH — this needs more than the client tools."
+  if command -v initdb >/dev/null 2>&1; then
+    echo "('$(command -v initdb)' exists, but it is a client-only initdb: it has no server beside it.)"
+  fi
+  echo
+  echo "on macOS, with Homebrew:"
+  echo "    brew install postgresql@18"
+  echo "    brew link --overwrite postgresql@18   # takes psql/initdb over from libpq"
+  echo
+  echo "a keg-only postgresql@NN that is installed but not linked cannot work:"
+  echo "its binaries look for share/ at a prefix that linking is what creates."
+  exit 1
+fi
 
 # A server may not run as root, so as root we borrow the packaged postgres
 # account and put the cluster somewhere it can actually reach — a home
