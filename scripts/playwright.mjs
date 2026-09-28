@@ -33,8 +33,12 @@ export function loadPlaywright(what) {
     /* fall through */
   }
   console.error(
-    'Playwright is not installed. `npm i -D playwright && npx playwright install chromium`,\n' +
-      `or run this where a global playwright is available. Skipping the ${what}.`,
+    'Playwright is not installed:\n' +
+      '    npm i -g playwright          (or `npm i -D playwright`, which puts it in package.json)\n' +
+      '    playwright install chromium  (the browser build that package asks for)\n' +
+      'Install the browsers with the same Playwright the checks resolve — `npx\n' +
+      'playwright install` fetches a copy of its own and can leave the wrong\n' +
+      `revision in the cache, which fails at launch instead of here. Skipping the ${what}.`,
   )
   process.exit(2)
 }
