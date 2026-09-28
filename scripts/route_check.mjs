@@ -241,6 +241,7 @@ const DESTINATIONS = [
   ['Scenarios', '/scenarios'],
   ['Report', '/report'],
   ['Compare', '/compare'],
+  ['Excel auto-fill', '/autofill'],
   ['My preferences', '/preferences'],
   ['Cycles', '/cycles'],
   ['Responses', '/responses'],
@@ -329,11 +330,11 @@ const DESTINATIONS = [
   await page.waitForTimeout(200)
 
   const navLabels = await page.locator('nav[aria-label="Main"] a').allInnerTexts()
-  const forbidden = ['Board', 'Scenarios', 'Report', 'Compare', 'Cycles', 'Responses', 'Access']
+  const forbidden = ['Board', 'Scenarios', 'Report', 'Compare', 'Excel auto-fill', 'Cycles', 'Responses', 'Access']
   const shown = forbidden.filter((l) => navLabels.includes(l))
   if (shown.length) fail(`instructor nav offers ${shown.join(', ')}`)
 
-  for (const path of ['/board', '/report', '/access', '/compare']) {
+  for (const path of ['/board', '/report', '/access', '/compare', '/autofill']) {
     await page.goto(`${base}${path}`, { waitUntil: 'networkidle' })
     await page.waitForTimeout(200)
     const where = new URL(page.url()).pathname

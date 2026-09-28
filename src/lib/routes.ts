@@ -1,7 +1,7 @@
 /**
  * Every destination in the app, once.
  *
- * Two lists used to describe the same thirteen pages — a `<Route>` each in
+ * Two lists used to describe the same pages — a `<Route>` each in
  * `App.tsx` and a `{ to, label, show }` each in `Layout.tsx` — and nothing
  * held them together. A coordinator-only page reachable by typing its path,
  * or a nav link to a route that no longer exists, was a copy-paste away.
@@ -59,6 +59,7 @@ export const ROUTES: AppRoute[] = [
   { path: '/scenarios', label: 'Scenarios', coordinatorOnly: true, load: () => import('../pages/Scenarios') },
   { path: '/report', alsoAt: ['/report/:scenarioId'], label: 'Report', coordinatorOnly: true, load: () => import('../pages/Report') },
   { path: '/compare', label: 'Compare', coordinatorOnly: true, load: () => import('../pages/Compare') },
+  { path: '/autofill', label: 'Excel auto-fill', coordinatorOnly: true, load: () => import('../pages/Autofill') },
   { path: '/preferences', label: 'My preferences', load: () => import('../pages/MyPreferences') },
   { path: '/cycles', label: 'Cycles', coordinatorOnly: true, load: () => import('../pages/Cycles') },
   { path: '/responses', label: 'Responses', coordinatorOnly: true, load: () => import('../pages/Responses') },

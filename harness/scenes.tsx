@@ -58,6 +58,14 @@ import { compareScenarios } from "../src/lib/report";
 import RouteFallback from "../src/components/RouteFallback";
 import RouteErrorNotice from "../src/components/RouteErrorNotice";
 import OfflineBanner from "../src/components/OfflineBanner";
+import AutofillResults from "../src/components/autofill/AutofillResults";
+import AutofillPage from "../src/pages/Autofill";
+import { runAutofill } from "../src/lib/autofill/run";
+import {
+  ftWorkbook,
+  glanceWorkbook,
+  ptWorkbook,
+} from "../src/lib/autofill/fixtures";
 import EmptyState from "../src/components/EmptyState";
 import { parseTimeSchedule } from "../src/lib/timeSchedule";
 // The real Autumn 2026 listing, committed for the parser tests and read here as
@@ -1133,8 +1141,48 @@ function RealSizeBoardScene() {
   );
 }
 
+/**
+ * The auto-fill's result on a phone, from a real run over the test workbooks:
+ * someone short of their load, notes to check, a part-time instructor placed,
+ * and sections left open — every state the panel has.
+ */
+function AutofillScene() {
+  const [run] = useState(() =>
+    runAutofill({
+      schedule: { name: "26-27 at a glance working.xlsx", bytes: glanceWorkbook() },
+      fullTime: {
+        name: "FT responses.xlsx",
+        bytes: ftWorkbook([
+          { name: "F3", load: "3 for now (possibly 1 ISS)", desired: "343, 342", iss: "Yes", issDrop: "342", comments: "Cannot teach 8-10pm course, but willing to teach 845am if necessary" },
+          { name: "F8", load: 1.5, desired: "CSS 427" },
+          { name: "F9", load: 4, desired: "CSS 590, CSS 142" },
+          { name: "F22", load: 1, desired: "2. Win'27 0.5 SKL123A 1:15 W\n2. Win'27 0.5 123A 1:15 M/W" },
+        ]),
+      },
+      partTime: {
+        name: "PT responses.xlsx",
+        bytes: ptWorkbook([{ name: "P9", counts: 2, times: "Any weekday during normal business hours.", courses: "342, 343" }]),
+      },
+      placePartTime: true,
+      now: new Date("2026-09-28T12:00:00Z"),
+    }),
+  );
+  return (
+    <div className="bg-slate-50 p-4">
+      <AutofillResults run={run} onDownload={() => {}} />
+    </div>
+  );
+}
+
 export const SCENES: Record<string, () => JSX.Element> = {
   "empty-states": () => <EmptyStateScene />,
+  /* The page as it opens, before any file is chosen. */
+  "autofill-page": () => (
+    <div className="bg-slate-50 p-4">
+      <AutofillPage />
+    </div>
+  ),
+  "autofill-results": () => <AutofillScene />,
   "board-real-size": () => <RealSizeBoardScene />,
   toasts: () => <ToastScene inset={false} />,
   "toast-live-sync": () => <LiveSyncScene />,

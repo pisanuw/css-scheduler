@@ -115,6 +115,24 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {isCoordinator && (
+        <div className="mt-4 rounded-lg bg-surface p-5 ring-1 ring-slate-200">
+          <h2 className="font-semibold text-slate-900">Fill the year from Excel</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Give it the year-at-a-glance workbook and the preference survey exports; get the workbook back with
+            full-time faculty proposed for every section they fit, each one explained.
+          </p>
+          <div className="mt-3">
+            <Link
+              to="/autofill"
+              className="inline-flex min-h-11 items-center rounded-md border border-slate-300 px-4 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              Open Excel auto-fill
+            </Link>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
