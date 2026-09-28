@@ -274,8 +274,8 @@ part-time preference survey exports — which are not in the repository.
 >
 > Many thanks.
 >
-> As you mentioned, I'm attaching AY26-27 data as examples: FT & PT faculty teaching preferences - I replaced FT faculty names with F1, F2 … and PT faculty with P1, P2 … & AY26-27 schedule overview - all faculty names are deleted in Aut'26 - Spr'27. If the code can help fill the FT faculty names into schedule based on their preferences and teaching load, that will be extremely helpful.
-> Then PT may be added to cover the remaining ones - this step may be skipped for now as PT has complex teaching load cap policies per quarter, per 6-month window and per AY base on their titles so I didn't add load info to the PT faculty teaching preference file.
+> As you mentioned, I’m attaching AY26-27 data as examples: FT & PT faculty teaching preferences - I replaced FT faculty names with F1, F2 … and PT faculty with P1, P2 … & AY26-27 schedule overview - all faculty names are deleted in Aut’26 - Spr’27. If the code can help fill the FT faculty names into schedule based on their preferences and teaching load, that will be extremely helpful.
+> Then PT may be added to cover the remaining ones - this step may be skipped for now as PT has complex teaching load cap policies per quarter, per 6-month window and per AY base on their titles so I didn’t add load info to the PT faculty teaching preference file.
 >
 > Do you think if your Version 1 can be setup to accept excel inputs like these? Or if you can share your code/setup and insights with me, I can try to learn from you to do a project myself 😊
 >
