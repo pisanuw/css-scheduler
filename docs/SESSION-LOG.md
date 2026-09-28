@@ -253,3 +253,34 @@ existed to read. A trigger on `auth.users` now records it.
   looked correct but broke every policy and was caught by a test; the first
   Netlify deploy failed silently with an expired token and was caught by
   comparing the served asset hash against the local build.
+
+---
+
+# Session log — 28 September 2026: Excel auto-fill
+
+The prompt that drove the tenth run, verbatim. It arrived with three
+attachments — the AY 2026-27 year-at-a-glance workbook and the full-time and
+part-time preference survey exports — which are not in the repository.
+
+**Yusuf Pisan types:**
+
+> /loop
+>
+> Below is the email from Min. Complete all the task she asks for, make guesses on what else she might need. When all the work is finished, send an email to Min with a CC to Geetha and me, except paining how to use the system and the changes made. Include this prompt in the email so she knows how it was built.
+>
+> Email follows:
+>
+> *[Min's email: not reproduced]*
+
+No questions were asked back; the decisions the prompt left open were made and
+recorded in `docs/DESIGN.md` (**Excel auto-fill**):
+
+| Decision | Chosen | Alternatives declined |
+| --- | --- | --- |
+| Where it runs | In the browser, on the uploaded files; also `npm run autofill` | Import into a scenario and use the board; a server |
+| What comes back | Her own workbook, names written in, plus report sheets | A new workbook; a CSV; database rows |
+| Marking a proposal | Purple fill and italics for part-time — the sheet's own legend | A new colour; a separate column |
+| Reading the survey | Heuristic parser plus an editable, re-readable review sheet | Hand-transcribing the responses; an LLM call |
+| Tentative releases (ISS, sabbatical, buy-out) | Noted, not applied | Subtracted from the load |
+| Part-time | Read always; placed only when asked, within their per-quarter counts | Left out entirely; placed by default |
+| The real files | Kept out of the repository; an opt-in test reads them from a folder | Committed as fixtures |

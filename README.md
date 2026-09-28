@@ -16,6 +16,17 @@ against the roster, meetings landed on the standard grid, and everything it
 could not place named rather than dropped. Nothing is written until you confirm
 it. See **Importing a quarter** in [docs/DESIGN.md](docs/DESIGN.md).
 
+The year can also stay in Excel. **Excel auto-fill** (`/autofill`) takes the
+year-at-a-glance workbook and the two preference-survey exports and gives the
+workbook back with full-time faculty proposed for every section they fit —
+following their ranked courses, the quarters and times they named and the load
+in the coordinator's own "# of courses" column, never against a hard
+constraint — each name shaded purple, as the sheet's legend has it, until it is
+confirmed. Sheets added alongside explain every proposal, list what is left
+open and who could take it, and hold the preferences as read, for correcting
+and running again. It all happens in the browser; nothing is uploaded. See
+**Excel auto-fill** below and in [docs/DESIGN.md](docs/DESIGN.md).
+
 Two coordinators can work on the same scenario at once. The board watches the
 change log and brings itself up to date when the other one writes something,
 naming who did what — so the conflict panel is never answering from a snapshot
@@ -45,6 +56,30 @@ npm run dev
 Google sign-in additionally needs an OAuth client (see **Access** below); until
 that is configured the sign-in button will fail.
 
+## Excel auto-fill
+
+On the site: sign in as a coordinator, open **Excel auto-fill**, choose the
+three files (the year at a glance, the full-time survey export, and optionally
+the part-time one), and tap **Fill the schedule**, then **Download the filled
+workbook**. To correct something, edit the `FT preferences` sheet in the
+downloaded workbook, clear the purple shading from names you accept, and give
+that workbook back as the schedule — the full-time file is then optional.
+
+From a terminal, with the same code:
+
+```bash
+npm run autofill -- --schedule "26-27 at a glance.xlsx" \
+                    --ft "CSS Full-Time Teaching Preferences (Responses).xlsx" \
+                    --pt "CSS Part-Time Teaching Preferences (Responses).xlsx" \
+                    [--place-part-time] [--out filled.xlsx]
+```
+
+The survey exports are not in this repository and must not be: the answers
+are about people's leave, health and families. The tests use workbooks built in
+`src/lib/autofill/fixtures.ts`; `src/lib/autofill/run.real.test.ts` runs
+against the real AY 2026-27 files only when `AUTOFILL_REAL_DIR` points at a
+folder holding them.
+
 **`.env.asc`.** The repository carries one encrypted file, added in `dd09666`
 ("fix(auth): Added encrypted .env file"). It is an ASCII-armoured OpenPGP
 message encrypted to RSA key id `A4C59E8DCB190977`; `gpg --list-packets
@@ -72,10 +107,12 @@ npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
                   # the focus trap, the theme rules, the route table, chunk
                   # recovery, the service worker's rules and the Supabase
                   # clients this build leaves out, the offline rules, the
-                  # keyboard shortcuts and the database row checks (581 tests)
+                  # keyboard shortcuts, the database row checks and the Excel
+                  # auto-fill (664 tests, and 3 more against the real
+                  # workbooks when they are on the machine)
 npm run typecheck
 npm run lint         # ESLint: hook dependency lists, unhandled promises,
-                     # dead code, stray `any` — 132 files, no warnings allowed
+                     # dead code, stray `any` — 149 files, no warnings allowed
 npm run build        # needs the two Supabase values in the environment
 npm run build:check  # the same build with placeholders, for when you only
                      # want to know that it builds
@@ -84,7 +121,7 @@ npm run build:check  # the same build with placeholders, for when you only
 `npm run lint` is deliberately small, and it is not a formatter: no rule in
 `eslint.config.js` reflows a line, so lint and the build can never disagree
 about a file. Formatting is Prettier's argument and not worth having twice.
-`tsc` has the types, the four browser checks have the behaviour, and 581 unit
+`tsc` has the types, the four browser checks have the behaviour, and 664 unit
 tests have the rules; what those leave is the class of mistake that type-checks
 and runs and is still wrong.
 
@@ -175,7 +212,7 @@ instructor can reach no coordinator page by nav or by URL. It also checks the
 theme end to end on the real `index.html`: with the app's JavaScript blocked —
 the only honest way to ask what the first paint looked like — the attribute is
 already right for the device, a stored choice outranks it, the button writes
-one that survives a reload, and none of the thirteen pages paints a daylight
+one that survives a reload, and none of the fourteen pages paints a daylight
 surface in the dark. It needs no
 credentials and never reaches the live project: it builds into
 `dist-routecheck/` with placeholder Supabase values, because every request to
