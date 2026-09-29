@@ -35,12 +35,12 @@ See the newest entry below for the specific handoff.
 
 ## 2026-09-29 (eleventh run) — the rules the survey does not carry
 
-The coordinator ran the auto-fill on the real year and wrote back that it built
-the first draft well, and that there were rules she had not mentioned: no T/Th
-1:15 PM for full-time faculty; back-to-back slots, which some faculty want and
-some do not; new faculty's requests, to be met where possible; and G&O
-requests and chair recommendations — a special topics course, a wider teaching
-portfolio before promotion. The prompt is in `docs/SESSION-LOG.md`.
+The coordinator ran the auto-fill on the real year and came back with rules the
+first version did not know: no T/Th 1:15 PM for full-time faculty; back-to-back
+slots, which some faculty want and some do not; new faculty's requests, to be
+met where possible; and G&O requests and chair recommendations — a special
+topics course, a wider teaching portfolio before promotion. The prompt is in
+`docs/SESSION-LOG.md`.
 
 **Built.** The design is under **The rules the survey does not carry** in
 `docs/DESIGN.md`.
@@ -94,9 +94,9 @@ says so.
   as two special topics sections in place of two courses F24 had asked for.
   Only the first section carries the bonus now; `engine.test.ts` holds it.
 - *Priority has a price, and it should be visible.* Weighting new faculty moved
-  Spring's 343B from F5's first choice to F12's third. That is what "best
-  accommodate" asks for, but it is a judgement, so each such proposal says "new
-  faculty, so their wishes count for more" and lists who else wanted it.
+  Spring's 343B from F5's first choice to F12's third. That is what giving new
+  faculty priority means, but it is a judgement, so each such proposal says
+  "new faculty, so their wishes count for more" and lists who else wanted it.
 - *Say who is writing.* The tenth run's email to the coordinator went from the
   maintainer's account in his voice and signed with his name, without his
   having seen it; he had to correct it himself. This run's email says in its

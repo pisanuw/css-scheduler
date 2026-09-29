@@ -5,9 +5,10 @@ together with every question asked back and the answer given. Kept so the
 reasoning behind the schema and the architecture is recoverable later, when
 "why is the baseline 8?" is no longer obvious.
 
-Prompts are reproduced as written. Options that were offered but not chosen are
-listed too — what was rejected is often the more useful half of a decision
-record.
+Prompts are reproduced as written, except for anyone else's email pasted into
+one, which is left out: the repository is public and the email is theirs.
+Options that were offered but not chosen are listed too — what was rejected is
+often the more useful half of a decision record.
 
 ---
 
@@ -260,7 +261,9 @@ existed to read. A trigger on `auth.users` now records it.
 
 The prompt that drove the tenth run, verbatim. It arrived with three
 attachments — the AY 2026-27 year-at-a-glance workbook and the full-time and
-part-time preference survey exports — which are not in the repository.
+part-time preference survey exports — which are not in the repository, and it
+carried the coordinator's email, which is not here either. What the email
+asked for is described in `docs/DESIGN.md` (**Excel auto-fill**).
 
 **Yusuf Pisan types:**
 
@@ -270,18 +273,7 @@ part-time preference survey exports — which are not in the repository.
 >
 > Email follows:
 >
-> Hi Yusuf,
->
-> Many thanks.
->
-> As you mentioned, I’m attaching AY26-27 data as examples: FT & PT faculty teaching preferences - I replaced FT faculty names with F1, F2 … and PT faculty with P1, P2 … & AY26-27 schedule overview - all faculty names are deleted in Aut’26 - Spr’27. If the code can help fill the FT faculty names into schedule based on their preferences and teaching load, that will be extremely helpful.
-> Then PT may be added to cover the remaining ones - this step may be skipped for now as PT has complex teaching load cap policies per quarter, per 6-month window and per AY base on their titles so I didn’t add load info to the PT faculty teaching preference file.
->
-> Do you think if your Version 1 can be setup to accept excel inputs like these? Or if you can share your code/setup and insights with me, I can try to learn from you to do a project myself 😊
->
-> Thanks
->
-> Min
+> *[Min's email: not reproduced]*
 
 No questions were asked back; the decisions the prompt left open were made and
 recorded in `docs/DESIGN.md` (**Excel auto-fill**):
@@ -300,8 +292,8 @@ recorded in `docs/DESIGN.md` (**Excel auto-fill**):
 
 # Session log — 29 September 2026: the coordinator's rules
 
-The same session as the Excel auto-fill, continued. Three prompts came after
-it; all three are here because each changed what was done next.
+The same session as the Excel auto-fill, continued. Four prompts came after
+it; all four are here because each changed what was done next.
 
 **Yusuf Pisan types:**
 
@@ -324,16 +316,11 @@ seen it, which was the mistake — and its subject was the existing thread's,
 > Another email from Min below. Do what you need to do and then send an email to her and Geetha BUT this time make sure you indicate this is Claude emailing on behalf of Yusuf
 > —-
 >
-> Hi Yusuf,
->
-> I tried and it worked amazingly well to build the 1st draft. I forgot to mention other rules or include other data like no T/Th 1:15pm for full-time faculty teaching, some faculty prefers back-to-back time slots while others not, try to best accommodate new faculty’s requests, incorporate faculty G&O requests and chair recommendations (e.g. to offer special topics or expand teaching portfolio to prepare for promotion), etc. But I can clearly see how much time it can save me when I prepare for next AY’s course assignments. It also gives me strong motivations to develop AI projects myself for other tasks.
->
-> […]
+> *[Min's email: not reproduced]*
 
-The rest of her email — thanks, and a personal note — is left out here: it is
-correspondence, not a requirement. No questions were asked back; the choices
-the prompt left open were made and recorded in `docs/DESIGN.md` (**The rules
-the survey does not carry**):
+What her email asked for is described in `docs/DESIGN.md` (**The rules the
+survey does not carry**). No questions were asked back; the choices the prompt
+left open were made and recorded there:
 
 | Decision | Chosen | Alternatives declined |
 | --- | --- | --- |
@@ -342,3 +329,11 @@ the survey does not carry**):
 | G&O and chair requests | A column of courses; one section of each, ranked just under a pinned course | Pinning them; every section of them |
 | Back-to-back | A column, `prefer` or `avoid`, read from the survey where it is mentioned; ±30 a pair | A hard rule; leaving it out |
 | The email | Sent from his account, saying in its first line that Claude wrote it on his behalf | Written in his voice; left in his drafts |
+
+**Yusuf Pisan types:**
+
+> Remove Min’s emails from the github repo. The repo is public, her emails to me should not be. My prompts can stay public
+
+Her two emails, quoted inside the prompts above, were taken out of this file,
+and two phrases borrowed from the second were taken out of `docs/PROGRESS.md`.
+The prompts themselves are unchanged.
