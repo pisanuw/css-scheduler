@@ -1196,17 +1196,70 @@ as a bare "W").
 **What it optimises, in order.** Load, then preferences, then tidiness:
 
 1. Nobody over their load, nobody in two places at once, nobody in a quarter
-   they are away or have filled, nothing against a hard constraint. These are
-   refusals, not costs.
+   they are away or have filled, nothing against a hard constraint or a
+   department rule. These are refusals, not costs.
 2. As close to everyone's load as the schedule allows, with a shortfall
    *shared* — the deficit is penalised by its square, so two people one course
    short beats one person two short.
 3. The coordinator's pinned courses ("3: 502, 584, 343" in the load column)
-   first, then each person's higher-ranked courses, in the quarter and at the
-   time they named. Naming quarters for a course ("497 (Autumn, Winter and
-   Spring)") means one section in each, not as many as will fit.
-4. Fewer preparations, days kept together for those who asked, reserved
-   sections ("reserved, assign if needed") used last because they may not run.
+   first, then a section of each G&O or chair request, then each person's
+   higher-ranked courses, in the quarter and at the time they named. Naming
+   quarters for a course ("497 (Autumn, Winter and Spring)") means one section
+   in each, not as many as will fit. A new faculty member's wishes count half
+   as much again as a colleague's.
+4. Fewer preparations, days kept together and classes back to back for those
+   who asked (and apart for those who asked that), reserved sections ("reserved,
+   assign if needed") used last because they may not run.
+
+**The rules the survey does not carry.** The coordinator's first run of the
+real year came back with a list of what she had not mentioned: full-time
+faculty do not teach T/Th 1:15; some faculty want back-to-back classes and
+some do not; new faculty's requests should be met where possible; and G&O
+plans and the chair's recommendations — offer a special topics course, widen a
+teaching portfolio ahead of promotion — should be honoured. None of that is in
+the survey, so none of it could come from the parser alone. Each has a place
+the coordinator can see and edit, in the same workbook that carries
+everything else:
+
+- **Department rules** are a sheet of their own, one rule per row, in the
+  notation of the "Time rules" column, plus the way a person would write one
+  by hand ("no T/Th 1:15 PM" is the two-hour class that starts then). A
+  workbook without the sheet gets the rule she named; a workbook with it gets
+  exactly what is on it, so deleting a row turns a rule off. They are refusals
+  like any hard constraint, for the kind of appointment each row names —
+  checked against every part of a section, so a lecture whose lab falls at
+  T/Th 1:15 is ruled out too (`rules.ts`, `fitForUnit`). A name already in the
+  sheet that breaks one is left where it is and reported. The summary lists
+  the sections a rule kept from someone who asked for them — on AY 2026-27,
+  four, all at T/Th 1:15, among them Winter's 451A, F4's first choice —
+  because moving the section is the other way to settle it.
+- **New faculty**, **G&O / chair requests** and **Back-to-back** are columns of
+  the `FT preferences` sheet (Back-to-back is on the `PT preferences` sheet
+  too). The survey fills what it can: a "new hire" release in the load column
+  marks someone new (four people on AY 2026-27), and "back-to-back if possible"
+  marks a wish for it (one). A sheet written before these columns existed is
+  read the way the survey would be, from the "What they wrote" column, so a
+  workbook from the first run upgrades itself.
+
+Their weights are chosen so that none of them costs anyone load, which stays
+first and is weighed the same for everyone. A new faculty member's preference
+terms — every score and every tidiness cost — are multiplied by 1.5, which is
+enough for a new colleague's third choice to beat someone else's first when
+both want one section. A request is worth what a pinned course is for its
+*first* section (150) and what the course would be worth anyway for any more,
+because "offer special topics" means a course, not every section of it; a
+course they did not list counts as "also OK" for that. A pair of classes back
+to back on a day — sharing a day, at most half an hour apart, which the
+campus's 15-minute gaps make the neighbouring block — is worth 30 either way.
+
+On the real year the rules changed the name on 26 of the 149 proposals and
+nobody's load: F3 got exactly the plan they wrote ("Autumn 2 x 342
+(back-to-back if possible), 1 x 343; Winter 2 x 343, 1 x 342"), with both
+pairs back to back; the new faculty won the contested sections no colleague's
+load depended on — which is also how F5 lost Spring's 343B, their first
+choice, to F12's third; and 451A went open.
+Every one of those calls is in the `Assignments` sheet with its reason and who
+else wanted the section.
 
 **How it searches.** A regret-ordered greedy start — whoever would lose most by
 waiting chooses first — then moves a person would make with the sheet open:
@@ -1245,7 +1298,8 @@ has columns for, for her to fill in from their titles.
 
 **What it will not do.** It does not invent a load, apply a release that is not
 decided, move a name that is not purple, place anyone in a course they did not
-list, or put a skills lab with a lecture it does not meet with. It does not
+list or were not asked to teach, trade anyone's load for someone else's
+preferences, or put a skills lab with a lecture it does not meet with. It does not
 write to the database: turning the result into a scenario on the board is the
 import this app already has.
 
@@ -1254,9 +1308,11 @@ the engine over 25 random years and asserts no overload, no double booking and
 no broken hard rule. `run.real.test.ts` runs against the actual AY 2026-27
 workbooks when `AUTOFILL_REAL_DIR` points at them — they are not in the
 repository and must not be — and pins what the first run was checked for by
-hand, person by person: every rule held, 143 of 144 full-time load placed, the
-one shortfall (a Winter service release where most of that person's courses
-are), and the three most specific requests getting exactly what they wrote.
+hand, person by person: every rule held (the department's included), 143 of
+144 full-time load placed, the one shortfall (a Winter service release where
+most of that person's courses are), the four most specific requests getting
+exactly what they wrote, the new hires and the back-to-back wish read from the
+survey, and 451A left open with the rule as the reason.
 The page and its results are two scenes in `npm run check:mobile`, and the
 route is in `npm run check:routes`.
 
@@ -1295,7 +1351,9 @@ schedule — see **Importing a quarter** below.
 
 **6 — Excel in, Excel out (done).** The year-at-a-glance workbook and the
 two preference surveys go in, the workbook comes back with full-time faculty
-proposed — see **Excel auto-fill** above.
+proposed — see **Excel auto-fill** above. Then the rules the survey does not
+carry: department rules, new faculty, G&O and chair requests, back-to-back
+classes.
 
 **Polish.** Undo, one voice for feedback, focus management, tables as cards,
 code splitting, dragging, print output, dark mode and an installable,
