@@ -3,7 +3,8 @@ import { XlsxBook } from './xlsx'
 import { PROPOSAL_FILL, readGlance } from './glance'
 import { FT_SHEET, PT_SHEET } from './prefs'
 import { REPORT_SHEETS, runAutofill } from './run'
-import { ftWorkbook, glanceWorkbook, ptWorkbook } from './fixtures'
+import { RULES_SHEET } from './rules'
+import { ftWorkbook, glanceWorkbook, ptWorkbook, t } from './fixtures'
 
 const now = new Date('2026-09-28T12:00:00Z')
 const schedule = { name: '26-27 at a glance working.xlsx', bytes: glanceWorkbook() }
@@ -99,5 +100,40 @@ describe('runAutofill', () => {
     expect(() => runAutofill({ schedule, fullTime: partTime, placePartTime: false, now })).toThrow(/full-time preference survey/)
     expect(() => runAutofill({ schedule, placePartTime: false, now })).toThrow(/Add the full-time preferences/)
     expect(() => runAutofill({ schedule: fullTime, fullTime, placePartTime: false, now })).toThrow(/year-at-a-glance/)
+  })
+})
+
+describe('runAutofill with department rules', () => {
+  // Winter 451A meets T/Th at 1:15, and it is all F4 asked for.
+  const tth = (instructor: string | null = null) => ({
+    name: '26-27 at a glance working.xlsx',
+    bytes: glanceWorkbook({ winter: [['x', 1, '451A', t(1, 15), 'T/Th', 48, instructor, '', '']] }),
+  })
+  const f4 = { name: 'FT responses.xlsx', bytes: ftWorkbook([{ name: 'F4', load: 1, desired: 'CSS 451' }]) }
+  const summary = (book: XlsxBook, label: string) => {
+    const s = book.sheet('Auto-fill summary')
+    const r = Array.from({ length: s.maxRow }, (_, i) => i + 1).find((i) => s.text(i, 1) === label)
+    return r ? s.text(r, 2) : null
+  }
+
+  it('keeps full-time faculty out of T/Th 1:15, says what that cost, and lets the sheet turn it off', () => {
+    const first = runAutofill({ schedule: tth(), fullTime: f4, placePartTime: false, now })
+    expect(first.rules.source).toBe('default')
+    expect(first.result.placements).toEqual([])
+    const out = XlsxBook.read(first.output)
+    expect([out.sheet(RULES_SHEET).text(2, 1), out.sheet(RULES_SHEET).text(2, 2)]).toEqual(['Full-time', 'no 1:15 PM-3:15 PM on T/Th'])
+    expect(summary(out, 'Kept free by those rules')).toMatch(/^Win 451A 1:15 PM T\/Th \(asked for by F4\)/)
+
+    // Empty the rule and give the workbook back: the sheet now says there are no rules.
+    out.setCell(RULES_SHEET, 2, 2, null)
+    const second = runAutofill({ schedule: { name: first.outputName, bytes: out.write() }, placePartTime: false, now })
+    expect(second.rules).toMatchObject({ source: 'sheet', rows: [] })
+    expect(second.result.placements.map((p) => [p.section.label, p.faculty])).toEqual([['451A', 'F4']])
+  })
+
+  it('leaves a name already in the sheet where it is, and says it breaks the rule', () => {
+    const run = runAutofill({ schedule: tth('F4'), fullTime: f4, placePartTime: false, now })
+    expect(run.warnings).toContain('F4 is already in the sheet for Win 451A 1:15 PM T/Th, against the department rule “no 1:15 PM-3:15 PM on T/Th”; left as it is.')
+    expect(run.fullTimeLoad).toEqual({ placed: 1, owed: 1 })
   })
 })

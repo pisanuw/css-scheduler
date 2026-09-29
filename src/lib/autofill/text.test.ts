@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   availabilityRules,
+  backToBackPreference,
   breaks,
   courseKeys,
   dayMentions,
@@ -243,6 +244,41 @@ describe('describeRule and parseRuleList', () => {
 
   it('returns what it cannot read instead of dropping it', () => {
     expect(parseRuleList('no 8:00 PM-midnight; mornings would be lovely').unread).toEqual(['mornings would be lovely'])
+  })
+
+  it('reads a rule written by hand as the class that starts then', () => {
+    const back = parseRuleList('no T/Th 1:15 PM; avoid Fri 3:30; prefer not on Tue and Thu at 11:00 AM')
+    expect(back.unread).toEqual([])
+    expect(back.rules.map(describeRule)).toEqual(['no 1:15 PM-3:15 PM on T/Th', 'avoid 3:30 PM-5:30 PM on Fri', 'prefer not 11:00 AM-1:00 PM on T/Th'])
+    // Only days may come before the time: anything else is left for the coordinator to fix.
+    expect(parseRuleList('no Tomorrow 1:15 PM; no labs 1:15 PM').unread).toEqual(['no Tomorrow 1:15 PM', 'no labs 1:15 PM'])
+  })
+})
+
+describe('backToBackPreference', () => {
+  const pref = (text: string) => backToBackPreference(text)?.pref ?? null
+
+  it('reads a wish for back-to-back classes and a wish against them', () => {
+    expect(pref('343, 342, 385, 422. Ideally: Autumn 2 x 342 (back-to-back if possible), 1 x 343')).toBe('prefer')
+    expect(pref('I prefer my classes back to back on the same days.')).toBe('prefer')
+    expect(pref('No gaps between my classes, please.')).toBe('prefer')
+    expect(pref('Please no back-to-back classes.')).toBe('avoid')
+    expect(pref("I'd rather not teach back to back")).toBe('avoid')
+    expect(pref('Back-to-back sections are hard for me.')).toBe('avoid')
+    expect(pref('I need a break between classes.')).toBe('avoid')
+  })
+
+  it('reads a tolerance, or something else entirely, as no view', () => {
+    expect(pref("I don't mind back-to-back.")).toBeNull()
+    expect(pref('Back to back is fine with me, either way.')).toBeNull()
+    expect(pref('Two consecutive quarters off would help my research.')).toBeNull()
+    expect(pref('343, 342')).toBeNull()
+  })
+
+  it('keeps the phrase it read, for the coordinator to check', () => {
+    expect(backToBackPreference('343, 342. Ideally: Autumn 2 x 342 (back-to-back if possible), 1 x 343; Winter 2 x 343')?.phrase).toBe(
+      'Ideally: Autumn 2 x 342 (back-to-back if possible), 1 x 343',
+    )
   })
 })
 

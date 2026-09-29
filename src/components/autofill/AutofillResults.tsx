@@ -1,6 +1,7 @@
 import type { AutofillRun } from '../../lib/autofill/run'
 import type { FacultyResult } from '../../lib/autofill/engine'
 import type { GlanceSection } from '../../lib/autofill/glance'
+import { RULES_SHEET, describeRuleRow } from '../../lib/autofill/rules'
 import { QUARTER_SHORT } from '../../lib/autofill/text'
 
 /**
@@ -43,6 +44,7 @@ function FacultyCard({ f }: { f: FacultyResult }) {
           {fmt(f.load)}
           {f.prefs.kind === 'full-time' && <span className="text-slate-600"> / {fmt(f.prefs.target ?? 0)}</span>}
         </span>
+        {f.prefs.newFaculty && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">new</span>}
         {short && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">short {fmt(f.gap)}</span>}
       </div>
       <p className="mt-1 text-xs text-slate-600">
@@ -51,6 +53,7 @@ function FacultyCard({ f }: { f: FacultyResult }) {
       </p>
       {sections.length > 0 && <p className="mt-1 text-xs text-slate-700">{sections.map(sectionLine).join('; ')}</p>}
       {short && <p className="mt-1 text-xs text-amber-800">{f.shortBecause.join('; ')}.</p>}
+      {f.requestsMissed.length > 0 && <p className="mt-1 text-xs text-amber-800">G&amp;O / chair request not placed — {f.requestsMissed.join('; ')}.</p>}
       {f.prefs.flags.length > 0 && (
         <details className="mt-1">
           <summary className="flex min-h-11 cursor-pointer items-center text-xs font-medium text-slate-700">
@@ -71,7 +74,7 @@ export default function AutofillResults({
   run,
   onDownload,
 }: {
-  run: Pick<AutofillRun, 'schedule' | 'result' | 'tallies' | 'fullTimeLoad' | 'warnings' | 'outputName'>
+  run: Pick<AutofillRun, 'schedule' | 'result' | 'rules' | 'tallies' | 'fullTimeLoad' | 'warnings' | 'outputName'>
   onDownload: () => void
 }) {
   const fullTime = run.result.faculty.filter((f) => f.prefs.kind === 'full-time')
@@ -116,6 +119,11 @@ export default function AutofillResults({
           </li>
         ))}
       </ul>
+      <p className="mt-2 text-sm text-slate-600">
+        Department rules{run.rules.source === 'default' ? ' (the defaults)' : ''}:{' '}
+        {run.rules.rows.length ? run.rules.rows.map(describeRuleRow).join('; ') : 'none'}. Change them on the “{RULES_SHEET}” sheet of the
+        workbook, then fill it again.
+      </p>
 
       {run.warnings.length > 0 && (
         <div className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200">

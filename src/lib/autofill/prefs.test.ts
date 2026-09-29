@@ -120,6 +120,31 @@ describe('part-time survey', () => {
   })
 })
 
+describe('what the survey does not ask, but sometimes says', () => {
+  it('reads a new-hire release in the load note as new faculty, and says so', () => {
+    const p = one({ load: '7 (1 new hire for 2 years ending in AY26-27)' })
+    expect(p.newFaculty).toBe(true)
+    expect(p.target).toBe(7)
+    expect(p.flags.join(' ')).toMatch(/New faculty \(from “new hire”\)/)
+    expect(one({ load: '5 for now (possibly 1 ISS)' }).newFaculty).toBe(false)
+  })
+
+  it('reads back-to-back wishes from either survey', () => {
+    const f3 = one({ desired: '343, 342, 385, 422. Ideally: Autumn 2 x 342 (back-to-back if possible), 1 x 343' })
+    expect(f3.backToBack).toBe('prefer')
+    expect(f3.flags).toContain('Back-to-back: read as “prefer” from “Ideally: Autumn 2 x 342 (back-to-back if possible), 1 x 343”.')
+    const [pt] = readPrefs(XlsxBook.read(ptWorkbook([{ name: 'P3', counts: 2, times: 'Flexible', courses: '142', constraints: 'I need a break between classes.' }])), 'part-time', 2026)!.faculty
+    expect(pt!.backToBack).toBe('avoid')
+    expect(one({ desired: '343' }).backToBack).toBeNull()
+  })
+
+  it('keeps the courses they would like to teach later with what they wrote, for a G&O or chair request', () => {
+    const p = one({ desired: '382, 142', notTaught: 'CSS 383, CSS 483' })
+    expect(p.wrote).toMatch(/Not taught before, would like to later: CSS 383, CSS 483/)
+    expect(p.requests).toEqual([])
+  })
+})
+
 describe('the review sheet', () => {
   it('reads back exactly what it wrote', () => {
     const list = ft([
@@ -128,6 +153,11 @@ describe('the review sheet', () => {
       { name: 'F15', load: 8, desired: 'CSS 496, CSSSKL 511', comments: 'the latest course I can teach on WEDNESDAY is 3:30.' },
       { name: 'F1', load: '3: 502, 584, 343', desired: '502, 343', service: 'Yes', serviceDetail: "UPC 2 course release in Aut'26" },
     ])
+    // The columns the survey does not fill: the coordinator's to set.
+    list[0]!.requests = ['490', '590']
+    list[1]!.newFaculty = true
+    list[2]!.backToBack = 'avoid'
+    list[3]!.backToBack = 'prefer'
     const rows = reviewSheetRows({ kind: 'full-time', faculty: list }).map((r) =>
       r.map((c): CellValue => (c !== null && typeof c === 'object' ? c.v : c)),
     )
@@ -143,12 +173,37 @@ describe('the review sheet', () => {
       rules: p.rules.map(describeRule),
       noGraduate: p.noGraduate,
       sameDays: p.sameDays,
+      backToBack: p.backToBack,
+      newFaculty: p.newFaculty,
+      requests: p.requests,
     })
     expect(back.faculty.map(same)).toEqual(list.map(same))
     // The notes come along, so a second run does not lose the first run's warnings.
     const f2 = back.faculty.find((p) => p.name === 'F2')!
     expect(f2.flags).toEqual(list.find((p) => p.name === 'F2')!.flags)
     expect(f2.flags.join(' ')).toMatch(/possibly 1 ISS/)
+  })
+
+  it('reads a sheet from before the new columns the way it would read the survey', () => {
+    const list = ft([
+      { name: 'F9', load: '7 (1 new hire for 2 years ending in AY26-27)', desired: '382, 142' },
+      { name: 'F3', load: 8, desired: '343, 342. Ideally: Autumn 2 x 342 (back-to-back if possible), 1 x 343' },
+    ])
+    const dropped = ['New faculty', 'G&O / chair requests', 'Back-to-back']
+    const rows = reviewSheetRows({ kind: 'full-time', faculty: list }).map((r) => r.map((c): CellValue => (c !== null && typeof c === 'object' ? c.v : c)))
+    const keep = rows[0]!.map((h, i) => (dropped.includes(String(h)) ? -1 : i)).filter((i) => i >= 0)
+    const old = rows.map((r) => keep.map((i) => r[i] ?? null))
+    const back = readPrefs(XlsxBook.read(buildXlsx([{ name: FT_SHEET, rows: old }])), 'full-time', 2026)!.faculty
+    expect(back.map((p) => [p.name, p.newFaculty, p.backToBack])).toEqual([
+      ['F3', false, 'prefer'],
+      ['F9', true, null],
+    ])
+    // Once the column is there, it is what counts: an empty cell means no.
+    const now = readPrefs(XlsxBook.read(buildXlsx([{ name: FT_SHEET, rows: rows.map((r, i) => (i === 0 ? r : r.map((c, j) => (dropped.includes(String(rows[0]![j])) ? null : c)))) }])), 'full-time', 2026)!.faculty
+    expect(now.map((p) => [p.name, p.newFaculty, p.backToBack])).toEqual([
+      ['F3', false, null],
+      ['F9', false, null],
+    ])
   })
 
   it('names the kind of preferences a workbook holds', () => {

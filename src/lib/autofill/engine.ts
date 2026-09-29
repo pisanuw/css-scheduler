@@ -16,6 +16,13 @@
  *    prefer not to teach before 1:15") costs something and is named when it
  *    is paid.
  *
+ * Department rules ("no T/Th 1:15 PM for full-time faculty") are hard
+ * constraints like the rest. Within the preferences, a section of each G&O or
+ * chair request ranks just under a pinned course, a new faculty member's
+ * wishes count half as much again as a colleague's, and back-to-back classes
+ * are sought or avoided for whoever said which — none of which ever costs
+ * anyone load.
+ *
  * It starts greedily — whoever stands to lose most by waiting chooses first —
  * then improves by moves a person would make with the sheet open: trade a
  * section for a free one they like better, pass a section to someone short of
@@ -27,11 +34,13 @@
 import type { GlanceSection } from './glance'
 import { meetingsClash } from './glance'
 import type { CourseWish, FacultyKind, FacultyPrefs, YearQuarter } from './prefs'
-import { QUARTER_SHORT, YEAR_QUARTERS, breaks, clockLabel, daysLabel, describeRule } from './text'
+import { QUARTER_SHORT, YEAR_QUARTERS, breaks, clockLabel, daysLabel, describeRule, type TimeRule } from './text'
 
 export interface EngineOptions {
   /** After the full-time pass, offer what is left to part-time instructors within their caps. */
   placePartTime: boolean
+  /** Department rules, by who they bind: "no 1:15 PM-3:15 PM on T/Th" for full-time faculty. */
+  rules?: Partial<Record<FacultyKind, TimeRule[]>>
 }
 
 /** Why a person fits a section, per unit of load. */
@@ -67,6 +76,8 @@ export interface FacultyResult {
   notOffered: string[]
   /** Why the gap is there, when there is one. */
   shortBecause: string[]
+  /** G&O or chair requests they did not get, each with why. */
+  requestsMissed: string[]
 }
 
 export interface Candidate {
@@ -101,6 +112,19 @@ const REPEAT_NAMED = 60
 const RESERVED = 45
 /** Holding each course the coordinator pinned at least once: "3: 502, 584, 343" means one of each, not 343 twice. */
 const PINNED_ONCE = 150
+/**
+ * A G&O or chair request means one section of the course, not as many as fit: holding the first is
+ * worth what a pinned course is, and any more are worth what they would be anyway — for a course
+ * they did not list, what an also-OK course is.
+ */
+const REQUESTED_ONCE = 150
+const REQUESTED = 45
+/** Each pair of classes back to back on a day, for someone who asked for that — or asked not to. */
+const BACK_TO_BACK = 30
+/** Back to back is at most this far apart: the campus blocks are 15 minutes apart. */
+const BACK_TO_BACK_GAP = 30
+/** How much more a new faculty member's wishes count than a colleague's. Load is weighed the same for everyone. */
+const NEW_FACULTY = 1.5
 const EPS = 1e-6
 
 function keyOf(s: GlanceSection): string {
@@ -111,8 +135,19 @@ function isSkillsLab(s: GlanceSection): boolean {
   return s.keys.some((k) => k.startsWith('SKL'))
 }
 
-/** How well a section suits a person, or why it cannot be theirs at all. */
-export function fitFor(p: FacultyPrefs, s: GlanceSection): Fit | string {
+/** The first hard rule — the department's, or their own — that a section breaks for this person. */
+function hardRuleBroken(p: FacultyPrefs, s: GlanceSection, department: TimeRule[]): string | null {
+  const q = s.quarter as YearQuarter
+  for (const rule of department) if (rule.strength === 'hard' && breaks(rule, s.meeting, q)) return `department rule: ${describeRule(rule)}`
+  for (const rule of p.rules) if (rule.strength === 'hard' && breaks(rule, s.meeting, q)) return `said: ${describeRule(rule)}`
+  return null
+}
+
+/**
+ * How well a section suits a person, or why it cannot be theirs at all.
+ * `department` is the department's rules for their kind of appointment.
+ */
+export function fitFor(p: FacultyPrefs, s: GlanceSection, department: TimeRule[] = []): Fit | string {
   const q = s.quarter as YearQuarter
   if ((p.quarterMax[q] ?? 0) <= 0) return `not teaching in ${QUARTER_SHORT[q]}`
   if (p.noGraduate && s.graduate) return 'asked for no graduate courses'
@@ -121,6 +156,7 @@ export function fitFor(p: FacultyPrefs, s: GlanceSection): Fit | string {
   let avoided = false
   for (const key of s.keys) {
     const pinned = p.pinned.indexOf(key)
+    const requested = p.requests.includes(key)
     const d = p.desired.findIndex((w) => w.key === key)
     const o = p.ok.findIndex((w) => w.key === key)
     const wish = d >= 0 ? p.desired[d]! : o >= 0 ? p.ok[o]! : null
@@ -136,16 +172,20 @@ export function fitFor(p: FacultyPrefs, s: GlanceSection): Fit | string {
     } else if (o >= 0) {
       score = 45
       reasons.push('on their also-OK list')
+    } else if (requested) {
+      score = REQUESTED
     } else {
       if (p.avoid.includes(key)) avoided = true
       continue
     }
+    if (requested) reasons.unshift('a G&O or chair request')
     if (p.avoid.includes(key)) {
-      if (wish?.quarters.length && !wish.quarters.includes(q)) {
+      // A request is the coordinator's call, so it stands; the conflict is shown.
+      if (!requested && wish?.quarters.length && !wish.quarters.includes(q)) {
         avoided = true
         continue
       }
-      if (!wish?.quarters.length) caveats.push('also on their prefer-not list')
+      if (requested || !wish?.quarters.length) caveats.push('also on their prefer-not list')
     }
     if (wish?.quarters.length) {
       if (wish.quarters.includes(q)) {
@@ -179,11 +219,12 @@ export function fitFor(p: FacultyPrefs, s: GlanceSection): Fit | string {
   }
   if (!best) return avoided ? 'on their prefer-not list' : 'not a course they listed'
 
-  for (const rule of p.rules) {
+  const broken = hardRuleBroken(p, s, department)
+  if (broken) return broken
+  for (const [rule, whose] of [...department.map((r) => [r, 'department rule:'] as const), ...p.rules.map((r) => [r, 'they said'] as const)]) {
     if (!breaks(rule, s.meeting, q)) continue
-    if (rule.strength === 'hard') return `said: ${describeRule(rule)}`
     best.score -= rule.strength === 'strong' ? 60 : 15
-    best.caveats.push(`they said ${describeRule(rule)}`)
+    best.caveats.push(`${whose} ${describeRule(rule)}`)
   }
   if (s.reserved) {
     best.score -= RESERVED
@@ -235,6 +276,21 @@ function units(open: GlanceSection[]): Unit[] {
   return [...out.values()].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
 }
 
+/**
+ * How well a unit suits a person: its head decides the fit, and every part of
+ * it has to be allowed — a lecture at 11 whose lab falls in the T/Th 1:15
+ * block is not a full-time faculty member's to teach.
+ */
+function fitForUnit(p: FacultyPrefs, u: Unit, department: TimeRule[]): Fit | string {
+  const fit = fitFor(p, u.head, department)
+  if (typeof fit === 'string') return fit
+  for (const s of u.sections) {
+    const broken = s === u.head ? null : hardRuleBroken(p, s, department)
+    if (broken) return `${s.label}: ${broken}`
+  }
+  return fit
+}
+
 interface Person {
   prefs: FacultyPrefs
   fits: Map<string, Fit>
@@ -245,6 +301,10 @@ interface Person {
   held: Unit[]
   /** The load they should end at: a full-time load, or a part-time ask. */
   goal: number
+  /** How much their wishes count against a colleague's: more for someone new. */
+  weight: number
+  /** The department's rules for their kind of appointment. */
+  department: TimeRule[]
 }
 
 function sectionsOf(person: Person, held: Unit[] = person.held): GlanceSection[] {
@@ -287,20 +347,44 @@ function blocker(person: Person, held: Unit[], u: Unit): string | null {
   return null
 }
 
-/** The value of a person holding `held`. Load dominates; preferences order what is left. */
+/**
+ * Pairs of classes back to back on a day: in one quarter, sharing a day, the
+ * second starting within half an hour of the first ending.
+ */
+function backToBackPairs(list: GlanceSection[]): [GlanceSection, GlanceSection][] {
+  const timed = list.filter((s) => s.meeting)
+  const pairs: [GlanceSection, GlanceSection][] = []
+  for (let i = 0; i < timed.length; i++) {
+    for (let j = i + 1; j < timed.length; j++) {
+      const a = timed[i]!
+      const b = timed[j]!
+      if (a.quarter !== b.quarter || !a.meeting!.days.some((d) => b.meeting!.days.includes(d))) continue
+      const gap = Math.max(b.meeting!.start - a.meeting!.end, a.meeting!.start - b.meeting!.end)
+      if (gap >= 0 && gap <= BACK_TO_BACK_GAP) pairs.push([a, b])
+    }
+  }
+  return pairs
+}
+
+/**
+ * The value of a person holding `held`. Load dominates, and is weighed the
+ * same for everyone; preferences order what is left, and count for more for
+ * someone new.
+ */
 function value(person: Person, held: Unit[]): number {
   const p = person.prefs
   const all = sectionsOf(person, held)
   const load = loadOf(all)
-  let v = 0
-  for (const u of held) v += u.load * (W_LOAD + (person.fits.get(u.id)?.score ?? 0))
-  for (const s of person.fixed) v += s.load * W_LOAD
   const deficit = Math.max(0, person.goal - load)
-  v -= DEFICIT * deficit * deficit
+  const forLoad = W_LOAD * load - DEFICIT * deficit * deficit
 
+  let v = 0
+  for (const u of held) v += u.load * (person.fits.get(u.id)?.score ?? 0)
   const heads = [...person.fixed, ...held.map((u) => u.head)]
   v -= PREP * Math.max(0, new Set(heads.map(keyOf)).size - 1)
   for (const key of p.pinned) if (heads.some((h) => h.keys.includes(key))) v += PINNED_ONCE
+  for (const key of p.requests) if (heads.some((h) => h.keys.includes(key))) v += REQUESTED_ONCE
+  if (p.backToBack) v += (p.backToBack === 'prefer' ? BACK_TO_BACK : -BACK_TO_BACK) * backToBackPairs(all).length
 
   const available = YEAR_QUARTERS.filter((q) => p.quarterMax[q as YearQuarter] > 0).length || 1
   const even = Math.ceil(person.goal / available - EPS)
@@ -323,7 +407,7 @@ function value(person: Person, held: Unit[]): number {
       v -= (step * extra * (extra + 1)) / 2
     }
   }
-  return v
+  return forLoad + person.weight * v
 }
 
 interface State {
@@ -385,16 +469,23 @@ function repack(state: State, person: Person, allowReserved: boolean, nodeLimit 
   let best: { set: Unit[]; v: number } = { set: person.held, v: base }
   const chosen: Unit[] = []
   const start = loadOf(person.fixed)
+  const p = person.prefs
+  const smallest = Math.max(0.25, Math.min(...pool.map((u) => u.load)))
   let nodes = 0
   const dfs = (i: number, load: number): void => {
     if (++nodes > nodeLimit) return
     const now = value(person, chosen)
     if (now > best.v + EPS) best = { set: [...chosen], v: now }
     if (i >= pool.length || load >= person.goal - EPS) return
-    // Nothing below can beat the best: fill the room with the best score left, and no penalty.
+    // Nothing below can beat the best: fill the room with the best score left, and no penalty —
+    // plus every request still missing, and a back-to-back pair on each side of every class that could be added.
     const room = person.goal - load
     const top = person.fits.get(pool[i]!.id)?.score ?? 0
-    if (now + DEFICIT * room * room + room * (W_LOAD + top) <= best.v + EPS) return
+    const have = new Set([...person.fixed, ...chosen.map((u) => u.head)].flatMap((h) => h.keys))
+    const bonus =
+      REQUESTED_ONCE * p.requests.filter((k) => !have.has(k)).length +
+      (p.backToBack === 'prefer' ? 4 * BACK_TO_BACK * Math.ceil(room / smallest - EPS) : 0)
+    if (now + DEFICIT * room * room + room * W_LOAD + person.weight * (room * top + bonus) <= best.v + EPS) return
     const u = pool[i]!
     if (!blocker(person, chosen, u)) {
       chosen.push(u)
@@ -538,18 +629,18 @@ function sameName(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase()
 }
 
-function people(list: FacultyPrefs[], sections: GlanceSection[], pieces: Unit[]): Person[] {
+function people(list: FacultyPrefs[], sections: GlanceSection[], pieces: Unit[], department: TimeRule[]): Person[] {
   return list.map((prefs) => {
     const fits = new Map<string, Fit>()
     for (const u of pieces) {
-      const f = fitFor(prefs, u.head)
+      const f = fitForUnit(prefs, u, department)
       if (typeof f !== 'string') fits.set(u.id, f)
     }
     const options = pieces.filter((u) => fits.has(u.id)).sort((a, b) => fits.get(b.id)!.score - fits.get(a.id)!.score || a.id.localeCompare(b.id))
     const fixed = sections.filter((s) => s.fixed && sameName(s.fixed, prefs.name))
     const asked = YEAR_QUARTERS.reduce((a, q) => a + prefs.quarterMax[q as YearQuarter], 0)
     const goal = prefs.kind === 'full-time' ? (prefs.target ?? 0) : Math.min(asked, prefs.yearMax ?? Infinity)
-    return { prefs, fits, options, fixed, held: [], goal }
+    return { prefs, fits, options, fixed, held: [], goal, weight: prefs.newFaculty ? NEW_FACULTY : 1, department }
   })
 }
 
@@ -580,12 +671,12 @@ export function autofill(
   const open = sections.filter((s) => !s.fixed && !s.external)
   const pieces = units(open)
 
-  const ftPeople = people([...fullTime].sort(byName), sections, pieces)
+  const ftPeople = people([...fullTime].sort(byName), sections, pieces, options.rules?.['full-time'] ?? [])
   const state: State = { people: ftPeople, holder: new Map() }
   solve(state)
 
   const left = pieces.filter((u) => !state.holder.has(u.id))
-  const ptPeople = people([...partTime].sort(byName), sections, left)
+  const ptPeople = people([...partTime].sort(byName), sections, left, options.rules?.['part-time'] ?? [])
   if (options.placePartTime && ptPeople.length) {
     const ptState: State = { people: ptPeople, holder: new Map() }
     solve(ptState)
@@ -596,16 +687,22 @@ export function autofill(
   const rankOf = (other: Person, u: Unit): string => {
     const reason = other.fits.get(u.id)?.reasons[0] ?? ''
     const m = /#(\d+)/.exec(reason)
-    return m ? `#${m[1]}` : /coordinator/.test(reason) ? 'pinned' : 'also OK'
+    return m ? `#${m[1]}` : /coordinator/.test(reason) ? 'pinned' : /G&O/.test(reason) ? 'G&O/chair' : 'also OK'
   }
   for (const person of [...ftPeople, ...ptPeople]) {
     const peers = person.prefs.kind === 'full-time' ? ftPeople : ptPeople
+    const pairs = person.prefs.backToBack ? backToBackPairs(sectionsOf(person)) : []
     for (const u of person.held) {
       const fit = person.fits.get(u.id)!
       const alsoWanted = peers.filter((o) => o !== person && o.fits.has(u.id)).map((o) => `${o.prefs.name} (${rankOf(o, u)})`)
       for (const s of u.sections) {
-        const extra = s === u.head ? [] : [`goes with ${u.head.label}`]
-        placements.push({ section: s, faculty: person.prefs.name, kind: person.prefs.kind, reasons: [...extra, ...fit.reasons], caveats: fit.caveats, alsoWanted })
+        const reasons = [...(s === u.head ? [] : [`goes with ${u.head.label}`]), ...fit.reasons]
+        const caveats = [...fit.caveats]
+        const next = pairs.filter((pair) => pair.includes(s)).map(([a, b]) => (a === s ? b : a).label)
+        if (next.length && person.prefs.backToBack === 'prefer') reasons.push(`back to back with ${next.join(', ')}, as they asked`)
+        if (next.length && person.prefs.backToBack === 'avoid') caveats.push(`back to back with ${next.join(', ')}, which they asked not to be`)
+        if (person.prefs.newFaculty && alsoWanted.length) reasons.push('new faculty, so their wishes count for more')
+        placements.push({ section: s, faculty: person.prefs.name, kind: person.prefs.kind, reasons, caveats, alsoWanted })
       }
     }
   }
@@ -617,7 +714,7 @@ export function autofill(
     const all = sectionsOf(person)
     const load = loadOf(all)
     const byQuarter = { autumn: quarterLoad(all, 'autumn'), winter: quarterLoad(all, 'winter'), spring: quarterLoad(all, 'spring') }
-    const top = new Set([...p.pinned, ...p.desired.slice(0, 3).map((w) => w.key)])
+    const top = new Set([...p.pinned, ...p.requests, ...p.desired.slice(0, 3).map((w) => w.key)])
     const placed = person.held.flatMap((u) => u.sections)
     const placedLoad = loadOf(placed)
     const topShare = placedLoad > 0 ? loadOf(placed.filter((s) => s.keys.some((k) => top.has(k)))) / placedLoad : null
@@ -625,8 +722,28 @@ export function autofill(
     const notOffered = [...new Set(listed.filter((k) => !offered.has(k)))]
     const gap = Math.max(0, person.goal - load)
     const shortBecause: string[] = []
+    const holderNames = (list: Unit[]) => [...new Set(list.map((u) => state.holder.get(u.id)!.prefs.name))].join(', ')
+    const requestsMissed: string[] = []
+    for (const key of p.requests) {
+      if (all.some((s) => s.keys.includes(key))) continue
+      const its = pieces.filter((u) => u.head.keys.includes(key))
+      if (!offered.has(key)) requestsMissed.push(`${key}: not offered this year`)
+      else if (its.length === 0) requestsMissed.push(`${key}: every section already has a name in the sheet`)
+      else {
+        const ruledOut = its.filter((u) => !person.fits.has(u.id))
+        const taken = its.filter((u) => person.fits.has(u.id) && state.holder.has(u.id))
+        const stillFree = its.length - ruledOut.length - taken.length
+        const why = [
+          ...(ruledOut.length ? [`${ruledOut.length} ruled out (${[...new Set(ruledOut.map((u) => fitForUnit(p, u, person.department)).filter((f) => typeof f === 'string'))].join('; ')})`] : []),
+          ...(taken.length ? [`${taken.length} went to ${holderNames(taken)}`] : []),
+          ...(stillFree > 0 ? [`${stillFree} still open but would clash, overfill a quarter or go over their load`] : []),
+        ]
+        requestsMissed.push(`${key}: ${why.join('; ')}`)
+      }
+    }
     if (p.kind === 'full-time' && gap > EPS) {
-      const theirs = pieces.filter((u) => u.head.keys.some((k) => listed.includes(k)))
+      const wanted = [...listed, ...p.requests]
+      const theirs = pieces.filter((u) => u.head.keys.some((k) => wanted.includes(k)))
       const mine = theirs.filter((u) => state.holder.get(u.id) === person)
       const ruledOut = theirs.filter((u) => !person.fits.has(u.id))
       const holders = [...new Set(theirs.map((u) => state.holder.get(u.id)).filter((h): h is Person => !!h && h !== person).map((h) => h.prefs.name))]
@@ -641,7 +758,12 @@ export function autofill(
           ? `the courses they listed have ${n(theirs.length, 'section')} this year, and all are theirs`
           : `the courses they listed have ${n(theirs.length, 'section')} this year; ${mine.length} are theirs`,
       )
-      if (ruledOut.length) shortBecause.push(`${ruledOut.length} ruled out by what they said (a time, a quarter off, or a course they would rather not)`)
+      const byDepartment = ruledOut.filter((u) => {
+        const why = fitForUnit(p, u, person.department)
+        return typeof why === 'string' && why.includes('department rule')
+      }).length
+      if (ruledOut.length > byDepartment) shortBecause.push(`${ruledOut.length - byDepartment} ruled out by what they said (a time, a quarter off, or a course they would rather not)`)
+      if (byDepartment) shortBecause.push(`${byDepartment} ruled out by the department rules`)
       if (taken.length) shortBecause.push(`${taken.length} went to ${holders.join(', ')}`)
       if (stillFree.length) shortBecause.push(`${stillFree.length} still open but would clash or overfill a quarter`)
       if (notOffered.length) shortBecause.push(`not offered this year: ${notOffered.join(', ')}`)
@@ -656,6 +778,7 @@ export function autofill(
       topShare,
       notOffered,
       shortBecause,
+      requestsMissed,
     }
   })
 
@@ -665,9 +788,9 @@ export function autofill(
       u.sections.map((s) => {
         const explain = (person: Person): Candidate | null => {
           const p = person.prefs
-          const listed = s.keys.some((k) => p.pinned.includes(k) || p.desired.some((w) => w.key === k) || p.ok.some((w) => w.key === k))
+          const listed = s.keys.some((k) => p.pinned.includes(k) || p.requests.includes(k) || p.desired.some((w) => w.key === k) || p.ok.some((w) => w.key === k))
           if (!listed) return null
-          const f = fitFor(p, u.head)
+          const f = fitForUnit(p, u, person.department)
           if (typeof f === 'string') return { name: p.name, kind: p.kind, note: f }
           const why = blocker(person, person.held, u)
           return { name: p.name, kind: p.kind, note: why ?? 'could take it' }
