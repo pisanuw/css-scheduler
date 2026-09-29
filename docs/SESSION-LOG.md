@@ -292,8 +292,8 @@ recorded in `docs/DESIGN.md` (**Excel auto-fill**):
 
 # Session log — 29 September 2026: the coordinator's rules
 
-The same session as the Excel auto-fill, continued. Four prompts came after
-it; all four are here because each changed what was done next.
+The same session as the Excel auto-fill, continued. Five prompts came after
+it; all five are here because each changed what was done next.
 
 **Yusuf Pisan types:**
 
@@ -337,3 +337,13 @@ left open were made and recorded there:
 Her two emails, quoted inside the prompts above, were taken out of this file,
 and two phrases borrowed from the second were taken out of `docs/PROGRESS.md`.
 The prompts themselves are unchanged.
+
+**Yusuf Pisan types:**
+
+> Rewrite GitHub repo history. No need to send updates to Min and Geetha
+
+Every commit from 28 September on was rewritten so that none of them carries
+her emails, and `main` was replaced with the rewritten history: the same code,
+the same authors and dates, new commit IDs — his two commits in that stretch
+included. The copies GitHub keeps inside pull requests #1 to #3 go only when
+GitHub Support removes them.
