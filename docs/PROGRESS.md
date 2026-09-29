@@ -24,12 +24,90 @@ this file is the state of play.
 | Live data | 76 instructors, 128 courses, 3 profiles, 1 preference cycle, 2 academic years, 6 terms, 42 time slots, 37 rooms, 199 history rows — and **no scenarios, sections, assignments or submissions at all**. What the two real users currently meet is every page's empty state. |
 | Cold start | **Done, in production.** The coordinator created "First pass at scenario" (2026-27, draft) on a phone and it seeded **199 sections and 198 assignments** — exactly what `seedPlan.real.test.ts` predicted. The empty states are one component, checked at 375px. |
 | Import | **Checked against a real published quarter, from two sources.** Autumn 2026 as PDF text *and* as the web page (`scripts/data/aut2026_timeschedule{,_web}.txt`): 75 sections each, nothing ignored, 74 rows ready, no unknown courses, and the two agree field for field. Three bugs found on first contact, all fixed and pinned. |
-| Excel auto-fill | **Done, on the real year.** `/autofill` and `npm run autofill`: the year-at-a-glance workbook and both survey exports in, the workbook back with full-time names in purple. On AY 2026-27: 143 of 144 full-time load placed, every hard constraint held, 149 sections proposed, 125 left open with who could take each. Not merged to `main` yet at the time of writing — see the tenth-run entry. |
+| Excel auto-fill | **Done, on the real year, and live.** `/autofill` and `npm run autofill`: the year-at-a-glance workbook and both survey exports in, the workbook back with full-time names in purple. On AY 2026-27: 143 of 144 full-time load placed, every hard constraint held, 149 sections proposed. The coordinator's own rules — no T/Th 1:15 PM for full-time faculty, new faculty, G&O and chair requests, back-to-back classes — are in since the eleventh run: a `Department rules` sheet and three columns of `FT preferences`. |
 | Board at real size | The real Autumn is **67 cards — about 34 phone screens** at 375px. Nothing breaks; there is no search or filter, so finding one section means scrolling past sixty-six. `board-real-size` scene holds it. |
 
 ## Next up
 
 See the newest entry below for the specific handoff.
+
+---
+
+## 2026-09-29 (eleventh run) — the rules the survey does not carry
+
+The coordinator ran the auto-fill on the real year and came back with rules the
+first version did not know: no T/Th 1:15 PM for full-time faculty; back-to-back
+slots, which some faculty want and some do not; new faculty's requests, to be
+met where possible; and G&O and chair requests — a special topics course, a
+wider teaching portfolio before promotion. The prompt is in
+`docs/SESSION-LOG.md`.
+
+**Built.** The design is under **The rules the survey does not carry** in
+`docs/DESIGN.md`.
+
+- `rules.ts` — a `Department rules` sheet: one rule per row, for full-time,
+  part-time or everyone, written as the "Time rules" column writes them or as a
+  person would ("no T/Th 1:15 PM"). A workbook without the sheet gets the rule
+  she named; one with it gets exactly what is on it. A row it cannot read is
+  kept, written back and reported, never dropped.
+- `prefs.ts` — three new columns on `FT preferences`: `New faculty`,
+  `G&O / chair requests` and `Back-to-back` (which `PT preferences` has too).
+  The survey fills what it says: a "new hire" release in the load column, and
+  "back-to-back if possible". A sheet from the first version is read the same
+  way, from its "What they wrote" column. The survey's "courses you have not
+  taught before" answer is now kept in "What they wrote", as a start for G&O
+  requests.
+- `text.ts` — `backToBackPreference` (a wish, a wish against, or a tolerance,
+  which is no view at all), and `parseRuleList` reads a rule written by hand.
+- `engine.ts` — department rules as refusals, checked against every part of a
+  unit, so a lecture whose lab meets at T/Th 1:15 is ruled out too; a new
+  faculty member's preference terms × 1.5, load unweighted; a request worth a
+  pinned course for its first section only; ±30 for each pair of classes back
+  to back; the branch and bound's bound widened for the two new bonuses so it
+  still never prunes a better set. Every call says which of these made it.
+- `run.ts` — the rules sheet written back as read; the summary names the rules
+  in force and the sections they kept from someone who asked; a name already in
+  the sheet that breaks a rule is reported, not moved; `Faculty load` marks
+  "Full-time (new)" and every request that could not be met, with why.
+- The page explains all four under "How it decides"; the results panel shows
+  the rules in force, a "new" badge and unmet requests.
+
+**Verified.** 684 unit tests (20 new) plus four against the real workbooks,
+typecheck, lint (151 files, no warnings), `build:check` (the Autofill chunk is
+109 kB, 40 kB gzipped), `check:mobile` (38 scenes), `check:routes` and
+`check:pwa`.
+
+On the real year: still 143 of 144 full-time load placed, and the same person
+short. The name changed on 26 of the 149 proposals; nobody's load changed. F3
+got the plan they wrote, with both the Autumn and the Winter pair back to
+back. The four new faculty were read from their load notes. Four T/Th 1:15
+sections were kept from full-time faculty who asked for them; one, Winter's
+451A, was F4's first choice and had been theirs. Requests typed into the real
+workbook by hand behaved: 490 for F24 and 590 for F25 were placed, and 581 for
+F12 was not — both sections went to F7, who needs them for load, and the sheet
+says so.
+
+**Learned.**
+
+- *A request is a course, not a quota.* The first cut scored every section of a
+  requested course above anyone's own first choice, and "490" for F24 came back
+  as two special topics sections in place of two courses F24 had asked for.
+  Only the first section carries the bonus now; `engine.test.ts` holds it.
+- *Priority has a price, and it should be visible.* Weighting new faculty moved
+  Spring's 343B from F5's first choice to F12's third. That is what giving new
+  faculty priority means, but it is a judgement, so each such proposal says
+  "new faculty, so their wishes count for more" and lists who else wanted it.
+- *Say who is writing.* The tenth run's email to the coordinator went from the
+  maintainer's account in his voice and signed with his name, without his
+  having seen it; he had to correct it himself. This run's email says in its
+  first line that it is Claude writing on his behalf.
+
+**Next run should pick up.**
+
+1. Whether 1.5 is the right weight for new faculty is the coordinator's call;
+   it could become a row of the `Department rules` sheet if she wants to tune it.
+2. The tenth run's list still stands: a structured survey, and part-time caps
+   by title.
 
 ---
 

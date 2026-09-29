@@ -21,7 +21,10 @@ year-at-a-glance workbook and the two preference-survey exports and gives the
 workbook back with full-time faculty proposed for every section they fit —
 following their ranked courses, the quarters and times they named and the load
 in the coordinator's own "# of courses" column, never against a hard
-constraint — each name shaded purple, as the sheet's legend has it, until it is
+constraint or a department rule (full-time faculty do not teach T/Th 1:15 PM),
+with a section of each G&O or chair request placed first, a new faculty
+member's wishes counting for more, and back-to-back classes for those who want
+them — each name shaded purple, as the sheet's legend has it, until it is
 confirmed. Sheets added alongside explain every proposal, list what is left
 open and who could take it, and hold the preferences as read, for correcting
 and running again. It all happens in the browser; nothing is uploaded. See
@@ -64,6 +67,14 @@ the part-time one), and tap **Fill the schedule**, then **Download the filled
 workbook**. To correct something, edit the `FT preferences` sheet in the
 downloaded workbook, clear the purple shading from names you accept, and give
 that workbook back as the schedule — the full-time file is then optional.
+
+Three columns of that sheet are for what the survey does not ask: **New
+faculty** (`yes`; a "new hire" load note fills it in), **G&O / chair requests**
+(courses, such as `490` for special topics — one section of each is placed
+ahead of anyone's own first choice) and **Back-to-back** (`prefer` or `avoid`;
+read from the survey when someone mentions it). Rules for everyone live on the
+`Department rules` sheet, one per row — `Full-time | no T/Th 1:15 PM` to start
+with. Delete a row to turn a rule off, add one to add a rule.
 
 From a terminal, with the same code:
 
@@ -108,11 +119,11 @@ npm test          # the pure engines: conflicts, snapshot, ranking, seeding,
                   # recovery, the service worker's rules and the Supabase
                   # clients this build leaves out, the offline rules, the
                   # keyboard shortcuts, the database row checks and the Excel
-                  # auto-fill (664 tests, and 3 more against the real
+                  # auto-fill (684 tests, and 4 more against the real
                   # workbooks when they are on the machine)
 npm run typecheck
 npm run lint         # ESLint: hook dependency lists, unhandled promises,
-                     # dead code, stray `any` — 149 files, no warnings allowed
+                     # dead code, stray `any` — 151 files, no warnings allowed
 npm run build        # needs the two Supabase values in the environment
 npm run build:check  # the same build with placeholders, for when you only
                      # want to know that it builds
@@ -121,7 +132,7 @@ npm run build:check  # the same build with placeholders, for when you only
 `npm run lint` is deliberately small, and it is not a formatter: no rule in
 `eslint.config.js` reflows a line, so lint and the build can never disagree
 about a file. Formatting is Prettier's argument and not worth having twice.
-`tsc` has the types, the four browser checks have the behaviour, and 664 unit
+`tsc` has the types, the four browser checks have the behaviour, and 684 unit
 tests have the rules; what those leave is the class of mistake that type-checks
 and runs and is still wrong.
 

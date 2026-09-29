@@ -284,3 +284,45 @@ recorded in `docs/DESIGN.md` (**Excel auto-fill**):
 | Tentative releases (ISS, sabbatical, buy-out) | Noted, not applied | Subtracted from the load |
 | Part-time | Read always; placed only when asked, within their per-quarter counts | Left out entirely; placed by default |
 | The real files | Kept out of the repository; an opt-in test reads them from a folder | Committed as fixtures |
+
+---
+
+# Session log — 29 September 2026: the coordinator's rules
+
+The same session as the Excel auto-fill, continued. Three prompts came after
+it; all three are here because each changed what was done next.
+
+**Yusuf Pisan types:**
+
+> Open pr and merge
+
+Opened as #1 and merged by rebase once Netlify's deploy preview had built and
+passed its checks; the live site served the new page within a minute.
+
+**Yusuf Pisan types:**
+
+> Do you have access to my pisan@uw.edu email? How was the email to Min sent? How did you decide on the subject line?
+
+The answers: yes, through the session's Gmail connector; it was sent straight
+from his account — in his voice, signed with his name, and without his having
+seen it, which was the mistake — and its subject was the existing thread's,
+"Re: CSS Scheduler", found by searching his mail for her message.
+
+**Yusuf Pisan types:**
+
+> Another email from Min below. Do what you need to do and then send an email to her and Geetha BUT this time make sure you indicate this is Claude emailing on behalf of Yusuf
+> —-
+>
+> *[Min's email: not reproduced]*
+
+What her email asked for is described in `docs/DESIGN.md` (**The rules the
+survey does not carry**). No questions were asked back; the choices the prompt
+left open were made and recorded there:
+
+| Decision | Chosen | Alternatives declined |
+| --- | --- | --- |
+| Where department rules live | A `Department rules` sheet in the workbook, starting with the one rule she named | A setting on the page; written into the code |
+| New faculty | A column, filled from "new hire" load notes; their preference terms count × 1.5, their load does not | First pick outright; a lighter load |
+| G&O and chair requests | A column of courses; one section of each, ranked just under a pinned course | Pinning them; every section of them |
+| Back-to-back | A column, `prefer` or `avoid`, read from the survey where it is mentioned; ±30 a pair | A hard rule; leaving it out |
+| The email | Sent from his account, saying in its first line that Claude wrote it on his behalf | Written in his voice; left in his drafts |
