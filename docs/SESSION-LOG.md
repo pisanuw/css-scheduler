@@ -5,9 +5,10 @@ together with every question asked back and the answer given. Kept so the
 reasoning behind the schema and the architecture is recoverable later, when
 "why is the baseline 8?" is no longer obvious.
 
-Prompts are reproduced as written. Options that were offered but not chosen are
-listed too — what was rejected is often the more useful half of a decision
-record.
+Prompts are reproduced as written, except for anyone else's email pasted into
+one, which is left out: the repository is public and the email is theirs.
+Options that were offered but not chosen are listed too — what was rejected is
+often the more useful half of a decision record.
 
 ---
 
@@ -260,7 +261,9 @@ existed to read. A trigger on `auth.users` now records it.
 
 The prompt that drove the tenth run, verbatim. It arrived with three
 attachments — the AY 2026-27 year-at-a-glance workbook and the full-time and
-part-time preference survey exports — which are not in the repository.
+part-time preference survey exports — which are not in the repository, and it
+carried the coordinator's email, which is not here either. What the email
+asked for is described in `docs/DESIGN.md` (**Excel auto-fill**).
 
 **Yusuf Pisan types:**
 
@@ -289,8 +292,8 @@ recorded in `docs/DESIGN.md` (**Excel auto-fill**):
 
 # Session log — 29 September 2026: the coordinator's rules
 
-The same session as the Excel auto-fill, continued. Three prompts came after
-it; all three are here because each changed what was done next.
+The same session as the Excel auto-fill, continued. Four prompts came after
+it; all four are here because each changed what was done next.
 
 **Yusuf Pisan types:**
 
@@ -326,3 +329,11 @@ left open were made and recorded there:
 | G&O and chair requests | A column of courses; one section of each, ranked just under a pinned course | Pinning them; every section of them |
 | Back-to-back | A column, `prefer` or `avoid`, read from the survey where it is mentioned; ±30 a pair | A hard rule; leaving it out |
 | The email | Sent from his account, saying in its first line that Claude wrote it on his behalf | Written in his voice; left in his drafts |
+
+**Yusuf Pisan types:**
+
+> Remove Min’s emails from the github repo. The repo is public, her emails to me should not be. My prompts can stay public
+
+Her two emails, quoted inside the prompts above, were taken out of this file,
+and two phrases borrowed from the second were taken out of `docs/PROGRESS.md`.
+The prompts themselves are unchanged.
