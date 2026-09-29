@@ -18,6 +18,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { runAutofill } from './run'
 import { meetingsClash } from './glance'
+import { rulesFor } from './rules'
 import { breaks } from './text'
 
 const dir = process.env.AUTOFILL_REAL_DIR
@@ -50,7 +51,7 @@ describe.skipIf(!dir)('the AY 2026-27 workbooks', () => {
       expect(f.load).toBeLessThanOrEqual(f.prefs.target! + 1e-9)
       for (let i = 0; i < f.placed.length; i++) {
         const s = f.placed[i]!
-        for (const rule of f.prefs.rules) if (rule.strength === 'hard') expect(breaks(rule, s.meeting, s.quarter)).toBe(false)
+        for (const rule of [...f.prefs.rules, ...rulesFor('full-time', r.rules.rows)]) if (rule.strength === 'hard') expect(breaks(rule, s.meeting, s.quarter)).toBe(false)
         for (const t of f.placed.slice(i + 1)) {
           // A skills lab that meets with its own lecture (123A with SKL123A) is one class, not a clash.
           const together = (s.lab || t.lab) && s.keys.some((k) => t.keys.some((x) => x.replace(/^SKL/, '') === k.replace(/^SKL/, '')))
@@ -75,5 +76,21 @@ describe.skipIf(!dir)('the AY 2026-27 workbooks', () => {
     expect(plan('F2')).toEqual(['aut 360', 'aut 497', 'aut 506', 'spr 142', 'spr 360', 'spr 497', 'win 421', 'win 497', 'win 507'].sort())
     // Their requested timetable, with 143 standing in for 458, which is not offered.
     expect(plan('F22')).toEqual(['aut 112', 'aut 142', 'aut SKL123', 'spr 112', 'spr 142', 'spr SKL123', 'win 112', 'win 123', 'win 143', 'win SKL123'].sort())
+    // "Autumn 2 x 342 (back-to-back if possible), 1 x 343; Winter 2 x 343, 1 x 342".
+    expect(plan('F3').filter((x) => !x.startsWith('spr'))).toEqual(['aut 342', 'aut 342', 'aut 343', 'win 342', 'win 343', 'win 343'])
+  })
+
+  it('reads the new hires and the back-to-back wish, and keeps T/Th 1:15 free of full-time faculty', () => {
+    const r = run()
+    expect(r.rules.source).toBe('default')
+    expect(r.fullTime.faculty.filter((p) => p.newFaculty).map((p) => p.name)).toEqual(['F9', 'F12', 'F16', 'F21'])
+    expect(r.fullTime.faculty.filter((p) => p.backToBack).map((p) => [p.name, p.backToBack])).toEqual([['F3', 'prefer']])
+    const f3 = r.result.faculty.find((f) => f.prefs.name === 'F3')!
+    const [a, b] = f3.placed.filter((s) => s.quarter === 'autumn' && s.keys.includes('342')).sort((x, y) => x.meeting!.start - y.meeting!.start)
+    expect(b!.meeting!.start - a!.meeting!.end).toBe(15)
+    expect(b!.meeting!.days).toEqual(a!.meeting!.days)
+    // 451A meets T/Th at 1:15; it was F4's first choice, so it is left open and says why.
+    const open = r.result.open.find((o) => o.section.quarter === 'winter' && o.section.label === '451A')!
+    expect(open.fullTime.find((c) => c.name === 'F4')!.note).toBe('department rule: no 1:15 PM-3:15 PM on T/Th')
   })
 })

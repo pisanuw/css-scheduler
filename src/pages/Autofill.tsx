@@ -5,6 +5,7 @@ import { useToast } from '../components/Toast'
 import { XlsxBook } from '../lib/autofill/xlsx'
 import { readGlance } from '../lib/autofill/glance'
 import { FT_SHEET, detectPrefsKind, readPrefs, type FacultyKind } from '../lib/autofill/prefs'
+import { RULES_SHEET } from '../lib/autofill/rules'
 import { runAutofill, type AutofillRun } from '../lib/autofill/run'
 import { XLSX_MIME, downloadBytes } from '../lib/download'
 
@@ -40,12 +41,13 @@ function inspect(slot: Slot, name: string, bytes: Uint8Array): Picked {
       const g = readGlance(book)
       const toStaff = g.sections.filter((s) => !s.fixed && !s.external).length
       const hasPrefsSheet = book.hasSheet(FT_SHEET)
+      const carried = [hasPrefsSheet && 'the corrected preferences', book.hasSheet(RULES_SHEET) && 'the department rules'].filter(Boolean)
       return {
         name,
         bytes,
         hasPrefsSheet,
         problem: null,
-        note: `${toStaff} sections to staff in ${g.blocks.map((b) => b.label).join(', ')}${hasPrefsSheet ? ' — and the corrected preferences from an earlier run' : ''}.`,
+        note: `${toStaff} sections to staff in ${g.blocks.map((b) => b.label).join(', ')}${carried.length ? ` — and ${carried.join(' and ')} from an earlier run` : ''}.`,
       }
     }
     const want: FacultyKind = slot === 'fullTime' ? 'full-time' : 'part-time'
@@ -275,10 +277,12 @@ export default function Autofill() {
         <summary className="flex min-h-11 cursor-pointer items-center px-3 font-medium text-slate-900">How it decides</summary>
         <ul className="list-disc space-y-1 border-t border-slate-200 py-3 pl-8 pr-3 text-sm text-slate-700">
           <li>Nobody goes over their load, teaches two classes at once, or teaches in a quarter they are away or have maxed out.</li>
-          <li>Nothing breaks what someone ruled out: “cannot teach 8–10 pm”, “no graduate classes”, “the latest I can teach is 1:15”.</li>
-          <li>Within that: courses you pinned in the load column first, then their higher-ranked courses, in the quarter and at the time they named, with fewer preparations.</li>
+          <li>Nothing breaks a department rule — full-time faculty do not teach T/Th 1:15 PM — or what someone ruled out: “cannot teach 8–10 pm”, “no graduate classes”, “the latest I can teach is 1:15”. The department rules are a sheet in the workbook you can change.</li>
+          <li>Within that: courses you pinned in the load column first, then a section of each G&amp;O or chair request, then their higher-ranked courses, in the quarter and at the time they named, with fewer preparations.</li>
+          <li>Back-to-back classes for those who asked for them, and not for those who asked not to. A new faculty member’s wishes count half as much again as a colleague’s when both want the same section.</li>
           <li>When there is not enough to go round, the shortfall is shared rather than left with one person, and reserved sections are used last.</li>
           <li>Loads come from your “# of courses” column. A possible ISS release, sabbatical or buy-out is noted, not applied — change the load on the FT preferences sheet and run again once it is decided.</li>
+          <li>The survey does not ask who is new, what a G&amp;O plan or the chair asks for, or about back-to-back classes, so the FT preferences sheet has a column for each: fill them in and run again with that workbook. A “new hire” load note is read as new faculty.</li>
         </ul>
       </details>
     </section>

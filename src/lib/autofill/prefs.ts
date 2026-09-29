@@ -22,6 +22,7 @@ import {
   QUARTER_SHORT,
   YEAR_QUARTERS,
   availabilityRules,
+  backToBackPreference,
   clockLabel,
   courseKeys,
   courseMentions,
@@ -36,6 +37,7 @@ import {
   quarterMentions,
   sentences,
   timeMentions,
+  type BackToBack,
   type TimeRule,
 } from './text'
 
@@ -74,6 +76,12 @@ export interface FacultyPrefs {
   noGraduate: boolean
   rules: TimeRule[]
   sameDays: boolean
+  /** Classes back to back on a day: wanted, not wanted, or no view (null). */
+  backToBack: BackToBack | null
+  /** Recently hired: what they ask for counts for more when a colleague wants the same section. */
+  newFaculty: boolean
+  /** Courses a G&O plan or the chair asks them to teach — special topics, a course that widens their portfolio. */
+  requests: string[]
   /** What a reader should check, in sentences. */
   flags: string[]
   /** The answers, condensed, so the review sheet shows what was read from. */
@@ -275,6 +283,7 @@ const FT_COLUMNS: Record<string, RegExp> = {
   buyoutDetail: /research buy-?out releases/,
   leave: /release\(s\) for sabbatical|take a release\(s\) for sabbatical|sabbatical\/other leave\?/,
   leaveDetail: /quarter\(s\) in which you expect/,
+  notTaught: /courses you have not taught before/,
   comments: /additional comments/,
   timestamp: /^timestamp$/,
 }
@@ -371,9 +380,27 @@ function emptyPrefs(name: string, kind: FacultyKind): FacultyPrefs {
     noGraduate: false,
     rules: [],
     sameDays: false,
+    backToBack: null,
+    newFaculty: false,
+    requests: [],
     flags: [],
     wrote: '',
   }
+}
+
+/** "7 (1 new hire for 2 years ending in AY26-27)": a new-hire release is how the load column says someone is new. */
+const NEW_HIRE = /\bnew[\s-]hire\b|\bnew faculty\b|\b(?:i am|i'm|as a) new (?:faculty|hire|professor|colleague)\b|\bmy first year\b/i
+
+function newFacultyFrom(text: string): string | null {
+  const m = NEW_HIRE.exec(normalise(text))
+  return m ? m[0] : null
+}
+
+function backToBackFrom(p: FacultyPrefs, texts: string[]): void {
+  const found = backToBackPreference(texts.filter(Boolean).join('\n'))
+  if (!found) return
+  p.backToBack = found.pref
+  p.flags.push(`Back-to-back: read as “${found.pref}” from “${found.phrase}”.`)
 }
 
 /**
@@ -400,6 +427,11 @@ function fullTime(name: string, cell: (k: string) => string, raw: (k: string) =>
   }
   const note = [/\(([^)]*)\)?/.exec(loadText)?.[1], p.pinned.length ? '' : afterColon].filter(Boolean).join('; ')
   if (note.trim()) p.flags.push(`Load note: ${note.trim()} — the load is planned as ${p.target ?? 'given'}; adjust it if this changes.`)
+  const newHire = newFacultyFrom(loadText) ?? newFacultyFrom(cell('comments'))
+  if (newHire) {
+    p.newFaculty = true
+    p.flags.push(`New faculty (from “${newHire}”): what they ask for counts for more when a colleague wants the same section. Clear “New faculty” if that is wrong.`)
+  }
 
   p.desired = parseWishes(cell('desired'), autumnYear)
   p.ok = parseWishes(cell('ok'), autumnYear).filter((w) => !p.desired.some((d) => d.key === w.key))
@@ -448,6 +480,7 @@ function fullTime(name: string, cell: (k: string) => string, raw: (k: string) =>
   const prose = proseTimeRules([comments, avoidText].join('\n'), autumnYear)
   p.rules = prose.rules
   p.sameDays = /\bsame days?\b|\bconsolidat|\ball classes either\b/i.test(comments)
+  backToBackFrom(p, [cell('desired'), cell('ok'), avoidText, comments])
   for (const m of comments.matchAll(/\b(?:keep|leave)\s+my\s+(\w+)\s+(?:quarter\s+)?(?:free|open|off)\b/gi)) {
     const q = quarterMentions(m[1]!)[0]
     if (q && yearQuarter(q.quarter)) {
@@ -472,6 +505,8 @@ function fullTime(name: string, cell: (k: string) => string, raw: (k: string) =>
     ['Other', cell('ok')],
     ['Prefer not', avoidText],
     ['Comments', comments],
+    // Not for this year, but what a G&O plan or the chair might ask of them next.
+    ['Not taught before, would like to later', cell('notTaught')],
   ]
     .filter(([, v]) => v)
     .map(([k, v]) => `${k}: ${v}`)
@@ -490,6 +525,7 @@ function partTime(name: string, cell: (k: string) => string, raw: (k: string) =>
   if (p.desired.length === 0 && cell('courses')) p.flags.push(`No course numbers found in “${cell('courses')}”.`)
   p.rules = [...availabilityRules(cell('times'), autumnYear), ...proseTimeRules([cell('constraints'), cell('comments')].join('\n'), autumnYear).rules]
   p.sameDays = /\bsame days?\b/i.test(cell('comments'))
+  backToBackFrom(p, [cell('times'), cell('courses'), cell('constraints'), cell('comments')])
   if (/\bco-?teach/i.test([cell('times'), cell('comments')].join(' '))) p.flags.push('Wants to co-teach — see their answer.')
   p.wrote = [
     ['Courses per quarter', cell('counts') || String(raw('counts') ?? '')],
@@ -512,12 +548,15 @@ const FT_HEADERS = [
   'Aut max',
   'Win max',
   'Spr max',
+  'New faculty',
   'Pinned courses',
+  'G&O / chair requests',
   'Most desired, in order',
   'Also OK',
   'Prefer not',
   'Quarter and time wishes',
   'Time rules',
+  'Back-to-back',
   'Other',
   'Review notes',
   'What they wrote',
@@ -534,10 +573,20 @@ const PT_HEADERS = [
   'Prefer not',
   'Quarter and time wishes',
   'Time rules',
+  'Back-to-back',
   'Other',
   'Review notes',
   'What they wrote',
 ]
+
+/** The Back-to-back column: "prefer", "avoid", or empty for no view. */
+function readBackToBack(text: string): BackToBack | null | undefined {
+  const t = normalise(text).trim().toLowerCase()
+  if (!t) return null
+  if (/^(prefer\s+not|rather\s+not|no\b|not\b|avoid|don'?t|never|apart|spread)/.test(t)) return 'avoid'
+  if (/^(prefer|yes|want|like|together|ok\b|okay)/.test(t)) return 'prefer'
+  return undefined
+}
 
 function otherText(p: FacultyPrefs): string {
   return [p.sameDays && 'same days', p.noGraduate && 'no graduate courses'].filter(Boolean).join('; ')
@@ -565,12 +614,15 @@ export function reviewSheetRows(file: { kind: FacultyKind; faculty: FacultyPrefs
         p.quarterMax.autumn,
         p.quarterMax.winter,
         p.quarterMax.spring,
+        p.newFaculty ? 'yes' : '',
         p.pinned.join(', '),
+        p.requests.join(', '),
         { v: p.desired.map((w) => w.key).join(', '), wrap: true },
         { v: p.ok.map((w) => w.key).join(', '), wrap: true },
         p.avoid.join(', '),
         { v: wishNotes(p), wrap: true },
         { v: rules, wrap: true },
+        p.backToBack ?? '',
         otherText(p),
         notes,
         wrote,
@@ -587,6 +639,7 @@ export function reviewSheetRows(file: { kind: FacultyKind; faculty: FacultyPrefs
         p.avoid.join(', '),
         { v: wishNotes(p), wrap: true },
         { v: rules, wrap: true },
+        p.backToBack ?? '',
         otherText(p),
         notes,
         wrote,
@@ -597,8 +650,8 @@ export function reviewSheetRows(file: { kind: FacultyKind; faculty: FacultyPrefs
 }
 
 export const REVIEW_WIDTHS: Record<FacultyKind, number[]> = {
-  'full-time': [10, 7, 8, 8, 8, 14, 24, 18, 14, 36, 36, 14, 48, 70],
-  'part-time': [11, 8, 8, 8, 10, 9, 24, 12, 30, 40, 14, 40, 70],
+  'full-time': [10, 7, 8, 8, 8, 9, 14, 14, 24, 18, 14, 36, 36, 10, 14, 48, 70],
+  'part-time': [11, 8, 8, 8, 10, 9, 24, 12, 30, 40, 10, 14, 40, 70],
 }
 
 function readReviewSheet(sheet: Sheet, kind: FacultyKind): PrefsFile {
@@ -649,6 +702,22 @@ function readReviewSheet(sheet: Sheet, kind: FacultyKind): PrefsFile {
     const earlier = verbatim('Review notes').split('\n').map((x) => x.trim()).filter(Boolean)
     p.flags = [...earlier.filter((f) => !p.flags.includes(f)), ...p.flags]
     p.wrote = verbatim('What they wrote')
+
+    // Columns added after the first workbooks went out. A sheet written before them is read the
+    // way the survey would be, from what they wrote; after that, the column is what counts.
+    if (at['Back-to-back']) {
+      const b = readBackToBack(text('Back-to-back'))
+      if (b === undefined) p.flags.push(`Back-to-back “${text('Back-to-back')}” not understood, so ignored: write prefer or avoid.`)
+      p.backToBack = b ?? null
+    } else backToBackFrom(p, [p.wrote])
+    if (kind === 'full-time') {
+      p.requests = courseKeys(text('G&O / chair requests'))
+      if (at['New faculty']) p.newFaculty = /^(y|yes|x|true|new|1)\b|^✓/i.test(text('New faculty'))
+      else if (newFacultyFrom(p.wrote)) {
+        p.newFaculty = true
+        p.flags.push(`New faculty (from “${newFacultyFrom(p.wrote)}”): what they ask for counts for more when a colleague wants the same section. Clear “New faculty” if that is wrong.`)
+      }
+    }
     faculty.push(p)
   }
   return { kind, faculty, source: 'review sheet', warnings }
