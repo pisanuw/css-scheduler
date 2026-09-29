@@ -11,7 +11,8 @@ import { XlsxBook, type OutCell } from './xlsx'
 import { PROPOSAL_FILL, readGlance, type GlanceSchedule, type GlanceSection } from './glance'
 import { FT_SHEET, PT_SHEET, REVIEW_WIDTHS, readPrefs, reviewSheetRows, type PrefsFile } from './prefs'
 import { autofill, type EngineResult, type FacultyResult } from './engine'
-import { QUARTER_SHORT, YEAR_QUARTERS } from './text'
+import { RULES_SHEET, RULES_WIDTHS, departmentRuleRows, describeRuleRow, readDepartmentRules, rulesFor, type RulesFile } from './rules'
+import { QUARTER_SHORT, YEAR_QUARTERS, breaks, describeRule } from './text'
 import type { Quarter } from '../types'
 
 export interface InputFile {
@@ -41,6 +42,8 @@ export interface AutofillRun {
   schedule: GlanceSchedule
   fullTime: PrefsFile
   partTime: PrefsFile | null
+  /** The department rules used: the workbook's own sheet, or the defaults. */
+  rules: RulesFile
   result: EngineResult
   tallies: QuarterTally[]
   /** Full-time load placed (including names already in the sheet) against the loads owed. */
@@ -51,7 +54,7 @@ export interface AutofillRun {
 }
 
 /** The sheets this tool adds, which a later run replaces rather than duplicates. */
-export const REPORT_SHEETS = ['Auto-fill summary', 'Faculty load', 'Assignments', 'Open sections', 'By faculty', FT_SHEET, PT_SHEET]
+export const REPORT_SHEETS = ['Auto-fill summary', 'Faculty load', 'Assignments', 'Open sections', 'By faculty', RULES_SHEET, FT_SHEET, PT_SHEET]
 
 function outputName(input: string): string {
   const base = input.replace(/\.xlsx$/i, '').replace(/\s*\(auto-filled\)\s*$/i, '')
@@ -96,7 +99,23 @@ export function runAutofill(input: AutofillInput): AutofillRun {
   const dupes = fullTime.faculty.filter((f) => partTime?.faculty.some((p) => p.name.toLowerCase() === f.name.toLowerCase()))
   if (dupes.length) warnings.push(`In both the full-time and part-time responses: ${dupes.map((d) => d.name).join(', ')}.`)
 
-  const result = autofill(schedule.sections, fullTime.faculty, partTime?.faculty ?? [], { placePartTime: input.placePartTime })
+  const rules = readDepartmentRules(book)
+  warnings.push(...rules.warnings)
+  const byKind = { 'full-time': rulesFor('full-time', rules.rows), 'part-time': rulesFor('part-time', rules.rows) }
+  // A name already in the sheet is never moved — but if it breaks a department rule, say so.
+  for (const [list, kind] of [
+    [fullTime.faculty, 'full-time'],
+    [partTime?.faculty ?? [], 'part-time'],
+  ] as const) {
+    for (const p of list) {
+      for (const s of schedule.sections.filter((x) => x.fixed?.toLowerCase() === p.name.toLowerCase())) {
+        const rule = byKind[kind].find((r) => r.strength === 'hard' && breaks(r, s.meeting, s.quarter))
+        if (rule) warnings.push(`${p.name} is already in the sheet for ${QUARTER_SHORT[s.quarter]} ${when(s)}, against the department rule “${describeRule(rule)}”; left as it is.`)
+      }
+    }
+  }
+
+  const result = autofill(schedule.sections, fullTime.faculty, partTime?.faculty ?? [], { placePartTime: input.placePartTime, rules: byKind })
 
   const tallies: QuarterTally[] = schedule.blocks.map((b) => {
     const inQ = schedule.sections.filter((s) => s.quarter === b.quarter && !s.external)
@@ -116,11 +135,12 @@ export function runAutofill(input: AutofillInput): AutofillRun {
     owed: ftResults.reduce((a, f) => a + (f.prefs.target ?? 0), 0),
   }
 
-  writeBack(book, schedule, fullTime, partTime, result, input, tallies, fullTimeLoad, warnings)
+  writeBack(book, schedule, fullTime, partTime, rules, result, input, tallies, fullTimeLoad, warnings)
   return {
     schedule,
     fullTime,
     partTime,
+    rules,
     result,
     tallies,
     fullTimeLoad,
@@ -135,6 +155,7 @@ function writeBack(
   schedule: GlanceSchedule,
   fullTime: PrefsFile,
   partTime: PrefsFile | null,
+  rules: RulesFile,
   result: EngineResult,
   input: AutofillInput,
   tallies: QuarterTally[],
@@ -155,7 +176,7 @@ function writeBack(
   }
 
   for (const name of REPORT_SHEETS) book.removeSheet(name)
-  book.addSheet('Auto-fill summary', summaryRows(schedule, fullTime, partTime, result, input, tallies, fullTimeLoad, warnings), { widths: [26, 110] })
+  book.addSheet('Auto-fill summary', summaryRows(schedule, fullTime, partTime, rules, result, input, tallies, fullTimeLoad, warnings), { widths: [26, 110] })
   book.addSheet('Faculty load', facultyRows(result.faculty, input.placePartTime), {
     widths: [10, 10, 7, 9, 6, 6, 6, 6, 9, 30, 30, 30, 70],
     freezeHeader: true,
@@ -164,6 +185,7 @@ function writeBack(
   book.addSheet('Assignments', assignmentRows(result), { widths: [8, 12, 16, 6, 11, 10, 52, 44, 44], freezeHeader: true, autoFilter: true })
   book.addSheet('Open sections', openRows(result), { widths: [8, 12, 16, 6, 10, 60, 60], freezeHeader: true, autoFilter: true })
   book.addSheet('By faculty', byFacultyRows(result.faculty, input.placePartTime), { widths: [11, 10, 32, 32, 32, 8], freezeHeader: true, autoFilter: true })
+  book.addSheet(RULES_SHEET, departmentRuleRows(rules), { widths: RULES_WIDTHS, freezeHeader: true })
   book.addSheet(FT_SHEET, reviewSheetRows(fullTime), { widths: REVIEW_WIDTHS['full-time'], freezeHeader: true, autoFilter: true })
   if (partTime) book.addSheet(PT_SHEET, reviewSheetRows(partTime), { widths: REVIEW_WIDTHS['part-time'], freezeHeader: true, autoFilter: true })
 }
@@ -172,6 +194,7 @@ function summaryRows(
   schedule: GlanceSchedule,
   fullTime: PrefsFile,
   partTime: PrefsFile | null,
+  rules: RulesFile,
   result: EngineResult,
   input: AutofillInput,
   tallies: QuarterTally[],
@@ -181,6 +204,11 @@ function summaryRows(
   const date = input.now.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
   const ftShort = result.faculty.filter((f) => f.prefs.kind === 'full-time' && f.gap > 1e-6)
   const reserved = result.placements.filter((p) => p.section.reserved)
+  // A rule that keeps someone from their first choice is worth knowing about: the section could move instead.
+  const keptFree = result.open
+    .map((o) => ({ o, who: o.fullTime.filter((c) => c.note.includes('department rule')).map((c) => c.name) }))
+    .filter((x) => x.who.length)
+    .map(({ o, who }) => `${QUARTER_SHORT[o.section.quarter]} ${when(o.section)} (asked for by ${who.join(', ')})`)
   const rows: OutCell[][] = [
     [{ v: `Auto-fill of ${schedule.yearLabel}`, bold: true }, date],
     [],
@@ -194,12 +222,23 @@ function summaryRows(
       `${t.toStaff} sections to staff: ${t.fullTime} proposed for full-time${input.placePartTime ? `, ${t.partTime} for part-time` : ''}, ${t.open} left open.`,
     ]),
     [{ v: 'Reserved sections used', bold: true }, reserved.length ? `${reserved.map((p) => `${QUARTER_SHORT[p.section.quarter]} ${p.section.label} (${p.faculty})`).join(', ')} — marked “reserved” in the internal notes, so they may not run.` : 'None.'],
+    [
+      { v: 'Department rules', bold: true },
+      {
+        v: `${rules.rows.length ? rules.rows.map(describeRuleRow).join('\n') : 'None.'}\n(${rules.source === 'sheet' ? `from the “${RULES_SHEET}” sheet` : `the defaults — change them on the “${RULES_SHEET}” sheet`}: one rule per row, like “no T/Th 1:15 PM”; delete a row to turn a rule off.)`,
+        wrap: true,
+      },
+    ],
+    [
+      { v: 'Kept free by those rules', bold: true },
+      { v: keptFree.length ? `${keptFree.join('\n')}\nFull-time faculty asked for these, and the department rules kept them out; moving a section to another time would put them back in the running.` : 'Nothing any full-time faculty member asked for.', wrap: true },
+    ],
     [],
     [{ v: 'How to read it', bold: true }, { v: 'Every name this run wrote is shaded purple — the sheet’s own legend for “assignments that still need to be made or confirmed”. Italic names are part-time, as the legend says. Nothing else in the schedule was changed.', wrap: true }],
     [{ v: 'Accepting a proposal', bold: true }, { v: 'Remove the purple shading from the name. A name without the shading is kept exactly as it is on the next run, and counts toward that person’s load.', wrap: true }],
-    [{ v: 'Correcting a preference', bold: true }, { v: `Edit the “${FT_SHEET}” sheet — the load, the quarter maximums (0 is a quarter off), the course order, the time rules — then upload this workbook again as the schedule. The edited sheet is used instead of the survey, and every purple name is worked out again.`, wrap: true }],
+    [{ v: 'Correcting a preference', bold: true }, { v: `Edit the “${FT_SHEET}” sheet — the load, the quarter maximums (0 is a quarter off), the course order, the time rules, and the columns the survey does not ask about: “New faculty” (yes), “G&O / chair requests” (courses, like 490) and “Back-to-back” (prefer or avoid) — then upload this workbook again as the schedule. The edited sheet is used instead of the survey, and every purple name is worked out again.`, wrap: true }],
     [{ v: 'Why each name', bold: true }, { v: '“Assignments” gives the reason for every proposal and who else wanted that section. “Open sections” says, for each section left, which full-time faculty asked for it and why they did not get it, and which part-time instructors could take it.', wrap: true }],
-    [{ v: 'Rules it follows', bold: true }, { v: 'Never over a full-time load, never two classes at once, never in a quarter someone is away or has maxed out, never against a hard constraint (“cannot teach 8-10pm”, “no graduate classes”). Within that: pinned courses first, then higher-ranked choices, the quarter and time they named, fewer preparations; shortfalls are shared rather than piled on one person. Reserved sections are used last.', wrap: true }],
+    [{ v: 'Rules it follows', bold: true }, { v: 'Never over a full-time load, never two classes at once, never in a quarter someone is away or has maxed out, never against a department rule or a hard constraint (“cannot teach 8-10pm”, “no graduate classes”). Within that: pinned courses first, then a section of each G&O or chair request, then higher-ranked choices, the quarter and time they named, back-to-back classes for those who want them (and not for those who do not), fewer preparations. A new faculty member’s wishes count half as much again as a colleague’s. Shortfalls are shared rather than piled on one person, and nobody is given less load to suit anyone’s preferences. Reserved sections are used last.', wrap: true }],
   ]
   if (warnings.length) {
     rows.push([], [{ v: 'Check', bold: true }, { v: warnings.join('\n'), wrap: true }])
@@ -223,12 +262,13 @@ function facultyRows(faculty: FacultyResult[], withPartTime: boolean): OutCell[]
     if (f.prefs.kind === 'part-time' && (!withPartTime || f.load === 0)) continue
     const notes = [
       ...(f.gap > 1e-6 && f.prefs.kind === 'full-time' ? [`Short by ${fmt(f.gap)}: ${f.shortBecause.join('; ')}.`] : []),
+      ...f.requestsMissed.map((m) => `G&O / chair request ${m}.`),
       ...(f.notOffered.length && !f.shortBecause.some((x) => x.startsWith('not offered')) ? [`Not offered this year: ${f.notOffered.join(', ')}.`] : []),
       ...f.prefs.flags,
     ]
     rows.push([
       f.prefs.name,
-      f.prefs.kind === 'full-time' ? 'Full-time' : 'Part-time',
+      f.prefs.kind === 'full-time' ? (f.prefs.newFaculty ? 'Full-time (new)' : 'Full-time') : 'Part-time',
       f.prefs.kind === 'full-time' ? f.prefs.target : null,
       f.load,
       f.byQuarter.autumn,

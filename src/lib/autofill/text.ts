@@ -432,7 +432,23 @@ export function describeRule(rule: TimeRule): string {
   }
 }
 
-/** Reads back what {@link describeRule} wrote, one rule per `;`. Unreadable parts are returned, not dropped. */
+/** The days a phrase names, when naming days is all it does: "T/Th", "on Tue and Thu". */
+function onlyDays(text: string): number[] | null {
+  const t = normalise(text).replace(/^\s*on\s+/i, '')
+  const found = dayMentions(t)
+  if (found.length === 0) return null
+  let rest = t
+  for (const d of [...found].reverse()) rest = rest.slice(0, d.index) + rest.slice(d.end)
+  if (!/^[\s,/&]*(?:and[\s,/&]*)*$/i.test(rest)) return null
+  return [...new Set(found.flatMap((d) => d.days))].sort((a, b) => a - b)
+}
+
+/**
+ * Reads back what {@link describeRule} wrote, one rule per `;`. Unreadable parts are returned, not dropped.
+ *
+ * It also takes the way a coordinator would write one by hand — "no T/Th 1:15 PM" — as the two-hour class
+ * that starts then, on those days.
+ */
 export function parseRuleList(text: string): { rules: TimeRule[]; unread: string[] } {
   const rules: TimeRule[] = []
   const unread: string[] = []
@@ -472,6 +488,15 @@ export function parseRuleList(text: string): { rules: TimeRule[]; unread: string
       const end = clock(m[2]!)
       if (start !== null && end !== null) {
         rules.push({ kind: 'avoid', start, end, days: daysOf(m[3]), strength, ...(quarters ? { quarters } : {}) })
+        continue
+      }
+    }
+    if (strength && (m = /^(.+?)\s+(?:at\s+)?(\d{1,2}):(\d{2})\s*([ap]m)?$/i.exec(rest))) {
+      // "no T/Th 1:15 PM", "avoid Fri 3:30".
+      const days = onlyDays(m[1]!)
+      if (days && Number(m[2]) >= 1 && Number(m[2]) <= 12) {
+        const start = toMinutes(m[2]!, m[3], m[4])
+        rules.push({ kind: 'avoid', start, end: start + 120, days, strength, ...(quarters ? { quarters } : {}) })
         continue
       }
     }
@@ -630,6 +655,34 @@ export function proseTimeRules(raw: string, autumnYear?: number): { rules: TimeR
     if (rules.length > before) phrases.push(text.trim())
   }
   return { rules, phrases }
+}
+
+export type BackToBack = 'prefer' | 'avoid'
+
+/**
+ * What an answer says about back-to-back classes: wanted ("Autumn 2 x 342
+ * (back-to-back if possible)"), not wanted ("no back-to-back", "I need a break
+ * between classes"), or nothing. "I don't mind back-to-back" is nothing — a
+ * tolerance, not a wish — and so is "two consecutive quarters", which is about
+ * something else entirely.
+ */
+export function backToBackPreference(raw: string): { pref: BackToBack; phrase: string } | null {
+  for (const s of sentences(raw)) {
+    const text = s.text
+    const mention = /\bback[\s-]*to[\s-]*back\b|\bconsecutive\s+(?:classes|courses|sections|lectures|slots|time\s*slots|blocks)\b|\b(?:classes|courses|sections|lectures)\s+in\s+a\s+row\b/i.test(text)
+    const gap = /\b(?:breaks?|gaps?|time)\s+between\s+(?:my\s+)?(?:classes|courses|sections|lectures)\b/i.test(text)
+    if (!mention && !gap) continue
+    const phrase = text.trim()
+    if (/\b(?:don'?t|do not|wouldn'?t|would not)\s+mind\b|\b(?:fine|ok|okay|happy)\s+with\b|\bnot a problem\b|\bno problem\b|\bopen to\b|\beither way\b/i.test(text)) continue
+    if (!mention) {
+      // "No gaps between my classes" wants them together; "a break between classes" wants them apart.
+      const none = /\b(?:no|without|don'?t (?:want|need)|do not (?:want|need))\s+(?:a\s+|any\s+)?(?:breaks?|gaps?|time)\b/i.test(text)
+      return { pref: none ? 'prefer' : 'avoid', phrase }
+    }
+    const against = /\b(?:no|not|avoid|avoiding|don'?t|do not|never|without|rather not|prefer not|dislike|hate|can'?t|cannot|can not|unable|hard|difficult|tiring|exhausting)\b/i.test(text)
+    return { pref: against ? 'avoid' : 'prefer', phrase }
+  }
+  return null
 }
 
 /**

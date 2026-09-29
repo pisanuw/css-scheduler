@@ -58,6 +58,9 @@ function person(name: string, target: number, desired: (string | CourseWish)[], 
     noGraduate: false,
     rules: [],
     sameDays: false,
+    backToBack: null,
+    newFaculty: false,
+    requests: [],
     flags: [],
     wrote: '',
     ...more,
@@ -194,6 +197,85 @@ describe('autofill', () => {
     expect(on.placements.map((p) => [p.section.label, p.faculty, p.kind])).toEqual([['342B', 'P1', 'part-time']])
   })
 
+  describe('department rules', () => {
+    const tth: TimeRule = { kind: 'avoid', start: h(13, 15), end: h(15, 15), days: [2, 4], strength: 'hard' }
+
+    it('keep full-time faculty out of what they keep free, and let part-time in', () => {
+      const t = sec('winter', '451A', h(13, 15), [2, 4])
+      const m = sec('winter', '452A', h(13, 15), [1, 3])
+      const pt: FacultyPrefs = { ...person('P1', 0, ['451']), kind: 'part-time', target: null, quarterMax: { autumn: 0, winter: 1, spring: 0 } }
+      const r = autofill([t, m], [person('F4', 2, ['451', '452'])], [pt], { placePartTime: true, rules: { 'full-time': [tth] } })
+      expect(who(r, m.id)).toBe('F4')
+      expect(who(r, t.id)).toBe('P1')
+
+      const alone = autofill([t], [person('F4', 1, ['451'])], [], { placePartTime: false, rules: { 'full-time': [tth] } })
+      expect(alone.placements).toEqual([])
+      expect(alone.open[0]!.fullTime).toEqual([{ name: 'F4', kind: 'full-time', note: 'department rule: no 1:15 PM-3:15 PM on T/Th' }])
+      expect(alone.faculty[0]!.shortBecause).toContain('1 ruled out by the department rules')
+    })
+
+    it('bind a lecture through its lab', () => {
+      const lecture = sec('autumn', '427A', h(11), [1, 3])
+      const lab = sec('autumn', '427 Lab', h(13, 15), [2], { keys: ['427'], lab: true, load: 0.5 })
+      const r = autofill([lecture, lab], [person('F8', 1.5, ['427'])], [], { placePartTime: false, rules: { 'full-time': [tth] } })
+      expect(r.placements).toEqual([])
+      expect(r.open.find((o) => o.section.id === lecture.id)!.fullTime[0]!.note).toBe('427 Lab: department rule: no 1:15 PM-3:15 PM on T/Th')
+    })
+  })
+
+  it('puts classes back to back for someone who asked for that, and apart for someone who asked not to', () => {
+    const labels = (r: ReturnType<typeof autofill>) => r.placements.map((p) => p.section.label).sort()
+    const a = sec('autumn', '342A', h(11))
+    const b = sec('autumn', '342B', h(13, 15))
+    const c = sec('autumn', '342C', h(17, 45))
+    // Liking 11:00 and 5:45, they would get A and C — unless back to back matters more.
+    const apart = wish('342', { counts: { autumn: 2 }, times: [h(11), h(17, 45)] })
+    expect(labels(autofill([a, b, c], [person('F3', 2, [apart])], [], { placePartTime: false }))).toEqual(['342A', '342C'])
+    const together = autofill([a, b, c], [person('F3', 2, [apart], { backToBack: 'prefer' })], [], { placePartTime: false })
+    expect(labels(together)).toEqual(['342A', '342B'])
+    expect(together.placements[0]!.reasons).toContain('back to back with 342B, as they asked')
+    // Liking 11:00 and 1:15, they would get A and B — unless they asked not to be back to back.
+    const close = wish('342', { counts: { autumn: 2 }, times: [h(11), h(13, 15)] })
+    expect(labels(autofill([a, b, c], [person('F3', 2, [close])], [], { placePartTime: false }))).toEqual(['342A', '342B'])
+    expect(labels(autofill([a, b, c], [person('F3', 2, [close], { backToBack: 'avoid' })], [], { placePartTime: false }))).not.toEqual(['342A', '342B'])
+  })
+
+  it('gives a contested section to a new faculty member, and says why', () => {
+    const contested = sec('autumn', '385A', h(15, 30))
+    const others = [sec('autumn', '290A', h(11)), sec('autumn', '350A', h(13, 15))]
+    // F4 wants 385 first and 290 fifth; F21 wants 385 third and 350 sixth.
+    const f4 = person('F4', 1, ['385', '451', '452', '342', '290'])
+    const f21 = (more: Partial<FacultyPrefs> = {}) => person('F21', 1, ['416', '427', '385', '301', '310', '350'], more)
+    expect(who(autofill([contested, ...others], [f4, f21()], [], { placePartTime: false }), contested.id)).toBe('F4')
+    const r = autofill([contested, ...others], [f4, f21({ newFaculty: true })], [], { placePartTime: false })
+    expect(who(r, contested.id)).toBe('F21')
+    expect(r.placements.find((p) => p.section.id === contested.id)!.reasons).toContain('new faculty, so their wishes count for more')
+    // Load is not traded for it: both still teach one.
+    expect([loadOf(r, 'F4'), loadOf(r, 'F21')]).toEqual([1, 1])
+  })
+
+  it('places a G&O or chair request even when it was not on their list, and says why when it cannot', () => {
+    const topics = sec('spring', '490A', h(11), [2, 4])
+    const other = sec('spring', '360A', h(11), [1, 3])
+    const r = autofill([topics, other], [person('F7', 1, ['360'], { requests: ['490'] })], [], { placePartTime: false })
+    expect(who(r, topics.id)).toBe('F7')
+    expect(r.placements[0]!.reasons).toContain('a G&O or chair request')
+    expect(r.faculty[0]!.requestsMissed).toEqual([])
+
+    const none = autofill([other], [person('F7', 1, ['360'], { requests: ['590'] })], [], { placePartTime: false })
+    expect(none.faculty[0]!.requestsMissed).toEqual(['590: not offered this year'])
+    // A course the coordinator pinned for someone else comes first; the miss says where it went.
+    const pinned = autofill([topics, other], [person('F7', 1, ['360'], { requests: ['490'] }), person('F19', 1, [], { pinned: ['490'] })], [], { placePartTime: false })
+    expect(who(pinned, topics.id)).toBe('F19')
+    expect(pinned.faculty.find((f) => f.prefs.name === 'F7')!.requestsMissed).toEqual(['490: 1 went to F19'])
+  })
+
+  it('reads a request as one section of the course, not every section there is', () => {
+    const sections = [sec('autumn', '490A', h(11), [2, 4]), sec('spring', '490B', h(15, 30), [2, 4]), sec('autumn', '211A', h(17, 45), [2, 4]), sec('spring', '478A', h(13, 15))]
+    const r = autofill(sections, [person('F24', 2, ['211', '478'], { requests: ['490'] })], [], { placePartTime: false })
+    expect(r.placements.map((p) => p.section.keys[0]).sort()).toEqual(['211', '490'])
+  })
+
   it('keeps last run’s proposals when nothing has changed', () => {
     const sections = [sec('autumn', '342A', h(11)), sec('autumn', '342B', h(13, 15))]
     const people = [person('A', 1, ['342']), person('B', 1, ['342'])]
@@ -216,6 +298,7 @@ describe('autofill invariants', () => {
   }
 
   it('never overloads, double-books, or breaks a hard rule, on many random years', () => {
+    const department: TimeRule = { kind: 'avoid', start: h(13, 15), end: h(15, 15), days: [2, 4], strength: 'hard' }
     for (let seed = 1; seed <= 25; seed++) {
       const rand = lcg(seed)
       const courses = ['142', '143', '342', '343', '360', '430', '497', '581']
@@ -237,9 +320,11 @@ describe('autofill invariants', () => {
       const people = Array.from({ length: 6 }, (_, i) => {
         const picks = [...courses].sort(() => rand() - 0.5).slice(0, 3)
         const rules: TimeRule[] = rand() < 0.5 ? [{ kind: 'avoid', start: h(20), end: 24 * 60, strength: 'hard' }] : []
-        return person(`F${i + 1}`, 3 + Math.floor(rand() * 4), picks, { rules })
+        const backToBack = rand() < 0.3 ? 'prefer' : rand() < 0.3 ? 'avoid' : null
+        const requests = rand() < 0.3 ? [courses[Math.floor(rand() * courses.length)]!] : []
+        return person(`F${i + 1}`, 3 + Math.floor(rand() * 4), picks, { rules, backToBack, requests, newFaculty: rand() < 0.3 })
       })
-      const r = autofill(sections, people, [], { placePartTime: false })
+      const r = autofill(sections, people, [], { placePartTime: false, rules: { 'full-time': [department] } })
 
       const seen = new Set<string>()
       for (const p of r.placements) {
@@ -255,8 +340,8 @@ describe('autofill invariants', () => {
             if (mine[i]!.quarter === mine[j]!.quarter) expect(meetingsClash(mine[i]!.meeting, mine[j]!.meeting)).toBe(false)
           }
         for (const s of mine) {
-          for (const rule of f.prefs.rules) if (rule.strength === 'hard') expect(breaks(rule, s.meeting, s.quarter)).toBe(false)
-          expect(s.keys.some((k) => f.prefs.desired.some((w) => w.key === k))).toBe(true)
+          for (const rule of [...f.prefs.rules, department]) if (rule.strength === 'hard') expect(breaks(rule, s.meeting, s.quarter)).toBe(false)
+          expect(s.keys.some((k) => f.prefs.desired.some((w) => w.key === k) || f.prefs.requests.includes(k))).toBe(true)
         }
       }
       // Anything left open that someone could still take is explained, never silently dropped.

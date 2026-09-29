@@ -1143,8 +1143,8 @@ function RealSizeBoardScene() {
 
 /**
  * The auto-fill's result on a phone, from a real run over the test workbooks:
- * someone short of their load, notes to check, a part-time instructor placed,
- * and sections left open — every state the panel has.
+ * someone short of their load, someone new, notes to check, a part-time
+ * instructor placed, and sections left open — every state the panel has.
  */
 function AutofillScene() {
   const [run] = useState(() =>
@@ -1155,7 +1155,7 @@ function AutofillScene() {
         bytes: ftWorkbook([
           { name: "F3", load: "3 for now (possibly 1 ISS)", desired: "343, 342", iss: "Yes", issDrop: "342", comments: "Cannot teach 8-10pm course, but willing to teach 845am if necessary" },
           { name: "F8", load: 1.5, desired: "CSS 427" },
-          { name: "F9", load: 4, desired: "CSS 590, CSS 142" },
+          { name: "F9", load: "4 (1 new hire for 2 years ending in AY26-27)", desired: "CSS 590, CSS 142" },
           { name: "F22", load: 1, desired: "2. Win'27 0.5 SKL123A 1:15 W\n2. Win'27 0.5 123A 1:15 M/W" },
         ]),
       },

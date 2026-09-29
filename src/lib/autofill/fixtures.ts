@@ -126,6 +126,7 @@ export interface FtAnswer {
   buyoutDetail?: string
   leave?: string
   leaveDetail?: string
+  notTaught?: string
   comments?: string
   stamp?: number
 }
@@ -149,7 +150,7 @@ export function ftWorkbook(answers: FtAnswer[]): Uint8Array {
       a.buyoutDetail ?? null,
       a.leave ?? 'No',
       a.leaveDetail ?? null,
-      null,
+      a.notTaught ?? null,
       null,
       a.comments ?? null,
     ]),
